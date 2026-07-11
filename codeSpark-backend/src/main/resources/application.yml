@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: codeSpark-backend
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+springdoc:
+  group-configs:
+    - group: 'default'
+      paths-to-match: '/**'
+      packages-to-scan: top.littlewin.codespark.controller
+# knife4j
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
