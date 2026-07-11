@@ -1,6 +1,12 @@
 spring:
   application:
     name: codeSpark-backend
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/codespark
+    username: postgres
+    password: 123456
+
 server:
   port: 8080
   servlet:
