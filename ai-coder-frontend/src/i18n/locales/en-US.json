@@ -1,0 +1,37 @@
+{
+  "common": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "loading": "Loading...",
+    "noData": "No Data",
+    "success": "Success",
+    "error": "Error"
+  },
+  "nav": {
+    "home": "Home",
+    "about": "About",
+    "blog": "Blog"
+  },
+  "home": {
+    "title": "Home",
+    "welcome": "Welcome to CodeSpark AI",
+    "description": "Turn Your Ideas into Apps — No Coding Required"
+  },
+  "about": {
+    "title": "About",
+    "description": "This is an AI coding assistant project"
+  },
+  "header": {
+    "title": "CodeSpark AI"
+  },
+  "footer": {
+    "slogan": "Zero-Code App Builder"
+  }
+}

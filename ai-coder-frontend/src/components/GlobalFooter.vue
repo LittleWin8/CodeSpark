@@ -8,7 +8,7 @@
           rel="noopener noreferrer"
           class="author-link"
         >
-          CodeSpark AI 零代码应用生成平台
+          CodeSpark AI {{ t('footer.slogan') }}
         </a>
       </p>
     </div>
@@ -16,7 +16,9 @@
 </template>
 
 <script setup lang="ts">
-// 无需额外的响应式数据
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 </script>
 
 <style scoped>

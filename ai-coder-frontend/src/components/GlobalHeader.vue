@@ -6,7 +6,7 @@
         <RouterLink to="/">
           <div class="header-left">
             <img class="logo" src="@/assets/logo.png" alt="Logo" />
-            <h1 class="site-title">CodeSpark AI</h1>
+            <h1 class="site-title">{{ t('header.title') }}</h1>
           </div>
         </RouterLink>
       </a-col>
@@ -22,7 +22,8 @@
       <!-- 右侧：用户操作区域 -->
       <a-col>
         <div class="user-login-status">
-          <a-button type="primary">登录</a-button>
+          <LanguageSwitcher />
+          <a-button type="primary" style="margin-left: 12px">{{ t('common.login') }}</a-button>
         </div>
       </a-col>
     </a-row>
@@ -30,42 +31,41 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import type { MenuProps } from 'ant-design-vue'
+import LanguageSwitcher from './LanguageSwitcher.vue'
 
+const { t } = useI18n()
 const router = useRouter()
+
 // 当前选中菜单
 const selectedKeys = ref<string[]>(['/'])
+
 // 监听路由变化，更新当前选中菜单
-router.afterEach((to, from, next) => {
+router.afterEach((to) => {
   selectedKeys.value = [to.path]
 })
 
-// 菜单配置项
-const menuItems = ref([
+// 菜单配置项（响应式）
+const menuItems = computed<MenuProps['items']>(() => [
   {
     key: '/',
-    label: '首页',
-    title: '首页',
+    label: t('nav.home'),
+    title: t('nav.home'),
   },
   {
     key: '/about',
-    label: '关于',
-    title: '关于我们',
+    label: t('nav.about'),
+    title: t('nav.about'),
   },
-  // {
-  //   key: 'others',
-  //   label: h('a', { href: 'https://blog.littlewin.top/', target: '_blank' }, '个人博客'),
-  //   title: '个人博客',
-  // },
 ])
 
 // 处理菜单点击
 const handleMenuClick: MenuProps['onClick'] = (e) => {
   const key = e.key as string
   selectedKeys.value = [key]
-  // 跳转到对应页面
   if (key.startsWith('/')) {
     router.push(key)
   }

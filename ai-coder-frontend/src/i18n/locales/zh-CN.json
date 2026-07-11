@@ -1,0 +1,37 @@
+{
+  "common": {
+    "login": "登录",
+    "register": "注册",
+    "logout": "退出登录",
+    "confirm": "确认",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "search": "搜索",
+    "loading": "加载中...",
+    "noData": "暂无数据",
+    "success": "操作成功",
+    "error": "操作失败"
+  },
+  "nav": {
+    "home": "首页",
+    "about": "关于",
+    "blog": "个人博客"
+  },
+  "home": {
+    "title": "主页",
+    "welcome": "欢迎使用 CodeSpark AI",
+    "description": "让想法轻松落地，人人都能做出自己的应用"
+  },
+  "about": {
+    "title": "关于",
+    "description": "这是一个 AI 编程助手项目"
+  },
+  "header": {
+    "title": "CodeSpark AI"
+  },
+  "footer": {
+    "slogan": "零代码应用生成平台"
+  }
+}

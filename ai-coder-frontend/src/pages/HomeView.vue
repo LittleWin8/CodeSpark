@@ -1,8 +1,12 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 </script>
 
 <template>
   <main>
-    主页
+    <h1>{{ t('home.welcome') }}</h1>
+    <p>{{ t('home.description') }}</p>
   </main>
 </template>
