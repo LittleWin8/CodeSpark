@@ -5,8 +5,8 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
+import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.util.DigestUtils;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
 import top.littlewin.codespark.model.dto.user.UserQueryRequest;
@@ -17,6 +17,7 @@ import top.littlewin.codespark.model.vo.LoginUserVO;
 import top.littlewin.codespark.model.vo.UserVO;
 import top.littlewin.codespark.service.UserService;
 import org.springframework.stereotype.Service;
+import top.littlewin.codespark.utils.PasswordUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,11 +33,8 @@ import static top.littlewin.codespark.constant.UserConstant.USER_LOGIN_STATE;
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements UserService{
 
-    private final UserService userService;
-
-    public UserServiceImpl(UserService userService) {
-        this.userService = userService;
-    }
+    @Resource
+    private PasswordUtils passwordUtils;
 
     @Override
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
@@ -62,7 +60,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号已存在");
         }
         // 3. 加密
-        String encryptPassword = getEncryptPassword(userPassword);
+        String encryptPassword = passwordUtils.encrypt(userPassword);
 
         // 4. 插入数据
         User user = new User();
@@ -120,15 +118,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
         if (userPassword.length() < 8) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
         }
-        // 2. 加密
-        String encryptPassword = getEncryptPassword(userPassword);
-
-        // 3. 查询用户是否存在（必须用实体属性引用，PG 驼峰列名才会正确加引号）
+        // 2. 查询用户是否存在（必须用实体属性引用，PG 驼峰列名才会正确加引号）
         QueryWrapper queryWrapper = QueryWrapper.create()
-                .where(User::getUserAccount).eq(userAccount)
-                .and(User::getUserPassword).eq(encryptPassword);
+                .where(User::getUserAccount).eq(userAccount);
         User user = this.mapper.selectOneByQuery(queryWrapper);
         if (user == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
+        }
+        // 3. 验证密码
+        if (!passwordUtils.matches(userPassword, user.getUserPassword())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
         }
 
@@ -181,23 +179,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
         String userRole = userQueryRequest.getUserRole();
         String sortField = userQueryRequest.getSortField();
         String sortOrder = userQueryRequest.getSortOrder();
-        return QueryWrapper.create().
-                where(User::getId).eq(id)
+        QueryWrapper queryWrapper = QueryWrapper.create()
+                .where(User::getId).eq(id)
                 .and(User::getUserRole).eq(userRole)
                 .and(User::getUserAccount).like(userAccount)
                 .and(User::getUserName).like(userName)
-                .and(User::getUserProfile).like(userProfile)
-                .orderBy(sortField, "ascend".equals(sortOrder));
+                .and(User::getUserProfile).like(userProfile);
+        if (sortField != null && !sortField.isEmpty()) {
+            queryWrapper.orderBy(sortField, "ascend".equals(sortOrder));
+        }
+        return queryWrapper;
     }
-
-
-
-    @Override
-    public String getEncryptPassword(String userPassword) {
-        // 盐值，混淆密码
-        final String SALT = "littlewin";
-        return DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
-    }
-
 
 }

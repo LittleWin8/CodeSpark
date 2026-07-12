@@ -14,10 +14,21 @@
     "success": "Success",
     "error": "Error"
   },
+  "error": {
+    "default": "Operation failed",
+    "paramsError": "Invalid request parameters",
+    "notLogin": "Please log in first",
+    "noAuth": "Access denied",
+    "notFound": "Requested data not found",
+    "forbidden": "Forbidden",
+    "systemError": "Internal system error",
+    "operationError": "Operation failed"
+  },
   "nav": {
     "home": "Home",
     "about": "About",
-    "blog": "Blog"
+    "blog": "Blog",
+    "userManage": "User Management"
   },
   "home": {
     "title": "Home",
@@ -29,9 +40,63 @@
     "description": "This is an AI coding assistant project"
   },
   "header": {
-    "title": "CodeSpark AI"
+    "title": "CodeSpark AI",
+    "anonymous": "Not logged in",
+    "logoutSuccess": "Logged out successfully",
+    "logoutFailed": "Logout failed, "
   },
   "footer": {
     "slogan": "Zero-Code App Builder"
+  },
+  "login": {
+    "title": "CodeSpark AI - User Login",
+    "desc": "Turn Your Ideas into Apps — No Coding Required",
+    "accountRequired": "Please enter your account",
+    "accountPlaceholder": "Enter account",
+    "passwordRequired": "Please enter your password",
+    "passwordMinLength": "Password must be at least 8 characters",
+    "passwordPlaceholder": "Enter password",
+    "noAccount": "No account?",
+    "goRegister": "Register",
+    "loginSuccess": "Login successful",
+    "loginFailed": "Login failed, "
+  },
+  "register": {
+    "title": "CodeSpark AI - User Register",
+    "desc": "Turn Your Ideas into Apps — No Coding Required",
+    "accountRequired": "Please enter your account",
+    "accountPlaceholder": "Enter account",
+    "passwordRequired": "Please enter your password",
+    "passwordMinLength": "Password must be at least 8 characters",
+    "passwordPlaceholder": "Enter password",
+    "checkPasswordRequired": "Please confirm your password",
+    "checkPasswordPlaceholder": "Confirm password",
+    "hasAccount": "Already have an account?",
+    "goLogin": "Login",
+    "passwordMismatch": "Passwords do not match",
+    "registerSuccess": "Registration successful",
+    "registerFailed": "Registration failed, "
+  },
+  "userManage": {
+    "account": "Account",
+    "accountPlaceholder": "Enter account",
+    "userName": "Username",
+    "userNamePlaceholder": "Enter username",
+    "avatar": "Avatar",
+    "profile": "Profile",
+    "userRole": "User Role",
+    "createTime": "Create Time",
+    "action": "Action",
+    "roleAdmin": "Admin",
+    "roleUser": "User",
+    "fetchFailed": "Failed to fetch data, ",
+    "totalItems": "{total} items in total",
+    "deleteSuccess": "Deleted successfully",
+    "deleteFailed": "Delete failed"
+  },
+  "noAuth": {
+    "title": "Access Denied",
+    "subtitle": "Sorry, you don't have permission to access this page",
+    "backHome": "Back to Home"
   }
 }

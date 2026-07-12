@@ -1,6 +1,6 @@
 <template>
   <a-dropdown>
-    <a-button>
+    <a-button class="lang-btn">
       <GlobalOutlined />
       {{ currentLocale === 'zh-CN' ? '中文' : 'English' }}
     </a-button>
@@ -31,3 +31,9 @@ const handleLocaleChange = ({ key }: { key: string }) => {
   localStorage.setItem('locale', key)
 }
 </script>
+
+<style scoped>
+.lang-btn {
+  min-width: 100px;
+}
+</style>

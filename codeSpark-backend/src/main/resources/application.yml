@@ -11,6 +11,15 @@ server:
   port: 8080
   servlet:
     context-path: /api
+
+# 应用自定义配置
+codespark:
+  password:
+    # BCrypt 加密强度，范围 4~31，默认 10（2^10 = 1024 次迭代）
+    strength: 10
+    # 新建用户的默认密码
+    default: 12345678
+
 springdoc:
   group-configs:
     - group: 'default'

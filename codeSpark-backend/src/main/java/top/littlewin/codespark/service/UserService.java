@@ -77,13 +77,4 @@ public interface UserService extends IService<User> {
     boolean userLogout(HttpServletRequest request);
 
     QueryWrapper getQueryWrapper(UserQueryRequest userQueryRequest);
-
-    /**
-     *
-     * 加密
-     *
-     * @param userPassword 用户密码
-     * @return 加密后的用户密码
-     */
-    public String getEncryptPassword(String userPassword);
 }

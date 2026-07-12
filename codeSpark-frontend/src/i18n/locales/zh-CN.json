@@ -14,10 +14,21 @@
     "success": "操作成功",
     "error": "操作失败"
   },
+  "error": {
+    "default": "操作失败",
+    "paramsError": "请求参数错误",
+    "notLogin": "请先登录",
+    "noAuth": "无权限访问",
+    "notFound": "请求数据不存在",
+    "forbidden": "禁止访问",
+    "systemError": "系统内部异常",
+    "operationError": "操作失败"
+  },
   "nav": {
     "home": "首页",
     "about": "关于",
-    "blog": "个人博客"
+    "blog": "个人博客",
+    "userManage": "用户管理"
   },
   "home": {
     "title": "主页",
@@ -29,9 +40,63 @@
     "description": "这是一个 AI 编程助手项目"
   },
   "header": {
-    "title": "CodeSpark AI"
+    "title": "CodeSpark AI",
+    "anonymous": "未登录",
+    "logoutSuccess": "退出登录成功",
+    "logoutFailed": "退出登录失败，"
   },
   "footer": {
     "slogan": "零代码应用生成平台"
+  },
+  "login": {
+    "title": "CodeSpark AI - 用户登录",
+    "desc": "不写一行代码，生成完整应用",
+    "accountRequired": "请输入账号",
+    "accountPlaceholder": "请输入账号",
+    "passwordRequired": "请输入密码",
+    "passwordMinLength": "密码不能小于 8 位",
+    "passwordPlaceholder": "请输入密码",
+    "noAccount": "没有账号？",
+    "goRegister": "去注册",
+    "loginSuccess": "登录成功",
+    "loginFailed": "登录失败，"
+  },
+  "register": {
+    "title": "CodeSpark AI - 用户注册",
+    "desc": "不写一行代码，生成完整应用",
+    "accountRequired": "请输入账号",
+    "accountPlaceholder": "请输入账号",
+    "passwordRequired": "请输入密码",
+    "passwordMinLength": "密码不能小于 8 位",
+    "passwordPlaceholder": "请输入密码",
+    "checkPasswordRequired": "请确认密码",
+    "checkPasswordPlaceholder": "请确认密码",
+    "hasAccount": "已有账号？",
+    "goLogin": "去登录",
+    "passwordMismatch": "两次输入密码不一致",
+    "registerSuccess": "注册成功",
+    "registerFailed": "注册失败，"
+  },
+  "userManage": {
+    "account": "账号",
+    "accountPlaceholder": "输入账号",
+    "userName": "用户名",
+    "userNamePlaceholder": "输入用户名",
+    "avatar": "头像",
+    "profile": "简介",
+    "userRole": "用户角色",
+    "createTime": "创建时间",
+    "action": "操作",
+    "roleAdmin": "管理员",
+    "roleUser": "普通用户",
+    "fetchFailed": "获取数据失败，",
+    "totalItems": "共 {total} 条",
+    "deleteSuccess": "删除成功",
+    "deleteFailed": "删除失败"
+  },
+  "noAuth": {
+    "title": "无权限访问",
+    "subtitle": "抱歉，您没有权限访问此页面",
+    "backHome": "返回首页"
   }
 }
