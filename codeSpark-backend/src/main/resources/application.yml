@@ -3,9 +3,9 @@ spring:
     name: codeSpark-backend
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:5432/codespark
-    username: postgres
-    password: 123456
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/codespark}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:123456}
 
 server:
   port: 8080
@@ -18,7 +18,7 @@ codespark:
     # BCrypt 加密强度，范围 4~31，默认 10（2^10 = 1024 次迭代）
     strength: 10
     # 新建用户的默认密码
-    default: 12345678
+    default: ${DEFAULT_PASSWORD:12345678}
 
 springdoc:
   group-configs:
@@ -30,3 +30,23 @@ knife4j:
   enable: true
   setting:
     language: zh_cn
+
+# AI
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: ${AI_BASE_URL:https://api.deepseek.com}
+      api-key: ${AI_API_KEY:your-api-key-here}
+      model-name: deepseek-v4-flash
+      max-tokens: 8192
+      strict-json-schema: true
+      response-format: json_object
+      log-requests: true
+      log-responses: true
+    streaming-chat-model:
+      base-url: ${AI_BASE_URL:https://api.deepseek.com}
+      api-key: ${AI_API_KEY:your-api-key-here}
+      model-name: deepseek-v4-flash
+      max-tokens: 8192
+      log-requests: true
+      log-responses: true

@@ -11,6 +11,9 @@ export const useLoginUserStore = defineStore('loginUser', () => {
     userName: '未登录',
   })
 
+  // 是否已完成初始化加载
+  const hasLoaded = ref(false)
+
   // 获取登录用户信息
   async function fetchLoginUser() {
     try {
@@ -20,6 +23,8 @@ export const useLoginUserStore = defineStore('loginUser', () => {
       }
     } catch {
       // 网络错误等静默处理，保持未登录状态
+    } finally {
+      hasLoaded.value = true
     }
   }
   // 更新登录用户信息
@@ -27,5 +32,5 @@ export const useLoginUserStore = defineStore('loginUser', () => {
     loginUser.value = newLoginUser
   }
 
-  return { loginUser, setLoginUser, fetchLoginUser }
+  return { loginUser, hasLoaded, setLoginUser, fetchLoginUser }
 })

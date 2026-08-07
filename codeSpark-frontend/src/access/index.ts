@@ -5,6 +5,12 @@ import checkAccess from './checkAccess'
 
 router.beforeEach(async (to, _from, next) => {
   const loginUserStore = useLoginUserStore()
+
+  // 等待首次加载完成
+  if (!loginUserStore.hasLoaded) {
+    await loginUserStore.fetchLoginUser()
+  }
+
   const loginUser = loginUserStore.loginUser
 
   const needAccess = (to.meta?.access as string) ?? ACCESS_ENUM.NOT_LOGIN
