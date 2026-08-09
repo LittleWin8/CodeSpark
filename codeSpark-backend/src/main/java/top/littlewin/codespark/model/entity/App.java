@@ -16,7 +16,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 用户表 实体类。
+ * 应用表 实体类。
  *
  * @author <a href="https://github.com/LittleWin8">小稳</a>
  */
@@ -24,8 +24,8 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(value = "user", schema = "public")
-public class User implements Serializable {
+@Table(value = "app", schema = "public")
+public class App implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -37,40 +37,50 @@ public class User implements Serializable {
     private Long id;
 
     /**
-     * 账号
+     * 应用名称
      */
-    @Column("userAccount")
-    private String userAccount;
+    @Column("appName")
+    private String appName;
 
     /**
-     * 密码
+     * 应用封面
      */
-    @Column("userPassword")
-    private String userPassword;
+    private String cover;
 
     /**
-     * 用户昵称
+     * 应用初始化的 prompt
      */
-    @Column("userName")
-    private String userName;
+    @Column("initPrompt")
+    private String initPrompt;
 
     /**
-     * 用户头像
+     * 代码生成类型（枚举）
      */
-    @Column("userAvatar")
-    private String userAvatar;
+    @Column("codeGenType")
+    private String codeGenType;
 
     /**
-     * 用户简介
+     * 部署标识
      */
-    @Column("userProfile")
-    private String userProfile;
+    @Column("deployKey")
+    private String deployKey;
 
     /**
-     * 用户角色：user/admin
+     * 部署时间
      */
-    @Column("userRole")
-    private String userRole;
+    @Column("deployedTime")
+    private LocalDateTime deployedTime;
+
+    /**
+     * 优先级
+     */
+    private Integer priority;
+
+    /**
+     * 创建用户id
+     */
+    @Column("userId")
+    private Long userId;
 
     /**
      * 编辑时间
@@ -95,35 +105,5 @@ public class User implements Serializable {
      */
     @Column(value = "isDelete", isLogicDelete = true)
     private Integer isDelete;
-
-    /**
-     * 会员过期时间
-     */
-    @Column("vipExpireTime")
-    private LocalDateTime vipExpireTime;
-
-    /**
-     * 会员兑换码
-     */
-    @Column("vipCode")
-    private String vipCode;
-
-    /**
-     * 会员编号
-     */
-    @Column("vipNumber")
-    private Long vipNumber;
-
-    /**
-     * 分享码
-     */
-    @Column("shareCode")
-    private String shareCode;
-
-    /**
-     * 邀请用户 id
-     */
-    @Column("inviteUser")
-    private Long inviteUser;
 
 }

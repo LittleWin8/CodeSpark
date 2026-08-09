@@ -8,6 +8,8 @@ import com.mybatisflex.codegen.dialect.IDialect;
 import com.zaxxer.hikari.HikariDataSource;
 
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Mybatis Flex 代码生成器
@@ -15,15 +17,19 @@ import java.util.Map;
 public class MyBatisCodeGenerator {
 
     // 需要生成的表名
-    private static final String[] TABLE_NAMES = {"user"};
+    private static final String[] TABLE_NAMES = {"app"};
+
+    // 匹配 ${KEY:default} 占位符
+    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^:}]+)(?::([^}]*))?\\}");
 
     public static void main(String[] args) {
         // 获取数据源信息
         Dict dict = YamlUtil.loadByPath("application.yml");
         Map<String, Object> dataSourceConfig = dict.getByPath("spring.datasource");
-        String url = String.valueOf(dataSourceConfig.get("url"));
-        String username = String.valueOf(dataSourceConfig.get("username"));
-        String password = String.valueOf(dataSourceConfig.get("password"));
+        // 生成器不经过 Spring，占位符需手动解析
+        String url = resolvePlaceholder(String.valueOf(dataSourceConfig.get("url")));
+        String username = resolvePlaceholder(String.valueOf(dataSourceConfig.get("username")));
+        String password = resolvePlaceholder(String.valueOf(dataSourceConfig.get("password")));
         String driverClassName = String.valueOf(dataSourceConfig.get("driver-class-name"));
 
         // 配置数据源
@@ -81,5 +87,36 @@ public class MyBatisCodeGenerator {
                 .setAuthor("<a href=\"https://github.com/LittleWin8\">小稳</a>")
                 .setSince("");
         return globalConfig;
+    }
+
+    /**
+     * 解析 ${KEY:default} 占位符
+     * <p>
+     * 生成器通过 YamlUtil 直读 YAML，不经过 Spring 的占位符解析，
+     * 因此需要手动解析：优先取环境变量/系统属性，取不到用默认值。
+     *
+     * @param value 原始配置值，如 ${DB_URL:jdbc:postgresql://localhost:5432/codespark}
+     * @return 解析后的实际值
+     */
+    private static String resolvePlaceholder(String value) {
+        if (value == null) {
+            return null;
+        }
+        Matcher matcher = PLACEHOLDER_PATTERN.matcher(value);
+        StringBuffer sb = new StringBuffer();
+        while (matcher.find()) {
+            String key = matcher.group(1);
+            String defaultValue = matcher.group(2);
+            String resolved = System.getenv(key);
+            if (resolved == null) {
+                resolved = System.getProperty(key);
+            }
+            if (resolved == null) {
+                resolved = defaultValue != null ? defaultValue : "";
+            }
+            matcher.appendReplacement(sb, Matcher.quoteReplacement(resolved));
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
     }
 }

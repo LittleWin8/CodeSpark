@@ -61,3 +61,59 @@ CREATE TRIGGER trigger_user_update_time
     ON "user"
     FOR EACH ROW
     EXECUTE PROCEDURE update_user_update_time();
+
+-- 2. 应用表（app，对应 AI 应用：名称/封面/初始化 prompt/代码生成类型/部署标识等）
+CREATE TABLE IF NOT EXISTS app
+(
+    id            BIGSERIAL PRIMARY KEY,
+    "appName"     VARCHAR(256),
+    "cover"       VARCHAR(512),
+    "initPrompt"  TEXT,
+    "codeGenType" VARCHAR(64),
+    "deployKey"   VARCHAR(64),
+    "deployedTime" TIMESTAMP,
+    "priority"    INTEGER     NOT NULL DEFAULT 0,
+    "userId"      BIGINT      NOT NULL,
+    "editTime"    TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createTime"  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updateTime"  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "isDelete"    SMALLINT    NOT NULL DEFAULT 0,
+    CONSTRAINT uk_deployKey UNIQUE ("deployKey") -- 确保部署标识唯一
+);
+
+-- 提升基于应用名称的查询性能
+CREATE INDEX IF NOT EXISTS idx_appName ON app ("appName");
+-- 提升基于用户 ID 的查询性能
+CREATE INDEX IF NOT EXISTS idx_userId ON app ("userId");
+
+COMMENT ON TABLE app IS '应用表';
+COMMENT ON COLUMN app.id IS 'id';
+COMMENT ON COLUMN app."appName" IS '应用名称';
+COMMENT ON COLUMN app."cover" IS '应用封面';
+COMMENT ON COLUMN app."initPrompt" IS '应用初始化的 prompt';
+COMMENT ON COLUMN app."codeGenType" IS '代码生成类型（枚举）';
+COMMENT ON COLUMN app."deployKey" IS '部署标识';
+COMMENT ON COLUMN app."deployedTime" IS '部署时间';
+COMMENT ON COLUMN app."priority" IS '优先级';
+COMMENT ON COLUMN app."userId" IS '创建用户id';
+COMMENT ON COLUMN app."editTime" IS '编辑时间';
+COMMENT ON COLUMN app."createTime" IS '创建时间';
+COMMENT ON COLUMN app."updateTime" IS '更新时间';
+COMMENT ON COLUMN app."isDelete" IS '是否删除';
+
+-- 自动更新 updateTime（替代 MySQL 的 ON UPDATE CURRENT_TIMESTAMP）
+CREATE OR REPLACE FUNCTION update_app_update_time()
+    RETURNS TRIGGER AS
+$$
+BEGIN
+    NEW."updateTime" = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_app_update_time ON app;
+CREATE TRIGGER trigger_app_update_time
+    BEFORE UPDATE
+    ON app
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_app_update_time();

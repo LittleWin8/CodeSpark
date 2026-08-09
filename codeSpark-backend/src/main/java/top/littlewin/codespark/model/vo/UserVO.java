@@ -5,6 +5,9 @@ import lombok.Data;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+/**
+ * 用户信息封装类（脱敏）
+ */
 @Data
 public class UserVO implements Serializable {
 
