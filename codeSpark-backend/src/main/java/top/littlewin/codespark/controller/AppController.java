@@ -2,14 +2,16 @@ package top.littlewin.codespark.controller;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import top.littlewin.codespark.annotation.AuthCheck;
 import top.littlewin.codespark.common.BaseResponse;
 import top.littlewin.codespark.common.DeleteRequest;
@@ -19,20 +21,17 @@ import top.littlewin.codespark.constant.UserConstant;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
 import top.littlewin.codespark.exception.ThrowUtils;
-import top.littlewin.codespark.model.dto.app.AppAddRequest;
-import top.littlewin.codespark.model.dto.app.AppAdminUpdateRequest;
-import top.littlewin.codespark.model.dto.app.AppQueryRequest;
-import top.littlewin.codespark.model.dto.app.AppUpdateRequest;
+import top.littlewin.codespark.model.dto.app.*;
 import top.littlewin.codespark.model.entity.App;
 import top.littlewin.codespark.model.entity.User;
 import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 import top.littlewin.codespark.model.vo.AppVO;
 import top.littlewin.codespark.service.AppService;
-import org.springframework.web.bind.annotation.RestController;
 import top.littlewin.codespark.service.UserService;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 应用表 控制层。
@@ -48,6 +47,51 @@ public class AppController {
 
     @Resource
     private UserService userService;
+
+    @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
+                                      @RequestParam String message,
+                                      HttpServletRequest request){
+
+        // 1. 参数校验
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不合法");
+        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "对话内容不能为空");
+
+        // 2. 获取当前登录用户
+        User loginUser = userService.getLoginUser(request);
+
+        // 3. 返回流式的封装结果
+        Flux<String> contentFlux =  appService.chatToGenCode(appId, message, loginUser);
+        return contentFlux
+                .map(chunk->{
+                    Map<String, String> wapper = Map.of("d", chunk);
+                    String jsonData = JSONUtil.toJsonStr(wapper);
+                    return ServerSentEvent.<String>builder()
+                            .data(jsonData)
+                            .build();
+                })
+                .concatWith(Mono.just(
+                        // 发送结束标志
+                        ServerSentEvent.<String>builder()
+                                .event("done")
+                                .data("")
+                                .build()
+                ));
+    }
+
+    @PostMapping("/deploy")
+    public BaseResponse<String> deployApp(@RequestBody AppDeployRequest appDeployRequest, HttpServletRequest request){
+        ThrowUtils.throwIf(appDeployRequest == null, ErrorCode.PARAMS_ERROR);
+
+        Long appId = appDeployRequest.getAppId();
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+
+        User loginUser = userService.getLoginUser(request);
+
+        String deployUrl = appService.deployApp(appId, loginUser);
+        return ResultUtils.success(deployUrl);
+    }
+
 
     /**
      * 创建应用

@@ -2,22 +2,31 @@ package top.littlewin.codespark.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import jakarta.annotation.Resource;
+import reactor.core.publisher.Flux;
+import top.littlewin.codespark.constant.AppConstant;
+import top.littlewin.codespark.core.AICodeGeneratorFacade;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
+import top.littlewin.codespark.exception.ThrowUtils;
 import top.littlewin.codespark.model.dto.app.AppQueryRequest;
 import top.littlewin.codespark.model.entity.App;
 import top.littlewin.codespark.mapper.AppMapper;
 import top.littlewin.codespark.model.entity.User;
+import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 import top.littlewin.codespark.model.vo.AppVO;
 import top.littlewin.codespark.model.vo.UserVO;
 import top.littlewin.codespark.service.AppService;
 import org.springframework.stereotype.Service;
 import top.littlewin.codespark.service.UserService;
 
+import java.io.File;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +43,85 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private AICodeGeneratorFacade aiCodeGeneratorFacade;
+
+    @Override
+    public Flux<String> chatToGenCode(Long appId, String message, User loginUser) {
+        // 1.参数校验
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不合法");
+        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "对话内容不能为空");
+
+        // 2.查询应用信息
+        App app = this.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+
+        // 3.权限校验，仅本人可以和 AI 对话
+        ThrowUtils.throwIf(!app.getUserId().equals(loginUser.getId()), ErrorCode.NO_AUTH_ERROR, "无权操作该应用");
+
+        // 4. 应用代码类型
+        CodeGenTypeEnum codeGenType = CodeGenTypeEnum.getEnumByValue(app.getCodeGenType());
+        ThrowUtils.throwIf(codeGenType == null, ErrorCode.SYSTEM_ERROR, "应用代码生成类型不存在");
+
+        // 5. 调用 AI 生成代码
+        return aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenType, appId);
+    }
+
+    @Override
+    public String deployApp(Long appId, User loginUser) {
+
+        // 1. 参数校验
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 错误");
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "请先登录");
+
+        // 2. 查询应用信息
+        App app = this.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+
+        // 3. 权限校验，仅本人可以部署自己生成的应用
+        ThrowUtils.throwIf(!app.getUserId().equals(loginUser.getId()), ErrorCode.NO_AUTH_ERROR, "您无权操作该应用");
+
+        // 4. 检查是否已有 deployKey；若没有，则生成 6 位 deployKey（字母 + 数字）
+        String deployKey = app.getDeployKey();
+        if (StrUtil.isBlank(deployKey)){
+            deployKey = RandomUtil.randomString(6);
+            app.setDeployKey(deployKey);
+        }
+
+        // 5. 获取代码生成类型，获取原始代码生成路径
+        String codeGenType = app.getCodeGenType();
+        String sourceDirName = codeGenType + "_" + appId;
+        String sourceDirPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
+
+        // 6. 检查路径是否存在
+        File sourceDir  = new File(sourceDirPath);
+        ThrowUtils.throwIf(!sourceDir.exists() || !sourceDir.isDirectory(), ErrorCode.SYSTEM_ERROR, "应用代码路径不存在，请先生成应用");
+
+        // 7. 复制文件到部署目录
+        String deployDirPath = AppConstant.CODE_DEPLOY_ROOT_DIR + File.separator + deployKey;
+        try {
+            FileUtil.copyContent(sourceDir, new File(deployDirPath), true);
+        }catch (Exception e){
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用部署失败" + e.getMessage());
+        }
+
+        // 8. 更新数据库
+        App updateApp = new App();
+        updateApp.setId(appId);
+        updateApp.setDeployKey(deployKey);
+        updateApp.setDeployedTime(LocalDateTime.now());
+        boolean updateResult = this.updateById(updateApp);
+        if (!updateResult) {
+            // 清理已复制的部署目录，避免"文件已部署、数据库未记录"的状态不一致
+            FileUtil.del(deployDirPath);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "更新应用部署信息失败，已回滚部署文件");
+        }
+
+        // 9. 返回可访问的 URL
+        return String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
+    }
+
 
     @Override
     public AppVO getAppVO(App app) {
@@ -64,7 +152,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         Map<Long, UserVO> userVOMap = userService.listByIds(userIds).stream()
                 .collect(Collectors.toMap(User::getId, userService::getUserVO));
         return appList.stream().map(app -> {
-            AppVO appVO = getAppVO(app);
+            AppVO appVO = new AppVO();
+            BeanUtil.copyProperties(app, appVO);
             UserVO userVO = userVOMap.get(app.getUserId());
             appVO.setUser(userVO);
             return appVO;
@@ -103,6 +192,4 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         }
         return queryWrapper;
     }
-
-
 }
