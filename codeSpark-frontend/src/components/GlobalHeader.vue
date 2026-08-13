@@ -32,6 +32,11 @@
                 </a-space>
                 <template #overlay>
                   <a-menu>
+                    <a-menu-item @click="goProfile">
+                      <UserOutlined />
+                      {{ t('common.profile') }}
+                    </a-menu-item>
+                    <a-menu-divider />
                     <a-menu-item @click="doLogout">
                       <LogoutOutlined />
                       {{ t('common.logout') }}
@@ -67,6 +72,11 @@ import ACCESS_ENUM from '@/access/accessEnum.ts'
 const loginUserStore = useLoginUserStore()
 const { t } = useI18n()
 const router = useRouter()
+
+// 跳转个人中心
+const goProfile = () => {
+  router.push('/user/profile')
+}
 
 // 用户注销
 const doLogout = async () => {

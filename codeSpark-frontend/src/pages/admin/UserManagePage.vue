@@ -8,6 +8,9 @@
       <a-form-item :label="t('userManage.userName')">
         <a-input v-model:value="searchParams.userName" :placeholder="t('userManage.userNamePlaceholder')" />
       </a-form-item>
+      <a-form-item :label="t('userManage.email')">
+        <a-input v-model:value="searchParams.userEmail" :placeholder="t('userManage.emailPlaceholder')" />
+      </a-form-item>
       <a-form-item>
         <a-button type="primary" html-type="submit">{{ t('common.search') }}</a-button>
       </a-form-item>
@@ -47,7 +50,14 @@
           <span class="time-cell">{{ dayjs(record.createTime).format('YYYY-MM-DD HH:mm:ss') }}</span>
         </template>
         <template v-else-if="column.key === 'action'">
-          <a-button size="small" danger @click="() => doDelete(record.id)">{{ t('common.delete') }}</a-button>
+          <a-popconfirm
+            :title="t('userManage.deleteConfirm')"
+            @confirm="() => doDelete(record.id)"
+          >
+            <a-button size="small" danger :disabled="isSelf(record.id)">
+              {{ t('common.delete') }}
+            </a-button>
+          </a-popconfirm>
         </template>
       </template>
     </a-table>
@@ -62,8 +72,14 @@ import type { TablePaginationConfig } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { getErrorMessage } from '@/utils/errorMessage'
+import { useLoginUserStore } from '@/stores/loginUser'
 
 const { t } = useI18n()
+
+const loginUserStore = useLoginUserStore()
+
+// 判断是否为当前登录用户（管理员不能删除自己）
+const isSelf = (id?: number) => String(id ?? '') === String(loginUserStore.loginUser.id ?? '')
 
 const columns = computed(() => [
   {
@@ -75,6 +91,11 @@ const columns = computed(() => [
     title: t('userManage.account'),
     dataIndex: 'userAccount',
     width: 180,
+  },
+  {
+    title: t('userManage.email'),
+    dataIndex: 'userEmail',
+    width: 200,
   },
   {
     title: t('userManage.userName'),

@@ -2,11 +2,14 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { message } from 'ant-design-vue'
+import { message, Upload } from 'ant-design-vue'
+import { CloudUploadOutlined } from '@ant-design/icons-vue'
+import type { UploadRequestOption } from 'ant-design-vue/es/vc-upload/interface'
 import { deleteApp, getAppVoById, updateApp } from '@/api/appController'
+import AppDetailDescriptions from '@/components/AppDetailDescriptions.vue'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { getErrorMessage } from '@/utils/errorMessage'
-import { formatDateTime } from '@/utils/time'
+import { uploadCover } from '@/utils/upload'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -22,17 +25,10 @@ const appDetail = ref<API.AppVO>()
 
 const formState = reactive({
   appName: '',
+  cover: '',
 })
 
 const sameId = (a?: string | number, b?: string | number) => String(a ?? '') === String(b ?? '')
-
-// 部署访问地址：已部署返回完整 URL，未部署返回空
-const accessUrl = computed(() => {
-  if (!appDetail.value?.deployKey) {
-    return ''
-  }
-  return `http://localhost/${appDetail.value.deployKey}/`
-})
 
 const fetchApp = async () => {
   if (!appId.value) {
@@ -54,6 +50,7 @@ const fetchApp = async () => {
         return
       }
       formState.appName = data.appName ?? ''
+      formState.cover = data.cover ?? ''
     } else {
       message.error(getErrorMessage(res.data.code, res.data.message) || t('appEdit.loadFailed'))
     }
@@ -72,6 +69,27 @@ const handleDelete = async () => {
   }
 }
 
+/**
+ * 本地上传封面：调 /file/upload/cover，成功后回填 URL
+ */
+const handleCoverUpload = async (options: UploadRequestOption) => {
+  if (!appId.value) {
+    message.error(t('appEdit.loadFailed'))
+    return
+  }
+  try {
+    const res = await uploadCover(appId.value, options.file as File)
+    if (res.data.code === 0 && res.data.data) {
+      formState.cover = res.data.data
+      message.success(t('appEdit.coverUploadSuccess'))
+    } else {
+      message.error(getErrorMessage(res.data.code, res.data.message) || t('appEdit.saveFailed'))
+    }
+  } catch {
+    message.error(t('appEdit.saveFailed'))
+  }
+}
+
 const handleSubmit = async () => {
   saving.value = true
   try {
@@ -79,6 +97,7 @@ const handleSubmit = async () => {
     const res = await updateApp({
       id: idParam,
       appName: formState.appName,
+      cover: formState.cover,
     })
 
     if (res.data.code === 0) {
@@ -120,6 +139,32 @@ onMounted(() => {
             />
           </a-form-item>
 
+          <a-form-item :label="t('appEdit.cover')" name="cover">
+            <div class="cover-row">
+              <a-input
+                v-model:value="formState.cover"
+                :placeholder="t('appEdit.coverPlaceholder')"
+                class="cover-input"
+              />
+              <Upload
+                :show-upload-list="false"
+                :custom-request="handleCoverUpload"
+                accept="image/*"
+              >
+                <a-button class="cover-upload-btn">
+                  <template #icon><CloudUploadOutlined /></template>
+                  {{ t('appEdit.coverUpload') }}
+                </a-button>
+              </Upload>
+            </div>
+            <img
+              v-if="formState.cover"
+              :src="formState.cover"
+              alt="cover"
+              class="cover-preview"
+            />
+          </a-form-item>
+
           <a-form-item>
             <a-space>
               <a-button type="primary" html-type="submit" :loading="saving">
@@ -140,43 +185,7 @@ onMounted(() => {
       <!-- 下方：应用详情（两列只读） -->
       <div v-if="appDetail" class="app-detail">
         <h3 class="detail-title">{{ t('appEdit.detail') }}</h3>
-        <a-descriptions :column="2" size="default" bordered>
-          <a-descriptions-item :label="t('appEdit.appId')">
-            <span class="mono-cell">{{ appDetail.id }}</span>
-          </a-descriptions-item>
-          <a-descriptions-item :label="t('appEdit.codeGenType')">
-            <a-tag color="blue">
-              {{ appDetail.codeGenType === 'multi_file' ? t('appEdit.tagMultiFile') : t('appEdit.tagHtml') }}
-            </a-tag>
-          </a-descriptions-item>
-          <a-descriptions-item :label="t('appEdit.creator')">
-            {{ appDetail.user?.userName || appDetail.userId }}
-          </a-descriptions-item>
-          <a-descriptions-item :label="t('appEdit.deployKey')">
-            <template v-if="appDetail.deployKey">
-              <a-tag color="green">{{ t('appEdit.deployed') }}</a-tag>
-              <span class="mono-cell">{{ appDetail.deployKey }}</span>
-            </template>
-            <template v-else>
-              <a-tag>{{ t('appEdit.notDeployed') }}</a-tag>
-            </template>
-          </a-descriptions-item>
-          <a-descriptions-item :label="t('appEdit.accessUrl')">
-            <template v-if="appDetail.deployKey">
-              <a :href="accessUrl" target="_blank" rel="noopener">{{ accessUrl }}</a>
-            </template>
-            <template v-else>-</template>
-          </a-descriptions-item>
-          <a-descriptions-item :label="t('appEdit.deployedTime')">
-            {{ formatDateTime(appDetail.deployedTime) || '-' }}
-          </a-descriptions-item>
-          <a-descriptions-item :label="t('appEdit.createTime')">
-            {{ formatDateTime(appDetail.createTime) || '-' }}
-          </a-descriptions-item>
-          <a-descriptions-item :label="t('appEdit.updateTime')">
-            {{ formatDateTime(appDetail.updateTime) || '-' }}
-          </a-descriptions-item>
-        </a-descriptions>
+        <AppDetailDescriptions :app="appDetail" />
       </div>
     </a-spin>
   </div>
@@ -211,10 +220,28 @@ onMounted(() => {
   font-weight: 600;
 }
 
-.mono-cell {
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
-  font-size: 13px;
+.cover-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cover-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.cover-upload-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.cover-preview {
+  margin-top: 8px;
+  max-width: 160px;
+  max-height: 90px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #f0f0f0;
 }
 </style>

@@ -33,6 +33,7 @@ declare namespace API {
   type AppUpdateRequest = {
     id?: number
     appName?: string
+    cover?: string
   }
 
   type AppVO = {
@@ -121,6 +122,16 @@ declare namespace API {
     id: number
   }
 
+  type getAvatarParams = {
+    userId: number
+    fileName: string
+  }
+
+  type getCoverParams = {
+    appId: number
+    fileName: string
+  }
+
   type getUserByIdParams = {
     id: number
   }
@@ -132,12 +143,16 @@ declare namespace API {
   type LoginUserVO = {
     id?: number
     userAccount?: string
+    userEmail?: string
     userName?: string
     userAvatar?: string
     userProfile?: string
     userRole?: string
     createTime?: string
     updateTime?: string
+    vipExpireTime?: string
+    vipNumber?: number
+    shareCode?: string
   }
 
   type PageAppVO = {
@@ -164,9 +179,14 @@ declare namespace API {
     deployKey: string
   }
 
+  type uploadCoverParams = {
+    appId: number
+  }
+
   type User = {
     id?: number
     userAccount?: string
+    userEmail?: string
     userPassword?: string
     userName?: string
     userAvatar?: string
@@ -204,14 +224,22 @@ declare namespace API {
     id?: number
     userName?: string
     userAccount?: string
+    userEmail?: string
     userProfile?: string
     userRole?: string
   }
 
   type UserRegisterRequest = {
     userAccount?: string
+    userEmail?: string
     userPassword?: string
     checkPassword?: string
+  }
+
+  type UserUpdateMyRequest = {
+    userName?: string
+    userAvatar?: string
+    userProfile?: string
   }
 
   type UserUpdateRequest = {
@@ -225,6 +253,7 @@ declare namespace API {
   type UserVO = {
     id?: number
     userAccount?: string
+    userEmail?: string
     userName?: string
     userAvatar?: string
     userProfile?: string

@@ -13,26 +13,22 @@ import {
 import dayjs from 'dayjs'
 import AppCard from '@/components/AppCard.vue'
 import { addApp, listGoodAppVoByPage, listMyAppVoByPage } from '@/api/appController'
-import { CodeGenTypeEnum } from '@/constants/codeGenType'
+import { CodeGenTypeEnum, useCodeGenType } from '@/constants/codeGenType'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { getErrorMessage } from '@/utils/errorMessage'
+import { getDeployUrl, getPreviewUrl } from '@/utils/url'
 import ACCESS_ENUM from '@/access/accessEnum'
-
-const DEPLOY_HOST = 'http://localhost'
 
 const { t } = useI18n()
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
+const { options: codeGenTypeOptions } = useCodeGenType()
 
 const prompt = ref('')
 const creating = ref(false)
 
 // 应用生成类型（默认多文件）
 const codeGenType = ref<string>(CodeGenTypeEnum.MULTI_FILE)
-const codeGenTypeOptions = computed(() => [
-  { label: t('appManage.typeHtml'), value: CodeGenTypeEnum.HTML },
-  { label: t('appManage.typeMultiFile'), value: CodeGenTypeEnum.MULTI_FILE },
-])
 
 const suggestKeys = [
   'suggestPopEcommerce',
@@ -54,6 +50,8 @@ const myQuery = reactive<API.AppQueryRequest>({
   pageNum: 1,
   pageSize: 6,
   appName: '',
+  sortField: '"createTime"',
+  sortOrder: 'descend',
 })
 
 const featuredApps = ref<API.AppVO[]>([])
@@ -62,6 +60,8 @@ const featuredQuery = reactive<API.AppQueryRequest>({
   pageNum: 1,
   pageSize: 6,
   appName: '',
+  sortField: '"createTime"',
+  sortOrder: 'descend',
 })
 
 const fetchMyApps = async () => {
@@ -160,7 +160,10 @@ const openAppWork = (app?: API.AppVO | null) => {
   if (!app?.deployKey) {
     return
   }
-  window.open(`${DEPLOY_HOST}/${app.deployKey}/`, '_blank')
+  const url = getDeployUrl(app.deployKey)
+  if (url) {
+    window.open(url, '_blank')
+  }
 }
 
 /**
@@ -173,19 +176,17 @@ const openMyAppWork = (app: API.AppVO) => {
   if (app.deployKey) {
     openAppWork(app)
   } else {
-    window.open(`/api/static/${app.codeGenType}_${app.id}/`, '_blank')
+    const url = getPreviewUrl(app.codeGenType, app.id)
+    if (url) {
+      window.open(url, '_blank')
+    }
   }
 }
 
 // 精选应用预览大卡片
 const previewApp = ref<API.AppVO>()
 const previewVisible = ref(false)
-const previewUrl = computed(() => {
-  if (!previewApp.value?.id || !previewApp.value.codeGenType) {
-    return ''
-  }
-  return `/api/static/${previewApp.value.codeGenType}_${previewApp.value.id}/`
-})
+const previewUrl = computed(() => getPreviewUrl(previewApp.value?.codeGenType, previewApp.value?.id))
 
 const previewAuthor = computed(
   () => previewApp.value?.user?.userName || t('home.official'),

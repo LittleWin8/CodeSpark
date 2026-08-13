@@ -162,25 +162,14 @@ import {
   listAppVoByPageByAdmin,
   updateAppByAdmin,
 } from '@/api/appController'
-import { CodeGenTypeEnum } from '@/constants/codeGenType'
+import { useCodeGenType } from '@/constants/codeGenType'
 import { getErrorMessage } from '@/utils/errorMessage'
 import { formatDateTime } from '@/utils/time'
 
 const { t } = useI18n()
+const { options: codeGenTypeOptions, label: codeGenTypeLabel } = useCodeGenType()
 
 const GOOD_APP_PRIORITY = 99
-
-// 生成类型选项（多语言）
-const codeGenTypeOptions = computed(() => [
-  { label: t('appManage.typeHtml'), value: CodeGenTypeEnum.HTML },
-  { label: t('appManage.typeMultiFile'), value: CodeGenTypeEnum.MULTI_FILE },
-])
-
-// 生成类型 → 显示标签
-const codeGenTypeLabel = (value?: string) => {
-  const option = codeGenTypeOptions.value.find((o) => o.value === value)
-  return option?.label || value || '-'
-}
 
 const columns = computed(() => [
   { title: 'id', dataIndex: 'id', width: 176 },

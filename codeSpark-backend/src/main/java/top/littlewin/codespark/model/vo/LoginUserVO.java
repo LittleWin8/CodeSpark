@@ -19,6 +19,11 @@ public class LoginUserVO implements Serializable {
     private String userAccount;
 
     /**
+     * 邮箱
+     */
+    private String userEmail;
+
+    /**
      * 用户昵称
      */
     private String userName;
@@ -47,6 +52,21 @@ public class LoginUserVO implements Serializable {
      * 更新时间
      */
     private LocalDateTime updateTime;
+
+    /**
+     * 会员过期时间
+     */
+    private LocalDateTime vipExpireTime;
+
+    /**
+     * 会员编号
+     */
+    private Long vipNumber;
+
+    /**
+     * 分享码
+     */
+    private String shareCode;
 
     private static final long serialVersionUID = 1L;
 }

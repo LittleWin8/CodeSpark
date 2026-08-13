@@ -7,6 +7,15 @@
         <a-input v-model:value="formState.userAccount" :placeholder="t('register.accountPlaceholder')" />
       </a-form-item>
       <a-form-item
+        name="userEmail"
+        :rules="[
+          { required: true, message: t('register.emailRequired') },
+          { validator: validateEmail },
+        ]"
+      >
+        <a-input v-model:value="formState.userEmail" :placeholder="t('register.emailPlaceholder')" />
+      </a-form-item>
+      <a-form-item
         name="userPassword"
         :rules="[
           { required: true, message: t('register.passwordRequired') },
@@ -50,9 +59,26 @@ const router = useRouter()
 
 const formState = reactive<API.UserRegisterRequest>({
   userAccount: '',
+  userEmail: '',
   userPassword: '',
   checkPassword: '',
 })
+
+/**
+ * 验证邮箱格式（空值交给 required 规则处理，避免重复提示）
+ */
+const validateEmail = (_rule: Rule, value: string, callback: (error?: Error) => void) => {
+  if (!value) {
+    callback()
+    return
+  }
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+  if (!emailRegex.test(value)) {
+    callback(new Error(t('register.emailInvalid')))
+    return
+  }
+  callback()
+}
 
 /**
  * 验证确认密码

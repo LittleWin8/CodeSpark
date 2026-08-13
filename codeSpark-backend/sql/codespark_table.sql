@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS "user"
 (
     id              BIGSERIAL PRIMARY KEY,
     "userAccount"   VARCHAR(256)  NOT NULL,
+    "userEmail"     VARCHAR(256),
     "userPassword"  VARCHAR(512)  NOT NULL,
     "userName"      VARCHAR(256),
     "userAvatar"    VARCHAR(1024),
@@ -22,7 +23,9 @@ CREATE TABLE IF NOT EXISTS "user"
     "vipNumber"     BIGINT,
     "shareCode"     VARCHAR(20),
     "inviteUser"    BIGINT,
-    CONSTRAINT uk_userAccount UNIQUE ("userAccount")
+    CONSTRAINT uk_userAccount UNIQUE ("userAccount"),
+    CONSTRAINT uk_userEmail UNIQUE ("userEmail"),
+    CONSTRAINT uk_shareCode UNIQUE ("shareCode")
 );
 
 CREATE INDEX IF NOT EXISTS idx_userName ON "user" ("userName");
@@ -30,6 +33,7 @@ CREATE INDEX IF NOT EXISTS idx_userName ON "user" ("userName");
 COMMENT ON TABLE "user" IS '用户表';
 COMMENT ON COLUMN "user".id IS 'id';
 COMMENT ON COLUMN "user"."userAccount" IS '账号';
+COMMENT ON COLUMN "user"."userEmail" IS '邮箱';
 COMMENT ON COLUMN "user"."userPassword" IS '密码';
 COMMENT ON COLUMN "user"."userName" IS '用户昵称';
 COMMENT ON COLUMN "user"."userAvatar" IS '用户头像';

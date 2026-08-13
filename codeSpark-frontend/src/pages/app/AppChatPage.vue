@@ -11,11 +11,16 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons-vue'
 import { deployApp, getAppVoById } from '@/api/appController'
+import { useCodeGenType } from '@/constants/codeGenType'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { getErrorMessage } from '@/utils/errorMessage'
+import { getPreviewUrl } from '@/utils/url'
 import { connectChatSse } from '@/utils/sse'
 import systemLogo from '@/assets/logo.png'
 type ChatRole = 'user' | 'ai'
+
+// 生成模式展示工具
+const { label: codeGenTypeLabel, color: codeGenTypeColor } = useCodeGenType()
 
 interface ChatMessage {
   id: string
@@ -52,12 +57,7 @@ const isOwner = computed(() => {
 
 const canChat = computed(() => isOwner.value)
 
-const previewUrl = computed(() => {
-  if (!app.value?.id || !app.value.codeGenType) {
-    return ''
-  }
-  return `/api/static/${app.value.codeGenType}_${app.value.id}/`
-})
+const previewUrl = computed(() => getPreviewUrl(app.value?.codeGenType, app.value?.id))
 
 const scrollToBottom = async () => {
   await nextTick()
@@ -308,11 +308,8 @@ onBeforeUnmount(() => {
       </div>
       <a-space>
         <!-- 当前生成模式标签 -->
-        <a-tag
-          class="mode-tag"
-          :color="app?.codeGenType === 'html' ? 'blue' : 'orange'"
-        >
-          {{ app?.codeGenType === 'html' ? t('appManage.typeHtml') : t('appManage.typeMultiFile') }}
+        <a-tag class="mode-tag" :color="codeGenTypeColor(app?.codeGenType)">
+          {{ codeGenTypeLabel(app?.codeGenType) }}
         </a-tag>
         <a-button v-if="canChat" @click="router.push(`/app/edit/${appId}`)">
           {{ t('common.edit') }}

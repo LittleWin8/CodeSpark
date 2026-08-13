@@ -20,4 +20,9 @@ public interface UserConstant {
     String ADMIN_ROLE = "admin";
     
     // endregion
+
+    /**
+     * 用户头像上传目录：tmp/user_avatar/{userId}
+     */
+    String USER_AVATAR_ROOT_DIR = System.getProperty("user.dir") + "/tmp/user_avatar";
 }

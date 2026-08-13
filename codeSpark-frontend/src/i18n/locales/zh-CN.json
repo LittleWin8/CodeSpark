@@ -21,7 +21,8 @@
     "open": "打开",
     "viewChat": "查看对话",
     "viewWork": "查看作品",
-    "preview": "预览"
+    "preview": "预览",
+    "profile": "个人中心"
   },
   "error": {
     "default": "操作失败",
@@ -50,7 +51,12 @@
     "emptyAccountOrPassword": "账号和密码不能为空",
     "invalidAccount": "账号格式不正确",
     "invalidPassword": "密码格式不正确",
-    "loginFailed": "用户不存在或密码错误"
+    "invalidEmail": "邮箱格式不正确",
+    "emailExists": "邮箱已注册",
+    "loginFailed": "用户不存在或密码错误",
+    "emptyFile": "请选择要上传的文件",
+    "fileTooLarge": "文件大小不能超过 5MB",
+    "fileSaveFailed": "文件保存失败"
   },
   "nav": {
     "home": "首页",
@@ -81,9 +87,6 @@
     "noMyApps": "还没有作品，输入提示词开始创建吧",
     "noFeaturedApps": "暂无精选案例",
     "official": "CodeSpark 官方",
-    "tagUserApp": "用户应用",
-    "tagHtml": "网站",
-    "tagMultiFile": "多文件",
     "suggestPopEcommerce": "波普风电商页面",
     "suggestEnterprise": "企业网站",
     "suggestAdmin": "电商运营后台",
@@ -106,8 +109,8 @@
   "login": {
     "title": "CodeSpark AI - 用户登录",
     "desc": "不写一行代码，生成完整应用",
-    "accountRequired": "请输入账号",
-    "accountPlaceholder": "请输入账号",
+    "accountRequired": "请输入账号或邮箱",
+    "accountPlaceholder": "请输入账号或邮箱",
     "passwordRequired": "请输入密码",
     "passwordMinLength": "密码不能小于 8 位",
     "passwordPlaceholder": "请输入密码",
@@ -121,6 +124,9 @@
     "desc": "不写一行代码，生成完整应用",
     "accountRequired": "请输入账号",
     "accountPlaceholder": "请输入账号",
+    "emailRequired": "请输入邮箱",
+    "emailPlaceholder": "请输入邮箱",
+    "emailInvalid": "邮箱格式不正确",
     "passwordRequired": "请输入密码",
     "passwordMinLength": "密码不能小于 8 位",
     "passwordPlaceholder": "请输入密码",
@@ -135,6 +141,8 @@
   "userManage": {
     "account": "账号",
     "accountPlaceholder": "输入账号",
+    "email": "邮箱",
+    "emailPlaceholder": "输入邮箱",
     "userName": "用户名",
     "userNamePlaceholder": "输入用户名",
     "avatar": "头像",
@@ -147,7 +155,8 @@
     "fetchFailed": "获取数据失败，",
     "totalItems": "共 {total} 条",
     "deleteSuccess": "删除成功",
-    "deleteFailed": "删除失败"
+    "deleteFailed": "删除失败",
+    "deleteConfirm": "确认删除该用户？"
   },
   "appChat": {
     "appName": "应用名称",
@@ -178,6 +187,8 @@
     "appNamePlaceholder": "请输入应用名称",
     "cover": "应用封面",
     "coverPlaceholder": "请输入封面图片 URL",
+    "coverUpload": "本地上传封面",
+    "coverUploadSuccess": "封面上传成功",
     "priority": "优先级",
     "priorityPlaceholder": "请输入优先级",
     "saveSuccess": "保存成功",
@@ -226,5 +237,34 @@
     "title": "无权限访问",
     "subtitle": "抱歉，您没有权限访问此页面",
     "backHome": "返回首页"
+  },
+  "profile": {
+    "title": "个人中心",
+    "changeAvatar": "更换头像",
+    "uploadAvatar": "本地上传头像",
+    "avatarUrl": "头像地址",
+    "avatarUrlPlaceholder": "可粘贴在线图片地址，或点击左侧头像上传",
+    "userName": "用户昵称",
+    "userNameRequired": "请输入用户昵称",
+    "userProfile": "个人简介",
+    "role": "角色",
+    "saveSuccess": "保存成功",
+    "saveFailed": "保存失败",
+    "avatarUploadSuccess": "头像上传成功",
+    "accountInfo": "账户信息",
+    "editTitle": "编辑资料",
+    "vipService": "VIP 会员服务",
+    "email": "邮箱",
+    "registerTime": "注册时间",
+    "memberStatus": "会员状态",
+    "member": "会员",
+    "notMember": "非会员",
+    "validity": "有效期",
+    "expireDate": "有效期至 {date}",
+    "memberNumber": "会员编号",
+    "shareCode": "分享码",
+    "copy": "复制",
+    "copySuccess": "复制成功",
+    "copyFailed": "复制失败"
   }
 }

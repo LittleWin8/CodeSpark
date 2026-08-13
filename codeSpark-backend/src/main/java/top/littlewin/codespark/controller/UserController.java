@@ -50,9 +50,10 @@ public class UserController {
     public BaseResponse<Long> userRegister(@RequestBody UserRegisterRequest userRegisterRequest) {
         ThrowUtils.throwIf(userRegisterRequest == null, ErrorCode.PARAMS_ERROR);
         String userAccount = userRegisterRequest.getUserAccount();
+        String userEmail = userRegisterRequest.getUserEmail();
         String userPassword = userRegisterRequest.getUserPassword();
         String checkPassword = userRegisterRequest.getCheckPassword();
-        long result = userService.userRegister(userAccount, userPassword, checkPassword);
+        long result = userService.userRegister(userAccount, userEmail, userPassword, checkPassword);
         return ResultUtils.success(result);
     }
 
@@ -138,14 +139,24 @@ public class UserController {
     }
 
     /**
-     * 删除用户
+     * 删除用户（仅管理员，且不可以删除自己）
      */
     @PostMapping("/delete")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    public BaseResponse<Boolean> deleteUser(@RequestBody DeleteRequest deleteRequest) {
+    public BaseResponse<Boolean> deleteUser(@RequestBody DeleteRequest deleteRequest,
+                                            HttpServletRequest request) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+        // 获取当前登录管理员
+        User loginUser = userService.getLoginUser(request);
+        // 不可以删除自己
+        if (deleteRequest.getId().equals(loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "CANNOT_DELETE_SELF");
+        }
+        // 删除目标必须存在
+        User targetUser = userService.getById(deleteRequest.getId());
+        ThrowUtils.throwIf(targetUser == null, ErrorCode.NOT_FOUND_ERROR);
         boolean b = userService.removeById(deleteRequest.getId());
         return ResultUtils.success(b);
     }
@@ -161,6 +172,27 @@ public class UserController {
         }
         User user = new User();
         BeanUtil.copyProperties(userUpdateRequest, user);
+        boolean result = userService.updateById(user);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return ResultUtils.success(true);
+    }
+
+    /**
+     * 更新个人信息（本人，仅昵称/头像/简介，不能改角色等敏感字段）
+     */
+    @PostMapping("/update/my")
+    public BaseResponse<Boolean> updateMyUser(@RequestBody UserUpdateMyRequest userUpdateMyRequest,
+                                              HttpServletRequest request) {
+        if (userUpdateMyRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        // 强制使用当前登录用户 id，防止越权修改他人信息
+        User user = new User();
+        user.setId(loginUser.getId());
+        user.setUserName(userUpdateMyRequest.getUserName());
+        user.setUserAvatar(userUpdateMyRequest.getUserAvatar());
+        user.setUserProfile(userUpdateMyRequest.getUserProfile());
         boolean result = userService.updateById(user);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);

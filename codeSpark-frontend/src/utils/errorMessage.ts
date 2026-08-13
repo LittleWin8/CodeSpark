@@ -34,12 +34,17 @@ const errorMessageMap: Record<string, string> = {
   PASSWORD_TOO_SHORT: 'error.passwordTooShort',
   PASSWORD_MISMATCH: 'error.passwordMismatch',
   ACCOUNT_EXISTS: 'error.accountExists',
+  EMAIL_EXISTS: 'error.emailExists',
+  INVALID_EMAIL: 'error.invalidEmail',
   REGISTER_FAILED: 'error.registerFailed',
   EMPTY_ACCOUNT_OR_PASSWORD: 'error.emptyAccountOrPassword',
   INVALID_ACCOUNT: 'error.invalidAccount',
   INVALID_PASSWORD: 'error.invalidPassword',
   LOGIN_FAILED: 'error.loginFailed',
   NOT_LOGIN: 'error.notLogin',
+  EMPTY_FILE: 'error.emptyFile',
+  FILE_TOO_LARGE: 'error.fileTooLarge',
+  FILE_SAVE_FAILED: 'error.fileSaveFailed',
   ok: 'error.default',
 }
 

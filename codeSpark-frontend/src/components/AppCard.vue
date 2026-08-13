@@ -1,7 +1,13 @@
 <template>
   <div class="app-card" @click="emit('click')">
     <div class="app-card__cover">
-      <img v-if="app.cover" :src="app.cover" :alt="app.appName" />
+      <!-- 有封面：显示封面；无封面：picsum 兜底；加载失败：占位符 -->
+      <img
+        v-if="coverSrc && !coverError"
+        :src="coverSrc"
+        :alt="app.appName"
+        @error="coverError = true"
+      />
       <div v-else class="app-card__cover-placeholder">
         {{ app.appName?.slice(0, 1) || 'A' }}
       </div>
@@ -25,7 +31,6 @@
         </div>
       </div>
       <div class="app-card__tags">
-        <a-tag color="purple">{{ t('home.tagUserApp') }}</a-tag>
         <a-tag :color="codeGenTagColor">{{ codeGenTagLabel }}</a-tag>
       </div>
     </div>
@@ -57,9 +62,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { EyeOutlined, MessageOutlined } from '@ant-design/icons-vue'
+import { useCodeGenType } from '@/constants/codeGenType'
 import { formatRelativeTime } from '@/utils/time'
 
 const props = withDefaults(
@@ -80,19 +86,27 @@ const emit = defineEmits<{
 }>()
 
 const { t, locale } = useI18n()
+const { label: codeGenTypeLabel, color: codeGenTypeColor } = useCodeGenType()
 
 const isDeployed = computed(() => Boolean(props.app.deployKey))
 
-const relativeTime = computed(() => formatRelativeTime(props.app.createTime, locale.value))
+// 封面图片加载失败时回退占位符
+const coverError = ref(false)
 
-const codeGenTagLabel = computed(() => {
-  if (props.app.codeGenType === 'html') {
-    return t('home.tagHtml')
+// 封面：优先用户上传的 cover；无 cover 用 picsum（按应用名生成稳定图）
+const coverSrc = computed(() => {
+  if (props.app.cover) {
+    return props.app.cover
   }
-  return t('home.tagMultiFile')
+  const seed = encodeURIComponent(props.app.appName || 'app')
+  return `https://picsum.photos/seed/${seed}/400/300`
 })
 
-const codeGenTagColor = computed(() => (props.app.codeGenType === 'html' ? 'blue' : 'orange'))
+const relativeTime = computed(() => formatRelativeTime(props.app.createTime, locale.value))
+
+const codeGenTagLabel = computed(() => codeGenTypeLabel(props.app.codeGenType))
+
+const codeGenTagColor = computed(() => codeGenTypeColor(props.app.codeGenType))
 
 const handleViewChat = (e: MouseEvent) => {
   e.stopPropagation()

@@ -151,7 +151,15 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
             }
         }
 
-        // 4. 删除数据库记录
+        // 4. 删除封面目录：app_cover/{appId}
+        String coverDir = AppConstant.APP_COVER_ROOT_DIR + File.separator + appId;
+        try {
+            FileUtil.del(coverDir);
+        } catch (Exception e) {
+            log.error("删除应用封面目录失败: {}", coverDir, e);
+        }
+
+        // 5. 删除数据库记录
         return this.removeById(appId);
     }
 

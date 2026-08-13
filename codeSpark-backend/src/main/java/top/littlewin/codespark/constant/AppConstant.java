@@ -30,4 +30,9 @@ public interface AppConstant {
      */
     String CODE_DEPLOY_HOST = "http://localhost";
 
+    /**
+     * 应用封面上传目录：tmp/app_cover/{appId}
+     */
+    String APP_COVER_ROOT_DIR = System.getProperty("user.dir") + "/tmp/app_cover";
+
 }

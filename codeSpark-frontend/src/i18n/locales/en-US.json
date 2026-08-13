@@ -21,7 +21,8 @@
     "open": "Open",
     "viewChat": "View Chat",
     "viewWork": "View App",
-    "preview": "Preview"
+    "preview": "Preview",
+    "profile": "Profile"
   },
   "error": {
     "default": "Operation failed",
@@ -50,7 +51,12 @@
     "emptyAccountOrPassword": "Account and password are required",
     "invalidAccount": "Invalid account format",
     "invalidPassword": "Invalid password format",
-    "loginFailed": "User not found or incorrect password"
+    "invalidEmail": "Invalid email format",
+    "emailExists": "Email already registered",
+    "loginFailed": "User not found or incorrect password",
+    "emptyFile": "Please select a file to upload",
+    "fileTooLarge": "File size must not exceed 5MB",
+    "fileSaveFailed": "Failed to save file"
   },
   "nav": {
     "home": "Home",
@@ -81,9 +87,6 @@
     "noMyApps": "No apps yet. Start by entering a prompt.",
     "noFeaturedApps": "No featured apps yet",
     "official": "CodeSpark Official",
-    "tagUserApp": "User App",
-    "tagHtml": "Website",
-    "tagMultiFile": "Multi-file",
     "suggestPopEcommerce": "Pop-art e-commerce page",
     "suggestEnterprise": "Corporate website",
     "suggestAdmin": "E-commerce admin",
@@ -106,8 +109,8 @@
   "login": {
     "title": "CodeSpark AI - User Login",
     "desc": "Turn Your Ideas into Apps — No Coding Required",
-    "accountRequired": "Please enter your account",
-    "accountPlaceholder": "Enter account",
+    "accountRequired": "Enter account or email",
+    "accountPlaceholder": "Enter account or email",
     "passwordRequired": "Please enter your password",
     "passwordMinLength": "Password must be at least 8 characters",
     "passwordPlaceholder": "Enter password",
@@ -121,6 +124,9 @@
     "desc": "Turn Your Ideas into Apps — No Coding Required",
     "accountRequired": "Please enter your account",
     "accountPlaceholder": "Enter account",
+    "emailRequired": "Please enter email",
+    "emailPlaceholder": "Enter email",
+    "emailInvalid": "Invalid email format",
     "passwordRequired": "Please enter your password",
     "passwordMinLength": "Password must be at least 8 characters",
     "passwordPlaceholder": "Enter password",
@@ -135,6 +141,8 @@
   "userManage": {
     "account": "Account",
     "accountPlaceholder": "Enter account",
+    "email": "Email",
+    "emailPlaceholder": "Enter email",
     "userName": "Username",
     "userNamePlaceholder": "Enter username",
     "avatar": "Avatar",
@@ -147,7 +155,8 @@
     "fetchFailed": "Failed to fetch data, ",
     "totalItems": "{total} items in total",
     "deleteSuccess": "Deleted successfully",
-    "deleteFailed": "Delete failed"
+    "deleteFailed": "Delete failed",
+    "deleteConfirm": "Delete this user?"
   },
   "appChat": {
     "appName": "App Name",
@@ -178,6 +187,8 @@
     "appNamePlaceholder": "Enter app name",
     "cover": "Cover",
     "coverPlaceholder": "Enter cover image URL",
+    "coverUpload": "Upload cover",
+    "coverUploadSuccess": "Cover uploaded",
     "priority": "Priority",
     "priorityPlaceholder": "Enter priority",
     "saveSuccess": "Saved successfully",
@@ -226,5 +237,34 @@
     "title": "Access Denied",
     "subtitle": "Sorry, you don't have permission to access this page",
     "backHome": "Back to Home"
+  },
+  "profile": {
+    "title": "Profile",
+    "changeAvatar": "Change Avatar",
+    "uploadAvatar": "Upload Avatar",
+    "avatarUrl": "Avatar URL",
+    "avatarUrlPlaceholder": "Paste an image URL, or click the avatar to upload",
+    "userName": "Nickname",
+    "userNameRequired": "Please enter nickname",
+    "userProfile": "Bio",
+    "role": "Role",
+    "saveSuccess": "Saved successfully",
+    "saveFailed": "Save failed",
+    "avatarUploadSuccess": "Avatar uploaded",
+    "accountInfo": "Account Info",
+    "editTitle": "Edit Profile",
+    "vipService": "VIP Membership",
+    "email": "Email",
+    "registerTime": "Registered",
+    "memberStatus": "Membership",
+    "member": "Member",
+    "notMember": "Not a member",
+    "validity": "Valid Until",
+    "expireDate": "Valid until {date}",
+    "memberNumber": "Member No.",
+    "shareCode": "Invite Code",
+    "copy": "Copy",
+    "copySuccess": "Copied",
+    "copyFailed": "Copy failed"
   }
 }
