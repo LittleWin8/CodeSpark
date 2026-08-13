@@ -15,20 +15,39 @@
     <a-divider />
 
     <!-- 表格 -->
-    <a-table :columns="columns" :data-source="data" :pagination="pagination" @change="doTableChange">
+    <a-table
+      class="user-table"
+      :columns="columns"
+      :data-source="data"
+      :pagination="pagination"
+      size="middle"
+      row-key="id"
+      @change="doTableChange"
+    >
       <template #bodyCell="{ column, record }">
-        <template v-if="column.dataIndex === 'userAvatar'">
-          <a-image :src="record.userAvatar" :width="120" />
+        <template v-if="column.dataIndex === 'id'">
+          <span class="mono-cell">{{ record.id }}</span>
+        </template>
+        <template v-else-if="column.dataIndex === 'userAvatar'">
+          <a-image v-if="record.userAvatar" :src="record.userAvatar" :width="48" :height="48" class="avatar-image" />
+          <span v-else>-</span>
+        </template>
+        <template v-else-if="column.dataIndex === 'userProfile'">
+          <a-typography-paragraph
+            class="table-text muted-text"
+            :ellipsis="{ rows: 2, tooltip: record.userProfile }"
+            :content="record.userProfile || '-'"
+          />
         </template>
         <template v-else-if="column.dataIndex === 'userRole'">
           <a-tag v-if="record.userRole === 'admin'" color="green">{{ t('userManage.roleAdmin') }}</a-tag>
           <a-tag v-else color="blue">{{ t('userManage.roleUser') }}</a-tag>
         </template>
         <template v-else-if="column.dataIndex === 'createTime'">
-          {{ dayjs(record.createTime).format('YYYY-MM-DD HH:mm:ss') }}
+          <span class="time-cell">{{ dayjs(record.createTime).format('YYYY-MM-DD HH:mm:ss') }}</span>
         </template>
         <template v-else-if="column.key === 'action'">
-          <a-button danger @click="() => doDelete(record.id)">{{ t('common.delete') }}</a-button>
+          <a-button size="small" danger @click="() => doDelete(record.id)">{{ t('common.delete') }}</a-button>
         </template>
       </template>
     </a-table>
@@ -42,6 +61,7 @@ import { message } from 'ant-design-vue'
 import type { TablePaginationConfig } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import { computed, onMounted, reactive, ref } from 'vue'
+import { getErrorMessage } from '@/utils/errorMessage'
 
 const { t } = useI18n()
 
@@ -49,18 +69,23 @@ const columns = computed(() => [
   {
     title: 'id',
     dataIndex: 'id',
+    width: 176,
   },
   {
     title: t('userManage.account'),
     dataIndex: 'userAccount',
+    width: 180,
   },
   {
     title: t('userManage.userName'),
     dataIndex: 'userName',
+    width: 160,
   },
   {
     title: t('userManage.avatar'),
     dataIndex: 'userAvatar',
+    width: 88,
+    align: 'center',
   },
   {
     title: t('userManage.profile'),
@@ -69,14 +94,17 @@ const columns = computed(() => [
   {
     title: t('userManage.userRole'),
     dataIndex: 'userRole',
+    width: 110,
   },
   {
     title: t('userManage.createTime'),
     dataIndex: 'createTime',
+    width: 168,
   },
   {
     title: t('userManage.action'),
     key: 'action',
+    width: 96,
   },
 ])
 
@@ -99,7 +127,7 @@ const fetchData = async () => {
     data.value = res.data.data.records ?? []
     total.value = res.data.data.totalRow ?? 0
   } else {
-    message.error(t('userManage.fetchFailed') + res.data.message)
+    message.error(t('userManage.fetchFailed') + getErrorMessage(res.data.code, res.data.message))
   }
 }
 
@@ -144,3 +172,62 @@ onMounted(() => {
   fetchData()
 })
 </script>
+
+<style scoped>
+#userManagePage {
+  overflow: hidden;
+}
+
+.user-table {
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table-text {
+  max-width: 100%;
+  margin-bottom: 0;
+  line-height: 1.5;
+}
+
+.muted-text {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.mono-cell {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.time-cell {
+  white-space: nowrap;
+}
+
+.avatar-image {
+  object-fit: cover;
+  border-radius: 50%;
+  background: #f5f5f5;
+}
+
+:deep(.ant-table) {
+  font-size: 14px;
+}
+
+:deep(.ant-table-thead > tr > th) {
+  white-space: nowrap;
+  color: rgba(0, 0, 0, 0.88);
+  font-weight: 600;
+  background: #fafafa;
+}
+
+:deep(.ant-table-tbody > tr > td) {
+  vertical-align: middle;
+}
+
+:deep(.ant-table-tbody > tr:hover > td) {
+  background: #f7fbff;
+}
+</style>

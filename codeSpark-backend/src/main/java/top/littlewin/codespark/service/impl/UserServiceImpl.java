@@ -40,16 +40,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
         // 1. 校验
         if (StrUtil.hasBlank(userAccount, userPassword, checkPassword)) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "EMPTY_PARAMS");
         }
         if (userAccount.length() < 4) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过短");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "ACCOUNT_TOO_SHORT");
         }
         if (userPassword.length() < 8 || checkPassword.length() < 8) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "PASSWORD_TOO_SHORT");
         }
         if (!userPassword.equals(checkPassword)) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次输入的密码不一致");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "PASSWORD_MISMATCH");
         }
 
         // 2. 检查是否重复（必须用实体属性引用，PG 驼峰列名才会正确加引号）
@@ -57,7 +57,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
                 .where(User::getUserAccount).eq(userAccount);
         long count = this.mapper.selectCountByQuery(queryWrapper);
         if (count > 0) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号已存在");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "ACCOUNT_EXISTS");
         }
         // 3. 加密
         String encryptPassword = passwordUtils.encrypt(userPassword);
@@ -70,7 +70,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
         user.setUserRole(UserRoleEnum.USER.getValue());
         boolean saveResult = this.save(user);
         if (!saveResult) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "REGISTER_FAILED");
         }
         return user.getId();
     }
@@ -110,24 +110,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
     public LoginUserVO userLogin(String userAccount, String userPassword, HttpServletRequest request) {
         // 1. 校验
         if (StrUtil.hasBlank(userAccount, userPassword)) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号密码不能为空");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "EMPTY_ACCOUNT_OR_PASSWORD");
         }
         if (userAccount.length() < 4) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号错误");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "INVALID_ACCOUNT");
         }
         if (userPassword.length() < 8) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "INVALID_PASSWORD");
         }
         // 2. 查询用户是否存在（必须用实体属性引用，PG 驼峰列名才会正确加引号）
         QueryWrapper queryWrapper = QueryWrapper.create()
                 .where(User::getUserAccount).eq(userAccount);
         User user = this.mapper.selectOneByQuery(queryWrapper);
         if (user == null) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "LOGIN_FAILED");
         }
         // 3. 验证密码
         if (!passwordUtils.matches(userPassword, user.getUserPassword())) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "LOGIN_FAILED");
         }
 
         // 4. 记录用户的登录态
@@ -160,7 +160,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
         // 1. 判断用户是否登录
         Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
         if (userObj == null){
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "用户未登录");
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "NOT_LOGIN");
         }
         // 2. 移除登录状态
         request.getSession().removeAttribute(USER_LOGIN_STATE);
@@ -170,7 +170,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
     @Override
     public QueryWrapper getQueryWrapper(UserQueryRequest userQueryRequest) {
         if (userQueryRequest == null) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         Long id = userQueryRequest.getId();
         String userAccount = userQueryRequest.getUserAccount();

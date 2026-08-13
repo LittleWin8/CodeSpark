@@ -55,7 +55,8 @@ import { computed, h, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { MenuProps } from 'ant-design-vue'
-import { HomeOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons-vue'
+import { AppstoreOutlined, HomeOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons-vue'
+import { getErrorMessage } from '@/utils/errorMessage'
 import LanguageSwitcher from './LanguageSwitcher.vue'
 import { message } from 'ant-design-vue'
 import { userLogout } from '@/api/userController.ts'
@@ -77,7 +78,7 @@ const doLogout = async () => {
     message.success(t('header.logoutSuccess'))
     await router.push('/user/login')
   } else {
-    message.error(t('header.logoutFailed') + res.data.message)
+    message.error(t('header.logoutFailed') + getErrorMessage(res.data.code, res.data.message))
   }
 }
 
@@ -110,6 +111,13 @@ const originItems = computed<MenuItem[]>(() => [
     icon: () => h(UserOutlined),
     label: t('nav.userManage'),
     title: t('nav.userManage'),
+    access: ACCESS_ENUM.ADMIN,
+  },
+  {
+    key: '/admin/appManage',
+    icon: () => h(AppstoreOutlined),
+    label: t('nav.appManage'),
+    title: t('nav.appManage'),
     access: ACCESS_ENUM.ADMIN,
   },
 ])
@@ -147,8 +155,9 @@ const handleMenuClick: MenuProps['onClick'] = (e) => {
 
 <style scoped>
 .header {
-  background: #fff;
+  background: linear-gradient(90deg, #dff3f5 0%, #f4fafa 100%);
   padding: 0 24px;
+  border-bottom: 1px solid rgba(31, 143, 122, 0.08);
 }
 
 .header-left {
@@ -160,19 +169,43 @@ const handleMenuClick: MenuProps['onClick'] = (e) => {
 .logo {
   height: 48px;
   width: 48px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .site-title {
   margin: 0;
   font-size: 18px;
-  color: #1890ff;
+  font-weight: 700;
+  color: #1d1d1f;
+  background: linear-gradient(135deg, #1f8f7a 0%, #4ab8a4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .ant-menu-horizontal {
   border-bottom: none !important;
+  background: transparent !important;
+}
+
+:deep(.ant-menu-horizontal > .ant-menu-item) {
+  color: #4b5563;
+}
+
+:deep(.ant-menu-horizontal > .ant-menu-item-selected) {
+  color: #1f8f7a;
+  border-bottom-color: #1f8f7a;
+}
+
+:deep(.ant-menu-horizontal > .ant-menu-item:hover) {
+  color: #1f8f7a;
 }
 
 .login-btn {
   min-width: 90px;
+  background: linear-gradient(135deg, #1f8f7a 0%, #4ab8a4 100%);
+  border: none;
+  border-radius: 8px;
 }
 </style>

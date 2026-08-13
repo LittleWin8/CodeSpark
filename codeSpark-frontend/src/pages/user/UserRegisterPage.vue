@@ -43,6 +43,7 @@ import { userRegister } from '@/api/userController.ts'
 import { message } from 'ant-design-vue'
 import type { Rule } from 'ant-design-vue/es/form'
 import { reactive } from 'vue'
+import { getErrorMessage } from '@/utils/errorMessage'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -76,32 +77,41 @@ const handleSubmit = async (values: API.UserRegisterRequest) => {
       replace: true,
     })
   } else {
-    message.error(t('register.registerFailed') + res.data.message)
+    message.error(t('register.registerFailed') + getErrorMessage(res.data.code, res.data.message))
   }
 }
 </script>
 
 <style scoped>
 #userRegisterPage {
-  max-width: 360px;
+  max-width: 400px;
   margin: 0 auto;
+  padding: 8px 0;
 }
 
 .title {
   text-align: center;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1d1d1f;
 }
 
 .desc {
   text-align: center;
-  color: #bbb;
-  margin-bottom: 16px;
+  color: #8a8a8e;
+  margin-bottom: 28px;
+  font-size: 14px;
 }
 
 .tips {
   margin-bottom: 16px;
-  color: #bbb;
+  color: #8a8a8e;
   font-size: 13px;
   text-align: right;
+}
+
+.tips a {
+  color: #1f8f7a;
 }
 </style>

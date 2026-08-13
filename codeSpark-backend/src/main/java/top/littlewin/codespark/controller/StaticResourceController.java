@@ -14,6 +14,8 @@ import org.springframework.web.servlet.HandlerMapping;
 import top.littlewin.codespark.constant.AppConstant;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
  * 静态资源访问
@@ -34,6 +36,11 @@ public class StaticResourceController {
             @PathVariable String deployKey,
             HttpServletRequest request) {
         try {
+            // 安全校验：deployKey 只允许字母、数字、下划线（防止路径遍历）
+            if (!deployKey.matches("^[a-zA-Z0-9_]+$")) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
             // 获取资源路径
             String resourcePath = (String) request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
             resourcePath = resourcePath.substring(("/static/" + deployKey).length());
@@ -47,9 +54,18 @@ public class StaticResourceController {
             if (resourcePath.equals("/")) {
                 resourcePath = "/index.html";
             }
+
+            // 安全校验：归一化路径必须落在预览根目录内（防止 ../ 逃逸）
+            Path base = Paths.get(PREVIEW_ROOT_DIR).toAbsolutePath().normalize();
+            // 去除 resourcePath 开头的分隔符，避免 Path.resolve 将其视为绝对路径而重置根目录
+            String relativePath = resourcePath.startsWith("/") ? resourcePath.substring(1) : resourcePath;
+            Path target = base.resolve(deployKey).resolve(relativePath).normalize();
+            if (!target.startsWith(base)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
             // 构建文件路径
-            String filePath = PREVIEW_ROOT_DIR + "/" + deployKey + resourcePath;
-            File file = new File(filePath);
+            File file = target.toFile();
             // 检查文件是否存在
             if (!file.exists()) {
                 return ResponseEntity.notFound().build();
@@ -57,7 +73,7 @@ public class StaticResourceController {
             // 返回文件资源
             Resource resource = new FileSystemResource(file);
             return ResponseEntity.ok()
-                    .header("Content-Type", getContentTypeWithCharset(filePath))
+                    .header("Content-Type", getContentTypeWithCharset(file.getPath()))
                     .body(resource);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();

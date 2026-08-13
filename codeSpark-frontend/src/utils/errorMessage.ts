@@ -1,6 +1,6 @@
 import i18n from '@/i18n'
 
-const { t } = i18n.global
+const { t, te } = i18n.global
 
 /**
  * 后端错误码 → i18n 翻译 key 的映射
@@ -17,11 +17,48 @@ const errorCodeMap: Record<number, string> = {
 }
 
 /**
- * 根据后端返回的错误码获取本地化错误消息
- * @param code 后端错误码
- * @returns 本地化的错误消息，找不到映射时返回默认消息
+ * 后端自定义错误 message（稳定英文 key）→ i18n key
  */
-export function getErrorMessage(code: number): string {
-  const key = errorCodeMap[code]
-  return key ? t(key) : t('error.default')
+const errorMessageMap: Record<string, string> = {
+  INVALID_APP_ID: 'error.invalidAppId',
+  EMPTY_CHAT_MESSAGE: 'error.emptyChatMessage',
+  EMPTY_INIT_PROMPT: 'error.emptyInitPrompt',
+  PAGE_SIZE_LIMIT: 'error.pageSizeLimit',
+  APP_NOT_FOUND: 'error.appNotFound',
+  INVALID_CODE_GEN_TYPE: 'error.invalidCodeGenType',
+  APP_CODE_NOT_GENERATED: 'error.appCodeNotGenerated',
+  APP_DEPLOY_FAILED: 'error.appDeployFailed',
+  APP_DEPLOY_UPDATE_FAILED: 'error.appDeployUpdateFailed',
+  EMPTY_PARAMS: 'error.emptyParams',
+  ACCOUNT_TOO_SHORT: 'error.accountTooShort',
+  PASSWORD_TOO_SHORT: 'error.passwordTooShort',
+  PASSWORD_MISMATCH: 'error.passwordMismatch',
+  ACCOUNT_EXISTS: 'error.accountExists',
+  REGISTER_FAILED: 'error.registerFailed',
+  EMPTY_ACCOUNT_OR_PASSWORD: 'error.emptyAccountOrPassword',
+  INVALID_ACCOUNT: 'error.invalidAccount',
+  INVALID_PASSWORD: 'error.invalidPassword',
+  LOGIN_FAILED: 'error.loginFailed',
+  NOT_LOGIN: 'error.notLogin',
+  ok: 'error.default',
+}
+
+/**
+ * 根据后端返回的错误码 / message 获取本地化错误消息
+ */
+export function getErrorMessage(code?: number, message?: string): string {
+  if (message) {
+    const mappedKey = errorMessageMap[message]
+    if (mappedKey) {
+      return t(mappedKey)
+    }
+    // 若后端直接返回了 i18n key
+    if (te(message)) {
+      return t(message)
+    }
+  }
+  if (code !== undefined && errorCodeMap[code]) {
+    return t(errorCodeMap[code])
+  }
+  return t('error.default')
 }

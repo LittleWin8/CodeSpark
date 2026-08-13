@@ -2,6 +2,7 @@ package top.littlewin.codespark.ai;
 
 import dev.langchain4j.service.SystemMessage;
 import reactor.core.publisher.Flux;
+import top.littlewin.codespark.ai.model.AppNameResult;
 import top.littlewin.codespark.ai.model.HTMLCodeResult;
 import top.littlewin.codespark.ai.model.MultiFileCodeResult;
 
@@ -43,5 +44,12 @@ public interface AICodeGeneratorService {
     @SystemMessage(fromResource = "prompt/codegen-multi-file-system-prompt.txt")
     Flux<String> generateMultiFileCodeStream(String userMessage);
 
+    /**
+     * 生成 App 名称
+     * @param userMessage 用户提示词
+     * @return App 名称
+     */
+    @SystemMessage(fromResource = "prompt/app_namer.md")
+    AppNameResult generateAppName(String userMessage);
 
 }

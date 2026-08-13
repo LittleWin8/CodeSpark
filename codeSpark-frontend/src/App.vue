@@ -4,10 +4,22 @@ import { useLoginUserStore } from '@/stores/loginUser.ts'
 
 const loginUserStore = useLoginUserStore()
 loginUserStore.fetchLoginUser()
+
+// 全局主题：统一品牌色（青绿），与顶部工具栏和谐一致
+const themeConfig = {
+  token: {
+    colorPrimary: '#1f8f7a',
+    colorInfo: '#1f8f7a',
+    colorLink: '#1f8f7a',
+    borderRadius: 8,
+  },
+}
 </script>
 
 <template>
-  <BasicLayout />
+  <a-config-provider :theme="themeConfig">
+    <BasicLayout />
+  </a-config-provider>
 </template>
 
 <style>
