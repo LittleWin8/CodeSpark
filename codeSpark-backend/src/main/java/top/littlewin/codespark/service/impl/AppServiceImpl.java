@@ -9,6 +9,7 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.core.AICodeGeneratorFacade;
@@ -19,14 +20,17 @@ import top.littlewin.codespark.model.dto.app.AppQueryRequest;
 import top.littlewin.codespark.model.entity.App;
 import top.littlewin.codespark.mapper.AppMapper;
 import top.littlewin.codespark.model.entity.User;
+import top.littlewin.codespark.model.enums.ChatHistoryMessageTypeEnum;
 import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 import top.littlewin.codespark.model.vo.AppVO;
 import top.littlewin.codespark.model.vo.UserVO;
 import top.littlewin.codespark.service.AppService;
 import org.springframework.stereotype.Service;
+import top.littlewin.codespark.service.ChatHistoryService;
 import top.littlewin.codespark.service.UserService;
 
 import java.io.File;
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +51,15 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     private UserService userService;
 
     @Resource
+    private ChatHistoryService chatHistoryService;
+
+    @Resource
     private AICodeGeneratorFacade aiCodeGeneratorFacade;
+
+    /**
+     * AI 生成失败时的兜底提示（写入聊天历史，避免空消息）
+     */
+    private static final String GENERATE_FAILED_MESSAGE = "应用生成失败，请重试~";
 
     @Override
     public Flux<String> chatToGenCode(Long appId, String message, User loginUser) {
@@ -66,8 +78,25 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         CodeGenTypeEnum codeGenType = CodeGenTypeEnum.getEnumByValue(app.getCodeGenType());
         ThrowUtils.throwIf(codeGenType == null, ErrorCode.SYSTEM_ERROR, "INVALID_CODE_GEN_TYPE");
 
-        // 5. 调用 AI 生成代码
-        return aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenType, appId);
+        // 5. 保存用户消息
+        chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
+
+        // 6. 调用 AI 生成代码
+        Flux<String> contentStream =  aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenType, appId);
+
+        // 7. 保存 AI 响应结果
+        StringBuilder aiMessageBuilder = new StringBuilder();
+        return contentStream
+                .doOnNext(aiMessageBuilder::append)
+                .doOnComplete(() -> {
+                    String aiMessage = aiMessageBuilder.toString();
+                    if (StrUtil.isBlank(aiMessage)){
+                        aiMessage = GENERATE_FAILED_MESSAGE;
+                    }
+                    // AI 未输出有效内容时，也按失败处理落库一条提示（避免空消息入库）
+                    chatHistoryService.addChatMessage(appId, aiMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                })
+                .doOnError(error -> chatHistoryService.addChatMessage(appId, GENERATE_FAILED_MESSAGE, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId()));
     }
 
     @Override
@@ -125,6 +154,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean deleteAppAndFiles(Long appId) {
         // 1. 查询应用信息（需要 codeGenType 和 deployKey 来定位磁盘目录）
         App app = this.getById(appId);
@@ -159,8 +189,20 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
             log.error("删除应用封面目录失败: {}", coverDir, e);
         }
 
-        // 5. 删除数据库记录
-        return this.removeById(appId);
+        // 5. 删除此应用的对话历史（失败不阻断应用删除，记录日志便于后续清理）
+        try {
+            chatHistoryService.deleteByAppId(appId);
+        } catch (Exception e) {
+            log.error("删除应用对话历史失败: appId={}", appId, e);
+        }
+
+        // 6. 删除数据库记录（关键步骤，失败需抛出让调用方感知）
+        boolean removed = this.removeById(appId);
+        if (!removed) {
+            log.error("删除应用记录失败: appId={}", appId);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "APP_DELETE_FAILED");
+        }
+        return true;
     }
 
 

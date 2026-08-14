@@ -121,3 +121,53 @@ CREATE TRIGGER trigger_app_update_time
     ON app
     FOR EACH ROW
     EXECUTE PROCEDURE update_app_update_time();
+
+-- 3. 对话历史表（chat_history）
+CREATE TABLE IF NOT EXISTS chat_history
+(
+    id           BIGSERIAL PRIMARY KEY,
+    "message"    TEXT         NOT NULL,
+    "messageType" VARCHAR(32) NOT NULL,
+    "appId"      BIGINT       NOT NULL,
+    "userId"     BIGINT       NOT NULL,
+    "createTime" TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updateTime" TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "isDelete"   SMALLINT     NOT NULL DEFAULT 0
+);
+
+-- 提升查询性能的索引
+-- 提升基于应用的查询性能
+CREATE INDEX IF NOT EXISTS idx_chat_appId ON chat_history ("appId");
+-- 提升基于时间的查询性能
+CREATE INDEX IF NOT EXISTS idx_chat_createTime ON chat_history ("createTime");
+-- 游标查询核心索引
+CREATE INDEX IF NOT EXISTS idx_chat_appId_createTime ON chat_history ("appId", "createTime");
+
+COMMENT ON TABLE chat_history IS '对话历史';
+COMMENT ON COLUMN chat_history.id IS 'id';
+COMMENT ON COLUMN chat_history."message" IS '消息';
+COMMENT ON COLUMN chat_history."messageType" IS '消息类型：user/ai';
+COMMENT ON COLUMN chat_history."appId" IS '应用id';
+COMMENT ON COLUMN chat_history."userId" IS '创建用户id';
+COMMENT ON COLUMN chat_history."createTime" IS '创建时间';
+COMMENT ON COLUMN chat_history."updateTime" IS '更新时间';
+COMMENT ON COLUMN chat_history."isDelete" IS '是否删除';
+
+-- 自动更新 updateTime（替代 MySQL 的 ON UPDATE CURRENT_TIMESTAMP）
+CREATE OR REPLACE FUNCTION update_chat_history_update_time()
+    RETURNS TRIGGER AS
+$$
+BEGIN
+    NEW."updateTime" = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_chat_history_update_time ON chat_history;
+CREATE TRIGGER trigger_chat_history_update_time
+    BEFORE UPDATE
+    ON chat_history
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_chat_history_update_time();
+
+
