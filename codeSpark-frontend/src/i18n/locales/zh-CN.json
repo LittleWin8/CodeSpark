@@ -65,7 +65,8 @@
     "about": "关于",
     "blog": "个人博客",
     "userManage": "用户管理",
-    "appManage": "应用管理"
+    "appManage": "应用管理",
+    "chatHistoryManage": "对话管理"
   },
   "home": {
     "title": "主页",
@@ -163,6 +164,7 @@
   "appChat": {
     "appName": "应用名称",
     "aiName": "CodeSpark AI",
+    "back": "返回",
     "nameGenerating": "名称生成中...",
     "deploy": "部署",
     "deployConfirm": "部署后，所有人都可以查看此应用，确定继续吗？",
@@ -180,7 +182,11 @@
     "saved": "已保存",
     "uploadTip": "上传功能即将上线",
     "optimizeTip": "请先输入内容",
-    "filesGenerated": "已生成文件"
+    "filesGenerated": "已生成文件",
+    "loadMore": "加载更多",
+    "historyLoadFailed": "加载对话历史失败",
+    "expand": "展开",
+    "collapse": "收起"
   },
   "appEdit": {
     "title": "编辑应用信息",
@@ -234,6 +240,23 @@
     "unfeature": "取消精选",
     "unfeatureSuccess": "已取消精选",
     "deleteConfirm": "确认删除该应用？"
+  },
+  "chatHistoryManage": {
+    "message": "对话内容",
+    "messagePlaceholder": "输入对话内容",
+    "messageType": "消息类型",
+    "messageTypePlaceholder": "请选择消息类型",
+    "typeUser": "用户消息",
+    "typeAi": "AI 消息",
+    "appId": "应用 ID",
+    "appIdPlaceholder": "输入应用 ID",
+    "userId": "用户 ID",
+    "userIdPlaceholder": "输入用户 ID",
+    "createTime": "创建时间",
+    "action": "操作",
+    "viewChat": "查看对话",
+    "fetchFailed": "获取数据失败",
+    "totalItems": "共 {total} 条"
   },
   "noAuth": {
     "title": "无权限访问",

@@ -1,10 +1,15 @@
 package top.littlewin.codespark.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import top.littlewin.codespark.constant.UserConstant;
 import top.littlewin.codespark.exception.ErrorCode;
@@ -20,12 +25,14 @@ import top.littlewin.codespark.service.ChatHistoryService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 对话历史 服务层实现。
  *
  * @author <a href="https://github.com/LittleWin8">小稳</a>
  */
+@Slf4j
 @Service
 public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatHistory>  implements ChatHistoryService{
 
@@ -82,6 +89,38 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
         return this.page(Page.of(1, pageSize), queryWrapper);
     }
 
+    @Override
+    public int loadChatHistoryToMemory(Long appId, MessageWindowChatMemory chatMemory, int maxCount){
+
+        try {
+            QueryWrapper queryWrapper = QueryWrapper.create()
+                    .eq(ChatHistory::getAppId, appId)
+                    .orderBy(ChatHistory::getCreateTime, false)
+                    .limit(1, maxCount);
+            List<ChatHistory> historyList = this.list(queryWrapper);
+            if (CollUtil.isEmpty(historyList)){
+                return 0;
+            }
+            // 将历史列表按时间排序（旧对话在前，新对话在后）
+            historyList = historyList.reversed();
+
+            int loadCount = 0;
+            chatMemory.clear();
+            for (ChatHistory history: historyList){
+                if (ChatHistoryMessageTypeEnum.USER.getValue().equals(history.getMessageType())){
+                    chatMemory.add(UserMessage.from(history.getMessage()));
+                } else if (ChatHistoryMessageTypeEnum.AI.getValue().equals(history.getMessageType())){
+                    chatMemory.add(AiMessage.from(history.getMessage()));
+                }
+                loadCount++;
+            }
+            log.info("成功为应用：{} 加载 {} 条记忆", appId, loadCount);
+            return loadCount;
+        } catch (Exception e){
+            log.error("应用：{} 加载失败，错误原因：{}", appId, e.getMessage());
+            return 0;
+        }
+    }
 
     @Override
     public QueryWrapper getQueryWrapper(ChatHistoryQueryRequest chatHistoryQueryRequest) {

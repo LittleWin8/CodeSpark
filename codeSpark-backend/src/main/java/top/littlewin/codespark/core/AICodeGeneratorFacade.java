@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import top.littlewin.codespark.ai.AICodeGeneratorService;
+import top.littlewin.codespark.ai.AICodeGeneratorServiceFactory;
 import top.littlewin.codespark.ai.model.HTMLCodeResult;
 import top.littlewin.codespark.ai.model.MultiFileCodeResult;
 import top.littlewin.codespark.core.parser.CodeParserExecutor;
@@ -24,7 +25,7 @@ import java.io.File;
 public class AICodeGeneratorFacade {
 
     @Resource
-    private AICodeGeneratorService aiCodeGeneratorService;
+    private AICodeGeneratorServiceFactory aiCodeGeneratorServiceFactory;
 
     /**
      * 统一入口：根据类型生成并保存代码
@@ -37,6 +38,8 @@ public class AICodeGeneratorFacade {
     public File generateAndSaveCode(String userMessage, CodeGenTypeEnum codeGenType, Long appId){
 
         ThrowUtils.throwIf(codeGenType == null, ErrorCode.PARAMS_ERROR, "生成类型不能为空");
+
+        AICodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAICodeGeneratorService(appId);
 
         return switch (codeGenType){
             case HTML -> {
@@ -65,6 +68,8 @@ public class AICodeGeneratorFacade {
     public Flux<String> generateAndSaveCodeStream(String userMessage, CodeGenTypeEnum codeGenType, Long appId){
 
         ThrowUtils.throwIf(codeGenType == null, ErrorCode.PARAMS_ERROR, "生成类型不能为空");
+
+        AICodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAICodeGeneratorService(appId);
 
         Flux<String> codeStream = switch (codeGenType){
             case HTML -> aiCodeGeneratorService.generateHTMLCodeStream(userMessage);

@@ -3,6 +3,7 @@ package top.littlewin.codespark.service;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import top.littlewin.codespark.model.dto.chathistory.ChatHistoryQueryRequest;
 import top.littlewin.codespark.model.entity.ChatHistory;
 import top.littlewin.codespark.model.entity.User;
@@ -38,7 +39,7 @@ public interface ChatHistoryService extends IService<ChatHistory> {
     /**
      * 翻页查询 App 的对话历史
      *
-     * @param appId App ID
+     * @param appId 应用 ID
      * @param pageSize
      * @param lastCreateTime
      * @param loginUser
@@ -47,6 +48,16 @@ public interface ChatHistoryService extends IService<ChatHistory> {
     Page<ChatHistory> listAppChatHistoryByPage(Long appId, int pageSize,
                                                LocalDateTime lastCreateTime,
                                                User loginUser);
+
+    /**
+     * 将历史对话添加到模型记忆
+     *
+     * @param appId 应用 ID
+     * @param chatMemory 对话记忆
+     * @param maxCount 获取最大记忆数量
+     * @return 加载的到记忆的历史对话条数
+     */
+    int loadChatHistoryToMemory(Long appId, MessageWindowChatMemory chatMemory, int maxCount);
 
     /**
      * 构造查询条件

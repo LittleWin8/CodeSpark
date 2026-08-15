@@ -1,16 +1,31 @@
 spring:
   application:
     name: codeSpark-backend
+  # session 配置
+  session:
+    store-type: redis
+    timeout: 2592000
+  # postgres
   datasource:
     driver-class-name: org.postgresql.Driver
     url: ${DB_URL:jdbc:postgresql://localhost:5432/codespark}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:123456}
+  # redis
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6380}
+      password: ${REDIS_PASSWORD:123456}
+      ttl: 3600
 
 server:
   port: 8080
   servlet:
     context-path: /api
+    session:
+      cookie:
+        max-age: 2592000
 
 # 应用自定义配置
 codespark:
@@ -19,6 +34,11 @@ codespark:
     strength: 10
     # 新建用户的默认密码
     default: ${DEFAULT_PASSWORD:12345678}
+  ai:
+    # App 名称生成使用独立轻量模型，避免与代码生成共用大模型导致响应慢
+    app-name:
+      model-name: ${APP_NAME_MODEL:deepseek-chat}
+      max-tokens: 128
 
 springdoc:
   group-configs:
@@ -38,7 +58,7 @@ langchain4j:
       base-url: ${AI_BASE_URL:https://api.deepseek.com}
       api-key: ${AI_API_KEY:your-api-key-here}
       model-name: deepseek-v4-flash
-      max-tokens: 8192
+      max-tokens: 16384
       strict-json-schema: true
       response-format: json_object
       log-requests: true
@@ -47,6 +67,6 @@ langchain4j:
       base-url: ${AI_BASE_URL:https://api.deepseek.com}
       api-key: ${AI_API_KEY:your-api-key-here}
       model-name: deepseek-v4-flash
-      max-tokens: 8192
+      max-tokens: 16384
       log-requests: true
       log-responses: true

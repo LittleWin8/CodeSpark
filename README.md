@@ -26,8 +26,8 @@ API 文档：`http://localhost:8080/api/doc.html`
 
 ```bash
 cd codeSpark-frontend
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 开发服务器默认：`http://localhost:5173`  
@@ -38,5 +38,5 @@ npm run dev
 后端启动后，在前端目录执行：
 
 ```bash
-npm run openapi2ts
+pnpm openapi2ts
 ```

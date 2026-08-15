@@ -120,7 +120,7 @@ public class AppController {
         app.setUserId(loginUser.getId());
 
         // 先使用截取名称快速落库，避免等待 AI 生成名称阻塞创建请求
-        app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
+        app.setAppName(AppNameGenerator.truncateName(initPrompt));
 
         // 获取生成类型
         String codeGenType = appAddRequest.getCodeGenType();

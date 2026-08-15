@@ -65,7 +65,8 @@
     "about": "About",
     "blog": "Blog",
     "userManage": "User Management",
-    "appManage": "App Management"
+    "appManage": "App Management",
+    "chatHistoryManage": "Chat Management"
   },
   "home": {
     "title": "Home",
@@ -163,6 +164,7 @@
   "appChat": {
     "appName": "App Name",
     "aiName": "CodeSpark AI",
+    "back": "Back",
     "nameGenerating": "Generating name...",
     "deploy": "Deploy",
     "deployConfirm": "After deployment, everyone can view this app. Continue?",
@@ -180,7 +182,11 @@
     "saved": "Saved",
     "uploadTip": "Upload is coming soon",
     "optimizeTip": "Please enter content first",
-    "filesGenerated": "Generated files"
+    "filesGenerated": "Generated files",
+    "loadMore": "Load More",
+    "historyLoadFailed": "Failed to load chat history",
+    "expand": "Expand",
+    "collapse": "Collapse"
   },
   "appEdit": {
     "title": "Edit App",
@@ -234,6 +240,23 @@
     "unfeature": "Unfeature",
     "unfeatureSuccess": "Removed from featured",
     "deleteConfirm": "Delete this app?"
+  },
+  "chatHistoryManage": {
+    "message": "Message",
+    "messagePlaceholder": "Enter message content",
+    "messageType": "Message Type",
+    "messageTypePlaceholder": "Select message type",
+    "typeUser": "User",
+    "typeAi": "AI",
+    "appId": "App ID",
+    "appIdPlaceholder": "Enter app ID",
+    "userId": "User ID",
+    "userIdPlaceholder": "Enter user ID",
+    "createTime": "Create Time",
+    "action": "Action",
+    "viewChat": "View Chat",
+    "fetchFailed": "Failed to fetch data",
+    "totalItems": "{total} items in total"
   },
   "noAuth": {
     "title": "Access Denied",

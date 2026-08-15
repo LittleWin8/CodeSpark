@@ -134,10 +134,8 @@ const createApp = async () => {
   try {
     const res = await addApp({ initPrompt, codeGenType: codeGenType.value })
     if (res.data.code === 0 && res.data.data) {
-      await router.push({
-        path: `/app/chat/${res.data.data}`,
-        query: { init: '1' },
-      })
+      // 对话页会根据「自己的 app 且没有对话历史」自动发送初始消息
+      await router.push(`/app/chat/${res.data.data}`)
     } else {
       message.error(getErrorMessage(res.data.code, res.data.message) || t('home.createFailed'))
     }
@@ -186,11 +184,11 @@ const openMyAppWork = (app: API.AppVO) => {
 // 精选应用预览大卡片
 const previewApp = ref<API.AppVO>()
 const previewVisible = ref(false)
-const previewUrl = computed(() => getPreviewUrl(previewApp.value?.codeGenType, previewApp.value?.id))
-
-const previewAuthor = computed(
-  () => previewApp.value?.user?.userName || t('home.official'),
+const previewUrl = computed(() =>
+  getPreviewUrl(previewApp.value?.codeGenType, previewApp.value?.id),
 )
+
+const previewAuthor = computed(() => previewApp.value?.user?.userName || t('home.official'))
 
 const previewDate = computed(() => {
   if (!previewApp.value?.createTime) {
@@ -526,7 +524,9 @@ onUnmounted(() => {
   border-radius: 999px;
   padding: 8px 16px;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .suggestion-tag:hover {
@@ -617,7 +617,6 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
   }
 }
-
 </style>
 
 <style>

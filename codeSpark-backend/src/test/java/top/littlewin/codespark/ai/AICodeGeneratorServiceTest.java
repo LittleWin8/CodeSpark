@@ -15,17 +15,36 @@ import static org.junit.jupiter.api.Assertions.*;
 class AICodeGeneratorServiceTest {
 
     @Resource
-    private AICodeGeneratorService aiCodeGeneratorService;
+    private AICodeGeneratorServiceFactory aiCodeGeneratorServiceFactory;
 
     @Test
     void generateHTMLCode() {
-        HTMLCodeResult result = aiCodeGeneratorService.generateHTMLCode("写一个CodeSpark AI零代码应用生成平台的宣传页，不超过个50行");
+        AICodeGeneratorService service = aiCodeGeneratorServiceFactory.getAICodeGeneratorService(1L);
+        HTMLCodeResult result = service.generateHTMLCode("写一个CodeSpark AI零代码应用生成平台的宣传页，不超过个50行");
         Assertions.assertNotNull(result);
     }
 
     @Test
     void generateMultiFileCode() {
-        MultiFileCodeResult result = aiCodeGeneratorService.generateMultiFileCode("写一个CodeSpark AI零代码应用生成平台的付款页，不超过个50行");
+        AICodeGeneratorService service = aiCodeGeneratorServiceFactory.getAICodeGeneratorService(1L);
+        MultiFileCodeResult result = service.generateMultiFileCode("写一个CodeSpark AI零代码应用生成平台的付款页，不超过个50行");
         Assertions.assertNotNull(result);
     }
+
+    @Test
+    void testChatMemory() {
+        // 不同 appId 拿到独立记忆的 AI 服务实例
+        AICodeGeneratorService app1 = aiCodeGeneratorServiceFactory.getAICodeGeneratorService(1L);
+        AICodeGeneratorService app2 = aiCodeGeneratorServiceFactory.getAICodeGeneratorService(2L);
+
+        HTMLCodeResult result = app1.generateHTMLCode("随便做个工具网站，总代码量不超过 20 行");
+        Assertions.assertNotNull(result);
+        result = app1.generateHTMLCode("不要生成代码，只需要告诉我你刚刚做了什么？");
+        Assertions.assertNotNull(result);
+        result = app2.generateHTMLCode("随便做个工具网站，总代码量不超过 20 行");
+        Assertions.assertNotNull(result);
+        result = app2.generateHTMLCode("不要生成代码，只需要告诉我你刚刚做了什么？");
+        Assertions.assertNotNull(result);
+    }
+
 }

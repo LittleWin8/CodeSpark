@@ -3,11 +3,13 @@
 // API 唯一标识：
 import * as userController from './userController'
 import * as fileController from './fileController'
+import * as chatHistoryController from './chatHistoryController'
 import * as appController from './appController'
 import * as staticResourceController from './staticResourceController'
 export default {
   userController,
   fileController,
+  chatHistoryController,
   appController,
   staticResourceController,
 }

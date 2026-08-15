@@ -46,7 +46,9 @@
               </a-dropdown>
             </div>
             <div v-else>
-              <a-button class="login-btn" type="primary" href="/user/login">{{ t('common.login') }}</a-button>
+              <a-button class="login-btn" type="primary" href="/user/login">{{
+                t('common.login')
+              }}</a-button>
             </div>
           </div>
         </a-space>
@@ -60,7 +62,13 @@ import { computed, h, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { MenuProps } from 'ant-design-vue'
-import { AppstoreOutlined, HomeOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons-vue'
+import {
+  AppstoreOutlined,
+  HomeOutlined,
+  LogoutOutlined,
+  MessageOutlined,
+  UserOutlined,
+} from '@ant-design/icons-vue'
 import { getErrorMessage } from '@/utils/errorMessage'
 import LanguageSwitcher from './LanguageSwitcher.vue'
 import { message } from 'ant-design-vue'
@@ -128,6 +136,13 @@ const originItems = computed<MenuItem[]>(() => [
     icon: () => h(AppstoreOutlined),
     label: t('nav.appManage'),
     title: t('nav.appManage'),
+    access: ACCESS_ENUM.ADMIN,
+  },
+  {
+    key: '/admin/chatHistoryManage',
+    icon: () => h(MessageOutlined),
+    label: t('nav.chatHistoryManage'),
+    title: t('nav.chatHistoryManage'),
     access: ACCESS_ENUM.ADMIN,
   },
 ])
