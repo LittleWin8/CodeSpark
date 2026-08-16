@@ -3,6 +3,7 @@ package top.littlewin.codespark.service;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
 import reactor.core.publisher.Flux;
+import top.littlewin.codespark.model.dto.app.AppAddRequest;
 import top.littlewin.codespark.model.dto.app.AppQueryRequest;
 import top.littlewin.codespark.model.entity.App;
 import top.littlewin.codespark.model.entity.User;
@@ -16,6 +17,23 @@ import java.util.List;
  * @author <a href="https://github.com/LittleWin8">小稳</a>
  */
 public interface AppService extends IService<App> {
+
+    /**
+     * 创建应用（先落库占位名，再异步生成真实名称）
+     *
+     * @param appAddRequest 创建应用请求
+     * @param loginUser     登录用户
+     * @return 应用 ID
+     */
+    Long createApp(AppAddRequest appAddRequest, User loginUser);
+
+    /**
+     * 异步生成并更新应用名称
+     *
+     * @param appId       应用 ID
+     * @param userMessage 用户提示词
+     */
+    void updateAppNameAsync(Long appId, String userMessage);
 
     /**
      * 获取应用封装类

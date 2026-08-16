@@ -18,14 +18,12 @@ import top.littlewin.codespark.common.DeleteRequest;
 import top.littlewin.codespark.common.ResultUtils;
 import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.constant.UserConstant;
-import top.littlewin.codespark.core.AppNameGenerator;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
 import top.littlewin.codespark.exception.ThrowUtils;
 import top.littlewin.codespark.model.dto.app.*;
 import top.littlewin.codespark.model.entity.App;
 import top.littlewin.codespark.model.entity.User;
-import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 import top.littlewin.codespark.model.vo.AppVO;
 import top.littlewin.codespark.service.AppService;
 import top.littlewin.codespark.service.UserService;
@@ -48,9 +46,6 @@ public class AppController {
 
     @Resource
     private UserService userService;
-
-    @Resource
-    private AppNameGenerator appNameGenerator;
 
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
@@ -107,39 +102,11 @@ public class AppController {
     @PostMapping("/add")
     public BaseResponse<Long> addApp(@RequestBody AppAddRequest appAddRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(appAddRequest == null, ErrorCode.PARAMS_ERROR);
-        // 参数校验
-        String initPrompt = appAddRequest.getInitPrompt();
-        ThrowUtils.throwIf(StrUtil.isBlank(initPrompt), ErrorCode.PARAMS_ERROR, "EMPTY_INIT_PROMPT");
-
         // 获取当前登录用户
         User loginUser = userService.getLoginUser(request);
-
-        // 构造入库对象
-        App app = new App();
-        BeanUtil.copyProperties(appAddRequest, app);
-        app.setUserId(loginUser.getId());
-
-        // 先使用截取名称快速落库，避免等待 AI 生成名称阻塞创建请求
-        app.setAppName(AppNameGenerator.truncateName(initPrompt));
-
-        // 获取生成类型
-        String codeGenType = appAddRequest.getCodeGenType();
-
-        // 生成类型为空，则为原生多文件模式
-        if (StrUtil.isBlank(codeGenType)){
-            codeGenType = CodeGenTypeEnum.MULTI_FILE.getValue();
-        }
-        ThrowUtils.throwIf(CodeGenTypeEnum.getEnumByValue(codeGenType) == null, ErrorCode.PARAMS_ERROR, "INVALID_CODE_GEN_TYPE");
-        app.setCodeGenType(codeGenType);
-
-        // 插入数据库
-        boolean result = appService.save(app);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
-
-        // 异步生成应用名称并更新（不阻塞响应，名称生成后前端刷新可见）
-        appNameGenerator.updateAppNameAsync(app.getId(), initPrompt);
-
-        return ResultUtils.success(app.getId());
+        // 创建应用（业务逻辑下沉到 service 层）
+        Long appId = appService.createApp(appAddRequest, loginUser);
+        return ResultUtils.success(appId);
     }
 
     /**

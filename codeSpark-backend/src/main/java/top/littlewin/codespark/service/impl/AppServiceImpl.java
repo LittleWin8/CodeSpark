@@ -9,13 +9,17 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
+import top.littlewin.codespark.ai.AICodeGeneratorService;
 import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.core.AICodeGeneratorFacade;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
 import top.littlewin.codespark.exception.ThrowUtils;
+import top.littlewin.codespark.model.dto.app.AppAddRequest;
 import top.littlewin.codespark.model.dto.app.AppQueryRequest;
 import top.littlewin.codespark.model.entity.App;
 import top.littlewin.codespark.mapper.AppMapper;
@@ -56,10 +60,63 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     @Resource
     private AICodeGeneratorFacade aiCodeGeneratorFacade;
 
+    /** 自注入代理：createApp 内部调用 @Async 方法时，需通过代理走异步线程池 */
+    @Lazy
+    @Resource
+    private AppService self;
+
     /**
      * AI 生成失败时的兜底提示（写入聊天历史，避免空消息）
      */
     private static final String GENERATE_FAILED_MESSAGE = "应用生成失败，请重试~";
+
+    @Override
+    public Long createApp(AppAddRequest appAddRequest, User loginUser) {
+        ThrowUtils.throwIf(appAddRequest == null, ErrorCode.PARAMS_ERROR);
+        String initPrompt = appAddRequest.getInitPrompt();
+        ThrowUtils.throwIf(StrUtil.isBlank(initPrompt), ErrorCode.PARAMS_ERROR, "EMPTY_INIT_PROMPT");
+
+        // 构造入库对象
+        App app = new App();
+        BeanUtil.copyProperties(appAddRequest, app);
+        app.setUserId(loginUser.getId());
+
+        // 先使用截取名称快速落库，避免等待 AI 生成名称阻塞创建请求
+        app.setAppName(this.truncateName(initPrompt));
+
+        // 校验生成类型
+        String codeGenType = appAddRequest.getCodeGenType();
+        ThrowUtils.throwIf(CodeGenTypeEnum.getEnumByValue(codeGenType) == null &&
+                !CodeGenTypeEnum.NAMING.getValue().equals(codeGenType), ErrorCode.PARAMS_ERROR, "INVALID_CODE_GEN_TYPE");
+        app.setCodeGenType(codeGenType);
+
+        // 插入数据库
+        boolean result = this.save(app);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+
+        // 异步生成应用名称并更新（不阻塞响应，名称生成后前端刷新可见）
+        self.updateAppNameAsync(app.getId(), initPrompt);
+
+        return app.getId();
+    }
+
+    /**
+     * 异步生成并更新应用名称（不阻塞创建请求）
+     */
+    @Async
+    @Override
+    public void updateAppNameAsync(Long appId, String userMessage) {
+        try {
+            String name = this.generateAppName(userMessage);
+            App updateApp = new App();
+            updateApp.setId(appId);
+            updateApp.setAppName(name);
+            this.updateById(updateApp);
+            log.info("异步更新应用名称成功: appId={}, appName={}", appId, name);
+        } catch (Exception e) {
+            log.error("异步更新应用名称失败: appId={}", appId, e);
+        }
+    }
 
     @Override
     public Flux<String> chatToGenCode(Long appId, String message, User loginUser) {
@@ -274,5 +331,37 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
             queryWrapper.orderBy(sortField, "ascend".equals(sortOrder));
         }
         return queryWrapper;
+    }
+
+    /**
+     * AI 根据提示词生成 App 名称（失败降级为截取提示词）
+     */
+    private String generateAppName(String userMessage) {
+        if (StrUtil.isBlank(userMessage)) {
+            return "未命名应用";
+        }
+        try {
+
+            String name = aiCodeGeneratorFacade.generateAppName(userMessage, CodeGenTypeEnum.NAMING);
+            if (StrUtil.isNotBlank(name)) {
+                // 去掉首尾空白与可能的引号包裹
+                name = name.trim().replace("\"", "").replace("'", "");
+                return name.length() > 15 ? name.substring(0, 15) : name;
+            }
+            log.warn("AI 生成应用名称为空，降级为截取提示词");
+        } catch (Exception e) {
+            log.error("AI 生成应用名称失败，降级为截取提示词", e);
+        }
+        return truncateName(userMessage);
+    }
+
+    /**
+     * 兜底名称：截取提示词前 15 位（AI 失败或创建时的占位名）
+     */
+    private String truncateName(String prompt) {
+        if (StrUtil.isBlank(prompt)) {
+            return "未命名应用";
+        }
+        return prompt.substring(0, Math.min(prompt.length(), 15));
     }
 }
