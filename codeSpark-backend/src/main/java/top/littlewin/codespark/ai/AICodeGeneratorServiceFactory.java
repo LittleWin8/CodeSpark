@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import top.littlewin.codespark.ai.tools.FileWriteTool;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
@@ -40,6 +41,9 @@ public class AICodeGeneratorServiceFactory {
     private StreamingChatModel streamingChatModel;
 
     // ===== 手动装配：deepseek-chat 模型 =====
+    // @Lazy 延迟注入：namingChatModel 由本工厂的 @Bean 方法提供，
+    // 若普通字段注入会在工厂初始化时要求解析自身 @Bean，形成循环依赖
+    @Lazy
     @Resource
     private ChatModel namingChatModel;
 
@@ -65,6 +69,7 @@ public class AICodeGeneratorServiceFactory {
                 .apiKey(apiKey)
                 .modelName(modelName)
                 .maxTokens(maxTokens)
+                .logRequests(true)
                 .build();
     }
 
@@ -128,8 +133,14 @@ public class AICodeGeneratorServiceFactory {
                     .chatMemory(buildChatMemory(appId))
                     .build();
             // 命名：deepseek-chat，无工具、无记忆
+            // 接口含 @MemoryId 方法（Vue 流式），langchain4j 构建校验要求必须配置 memory；
+            // 命名方法本身不使用 @MemoryId，此 provider 永远不会被调用（纯内存、不落库），仅用于通过校验
             case NAMING -> AiServices.builder(AICodeGeneratorService.class)
                     .chatModel(namingChatModel)
+                    .chatMemoryProvider(memoryId -> MessageWindowChatMemory.builder()
+                            .id(memoryId)
+                            .maxMessages(20)
+                            .build())
                     .build();
             default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型: " + codeGenType);
         };

@@ -10,6 +10,8 @@ export enum CodeGenTypeEnum {
   HTML = 'html',
   /** 原生多文件模式（HTML + CSS + JS） */
   MULTI_FILE = 'multi_file',
+  /** VUE 工程模式（带工具调用） */
+  VUE_PROJECT = 'vue',
 }
 
 /**
@@ -23,6 +25,7 @@ export function useCodeGenType() {
   const options = computed(() => [
     { label: t('appManage.typeHtml'), value: CodeGenTypeEnum.HTML },
     { label: t('appManage.typeMultiFile'), value: CodeGenTypeEnum.MULTI_FILE },
+    { label: t('appManage.typeVue'), value: CodeGenTypeEnum.VUE_PROJECT },
   ])
 
   /** 根据值获取显示标签，未知值返回原值或 '-' */
@@ -30,7 +33,18 @@ export function useCodeGenType() {
     options.value.find((o) => o.value === value)?.label || value || '-'
 
   /** 根据值获取标签颜色 */
-  const color = (value?: string): string => (value === CodeGenTypeEnum.HTML ? 'blue' : 'orange')
+  const color = (value?: string): string => {
+    switch (value) {
+      case CodeGenTypeEnum.HTML:
+        return 'blue'
+      case CodeGenTypeEnum.MULTI_FILE:
+        return 'orange'
+      case CodeGenTypeEnum.VUE_PROJECT:
+        return 'purple'
+      default:
+        return 'default'
+    }
+  }
 
   return { options, label, color }
 }

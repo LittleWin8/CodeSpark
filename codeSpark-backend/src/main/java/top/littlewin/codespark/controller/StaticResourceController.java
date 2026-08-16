@@ -66,6 +66,13 @@ public class StaticResourceController {
 
             // 构建文件路径
             File file = target.toFile();
+            // 目录访问（如 /dist/）：映射到目录下的 index.html，避免把目录当文件流返回（Windows 会抛 AccessDeniedException）
+            if (file.isDirectory()) {
+                file = new File(file, "index.html");
+                if (!file.exists()) {
+                    return ResponseEntity.notFound().build();
+                }
+            }
             // 检查文件是否存在
             if (!file.exists()) {
                 return ResponseEntity.notFound().build();

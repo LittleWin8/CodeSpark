@@ -51,7 +51,13 @@
           />
         </template>
         <template v-else-if="column.dataIndex === 'cover'">
-          <a-image v-if="record.cover" :src="record.cover" :width="64" :height="40" class="cover-image" />
+          <a-image
+            v-if="record.cover"
+            :src="record.cover"
+            :width="64"
+            :height="40"
+            class="cover-image"
+          />
           <span v-else>-</span>
         </template>
         <template v-else-if="column.dataIndex === 'initPrompt'">
@@ -62,7 +68,9 @@
           />
         </template>
         <template v-else-if="column.dataIndex === 'codeGenType'">
-          <a-tag color="blue">{{ codeGenTypeLabel(record.codeGenType) }}</a-tag>
+          <a-tag :color="codeGenTypeColor(record.codeGenType)">{{
+            codeGenTypeLabel(record.codeGenType)
+          }}</a-tag>
         </template>
         <template v-else-if="column.dataIndex === 'priority'">
           <a-tag :color="record.priority === GOOD_APP_PRIORITY ? 'green' : 'default'">
@@ -88,7 +96,11 @@
               :loading="featuringId === record.id"
               @click="doFeature(record)"
             >
-              {{ record.priority === GOOD_APP_PRIORITY ? t('appManage.unfeature') : t('common.feature') }}
+              {{
+                record.priority === GOOD_APP_PRIORITY
+                  ? t('appManage.unfeature')
+                  : t('common.feature')
+              }}
             </a-button>
             <a-popconfirm :title="t('appManage.deleteConfirm')" @confirm="doDelete(record.id)">
               <a-button size="small" type="link" danger :loading="deletingId === record.id">
@@ -167,7 +179,11 @@ import { getErrorMessage } from '@/utils/errorMessage'
 import { formatDateTime } from '@/utils/time'
 
 const { t } = useI18n()
-const { options: codeGenTypeOptions, label: codeGenTypeLabel } = useCodeGenType()
+const {
+  options: codeGenTypeOptions,
+  label: codeGenTypeLabel,
+  color: codeGenTypeColor,
+} = useCodeGenType()
 
 const GOOD_APP_PRIORITY = 99
 
@@ -336,7 +352,9 @@ const doFeature = async (record: API.AppVO) => {
       message.success(t(isFeatured ? 'appManage.unfeatureSuccess' : 'appManage.featureSuccess'))
       await fetchData()
     } else {
-      message.error(getErrorMessage(res.data.code, res.data.message) || t('appManage.featureFailed'))
+      message.error(
+        getErrorMessage(res.data.code, res.data.message) || t('appManage.featureFailed'),
+      )
     }
   } catch {
     message.error(t('appManage.featureFailed'))

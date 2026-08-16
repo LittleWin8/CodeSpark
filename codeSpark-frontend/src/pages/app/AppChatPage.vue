@@ -15,7 +15,7 @@ import {
 } from '@ant-design/icons-vue'
 import { deployApp, getAppVoById } from '@/api/appController'
 import { listAppChatHistory } from '@/api/chatHistoryController'
-import { useCodeGenType } from '@/constants/codeGenType'
+import { CodeGenTypeEnum, useCodeGenType } from '@/constants/codeGenType'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { getErrorMessage } from '@/utils/errorMessage'
 import { renderMarkdown } from '@/utils/markdown'
@@ -82,6 +82,44 @@ const userMessageAvatar = computed(
 )
 
 const previewUrl = computed(() => getPreviewUrl(app.value?.codeGenType, app.value?.id))
+
+// VUE 工程预览：后端在生成完成后异步构建（npm install + build），
+// 需轮询预览地址直到可访问再展示 iframe
+const previewReady = ref(true)
+let previewPollTimer: ReturnType<typeof setInterval> | null = null
+const VUE_PREVIEW_POLL_INTERVAL = 2000
+const VUE_PREVIEW_POLL_MAX = 90 // 最长约 3 分钟
+
+const stopVuePreviewPolling = () => {
+  if (previewPollTimer) {
+    clearInterval(previewPollTimer)
+    previewPollTimer = null
+  }
+}
+
+const pollVuePreviewReady = () => {
+  const url = previewUrl.value
+  if (!url || app.value?.codeGenType !== CodeGenTypeEnum.VUE_PROJECT) {
+    previewReady.value = true
+    return
+  }
+  previewReady.value = false
+  let count = 0
+  previewPollTimer = setInterval(async () => {
+    count++
+    let ok = false
+    try {
+      const res = await fetch(url, { method: 'GET', credentials: 'include' })
+      ok = res.ok
+    } catch {
+      ok = false
+    }
+    if (ok || count >= VUE_PREVIEW_POLL_MAX) {
+      previewReady.value = true
+      stopVuePreviewPolling()
+    }
+  }, VUE_PREVIEW_POLL_INTERVAL)
+}
 
 const scrollToBottom = async () => {
   await nextTick()
@@ -197,6 +235,10 @@ const sendMessage = async (text: string) => {
       scrollToBottom()
       // 生成完成后再同步一次应用信息，确保名称等字段是最新的
       syncApp()
+      // VUE 构建是异步的，轮询预览地址直到可访问
+      if (app.value?.codeGenType === CodeGenTypeEnum.VUE_PROJECT) {
+        pollVuePreviewReady()
+      }
     },
     onError: () => {
       generating.value = false
@@ -422,6 +464,8 @@ const initChat = async () => {
   }
   closeSse()
   stopNamePolling()
+  stopVuePreviewPolling()
+  previewReady.value = true
   messages.value = []
   hasMoreHistory.value = false
   showPreview.value = false
@@ -497,6 +541,7 @@ watch(
 onBeforeUnmount(() => {
   closeSse()
   stopNamePolling()
+  stopVuePreviewPolling()
 })
 </script>
 
@@ -680,14 +725,20 @@ onBeforeUnmount(() => {
         <section class="preview-panel">
           <div class="preview-frame">
             <iframe
-              v-if="showPreview && previewUrl"
+              v-if="showPreview && previewUrl && previewReady"
               :key="previewKey"
               class="preview-iframe"
               :src="previewUrl"
               :title="t('appChat.previewTitle')"
             />
             <div v-else class="preview-empty">
-              {{ generating ? t('appChat.generating') : t('appChat.previewEmpty') }}
+              <template v-if="generating">{{ t('appChat.generating') }}</template>
+              <template
+                v-else-if="app?.codeGenType === CodeGenTypeEnum.VUE_PROJECT && !previewReady"
+              >
+                {{ t('appChat.vueBuilding') }}
+              </template>
+              <template v-else>{{ t('appChat.previewEmpty') }}</template>
             </div>
           </div>
         </section>

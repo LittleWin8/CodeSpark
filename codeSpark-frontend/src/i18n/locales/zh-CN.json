@@ -186,7 +186,8 @@
     "loadMore": "加载更多",
     "historyLoadFailed": "加载对话历史失败",
     "expand": "展开",
-    "collapse": "收起"
+    "collapse": "收起",
+    "vueBuilding": "VUE 工程构建中，构建完成后自动预览"
   },
   "appEdit": {
     "title": "编辑应用信息",
@@ -226,6 +227,7 @@
     "codeGenTypePlaceholder": "请选择生成类型",
     "typeHtml": "原生 HTML 模式",
     "typeMultiFile": "原生多文件模式",
+    "typeVue": "VUE 工程模式",
     "priority": "优先级",
     "userId": "用户 ID",
     "userIdPlaceholder": "输入用户 ID",

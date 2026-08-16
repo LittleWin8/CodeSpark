@@ -186,7 +186,8 @@
     "loadMore": "Load More",
     "historyLoadFailed": "Failed to load chat history",
     "expand": "Expand",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "vueBuilding": "Vue project is building, preview will appear when ready"
   },
   "appEdit": {
     "title": "Edit App",
@@ -226,6 +227,7 @@
     "codeGenTypePlaceholder": "Select code type",
     "typeHtml": "HTML",
     "typeMultiFile": "Multi-file",
+    "typeVue": "Vue Project",
     "priority": "Priority",
     "userId": "User ID",
     "userIdPlaceholder": "Enter user ID",

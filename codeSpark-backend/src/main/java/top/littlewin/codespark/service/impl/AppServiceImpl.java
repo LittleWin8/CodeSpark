@@ -16,6 +16,8 @@ import reactor.core.publisher.Flux;
 import top.littlewin.codespark.ai.AICodeGeneratorService;
 import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.core.AICodeGeneratorFacade;
+import top.littlewin.codespark.core.builder.VueProjectBulider;
+import top.littlewin.codespark.core.handler.StreamHandlerExecutor;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
 import top.littlewin.codespark.exception.ThrowUtils;
@@ -40,6 +42,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -59,6 +63,12 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
 
     @Resource
     private AICodeGeneratorFacade aiCodeGeneratorFacade;
+
+    @Resource
+    private StreamHandlerExecutor streamHandlerExecutor;
+
+    @Resource
+    private VueProjectBulider vueProjectBulider;
 
     /** 自注入代理：createApp 内部调用 @Async 方法时，需通过代理走异步线程池 */
     @Lazy
@@ -84,10 +94,10 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 先使用截取名称快速落库，避免等待 AI 生成名称阻塞创建请求
         app.setAppName(this.truncateName(initPrompt));
 
-        // 校验生成类型
+        // 校验生成类型,NAMING类型不可
         String codeGenType = appAddRequest.getCodeGenType();
         ThrowUtils.throwIf(CodeGenTypeEnum.getEnumByValue(codeGenType) == null &&
-                !CodeGenTypeEnum.NAMING.getValue().equals(codeGenType), ErrorCode.PARAMS_ERROR, "INVALID_CODE_GEN_TYPE");
+                CodeGenTypeEnum.NAMING.getValue().equals(codeGenType), ErrorCode.PARAMS_ERROR, "INVALID_CODE_GEN_TYPE");
         app.setCodeGenType(codeGenType);
 
         // 插入数据库
@@ -142,18 +152,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         Flux<String> contentStream =  aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenType, appId);
 
         // 7. 保存 AI 响应结果
-        StringBuilder aiMessageBuilder = new StringBuilder();
-        return contentStream
-                .doOnNext(aiMessageBuilder::append)
-                .doOnComplete(() -> {
-                    String aiMessage = aiMessageBuilder.toString();
-                    if (StrUtil.isBlank(aiMessage)){
-                        aiMessage = GENERATE_FAILED_MESSAGE;
-                    }
-                    // AI 未输出有效内容时，也按失败处理落库一条提示（避免空消息入库）
-                    chatHistoryService.addChatMessage(appId, aiMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
-                })
-                .doOnError(error -> chatHistoryService.addChatMessage(appId, GENERATE_FAILED_MESSAGE, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId()));
+        return streamHandlerExecutor.doExecute(contentStream, chatHistoryService, appId, loginUser, codeGenType);
     }
 
     @Override
@@ -186,7 +185,23 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         File sourceDir  = new File(sourceDirPath);
         ThrowUtils.throwIf(!sourceDir.exists() || !sourceDir.isDirectory(), ErrorCode.SYSTEM_ERROR, "APP_CODE_NOT_GENERATED");
 
-        // 7. 复制文件到部署目录
+        // 7. 复制文件到部署目录，为保证vue能够顺利部署，需要在构建一遍
+        CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
+        if (codeGenTypeEnum == CodeGenTypeEnum.VUE_PROJECT){
+
+            // Vue 项目构建
+            boolean buildSuccess =vueProjectBulider.buildProject(sourceDirPath);
+            ThrowUtils.throwIf(!buildSuccess, ErrorCode.SYSTEM_ERROR, "Vue 项目构建失败，请重试");
+
+            // 检查 dist目录是否存在
+            File distDir = new File(sourceDirPath, "dist");
+            ThrowUtils.throwIf(!distDir.exists(), ErrorCode.SYSTEM_ERROR, "Vue 项目构建我完成，但是炳文生成 dist 目录");
+
+            // 构建成功，将源目录设置为 dist 目录
+            sourceDir = distDir;
+        }
+
+        // 8. 复制文件到部署目录
         String deployDirPath = AppConstant.CODE_DEPLOY_ROOT_DIR + File.separator + deployKey;
         try {
             FileUtil.copyContent(sourceDir, new File(deployDirPath), true);
@@ -194,7 +209,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "APP_DEPLOY_FAILED");
         }
 
-        // 8. 更新数据库
+        // 9. 更新数据库
         App updateApp = new App();
         updateApp.setId(appId);
         updateApp.setDeployKey(deployKey);
@@ -206,7 +221,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "APP_DEPLOY_UPDATE_FAILED");
         }
 
-        // 9. 返回可访问的 URL
+        // 10. 返回可访问的 URL
         return String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
     }
 
@@ -346,6 +361,16 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
             if (StrUtil.isNotBlank(name)) {
                 // 去掉首尾空白与可能的引号包裹
                 name = name.trim().replace("\"", "").replace("'", "");
+                // 模型可能输出代码片段（如 ```html、<!DOCTYPE html）：尝试提取页面标题作为名称，失败再降级
+                if (isCodeLike(name)) {
+                    String title = extractTitle(name);
+                    if (StrUtil.isNotBlank(title)) {
+                        log.warn("AI 生成应用名称包含代码，改用提取的页面标题: {}", title);
+                        return title.length() > 15 ? title.substring(0, 15) : title;
+                    }
+                    log.warn("AI 生成应用名称包含代码且无法提取标题，降级为截取提示词");
+                    return truncateName(userMessage);
+                }
                 return name.length() > 15 ? name.substring(0, 15) : name;
             }
             log.warn("AI 生成应用名称为空，降级为截取提示词");
@@ -353,6 +378,39 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
             log.error("AI 生成应用名称失败，降级为截取提示词", e);
         }
         return truncateName(userMessage);
+    }
+
+    /**
+     * 判断 AI 输出是否为代码片段（而非应用名称）
+     */
+    private boolean isCodeLike(String name) {
+        String trimmed = name.trim().toLowerCase();
+        return trimmed.startsWith("```")
+                || trimmed.startsWith("<!doctype")
+                || trimmed.startsWith("<html")
+                || trimmed.contains("```html")
+                || trimmed.contains("```css")
+                || trimmed.contains("```js");
+    }
+
+    /** 过滤无意义的通用页面标题 */
+    private static final Pattern TITLE_PATTERN =
+            Pattern.compile("<title[^>]*>(.*?)</title>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Set<String> GENERIC_TITLES = Set.of("vite + vue", "vue", "index", "untitled", "document");
+
+    /**
+     * 从模型输出的 HTML 代码中提取 &lt;title&gt; 作为应用名称（模型输出代码时的兜底）
+     */
+    private String extractTitle(String content) {
+        Matcher matcher = TITLE_PATTERN.matcher(content);
+        if (!matcher.find()) {
+            return null;
+        }
+        String title = matcher.group(1).trim();
+        if (StrUtil.isBlank(title) || GENERIC_TITLES.contains(title.toLowerCase())) {
+            return null;
+        }
+        return title;
     }
 
     /**

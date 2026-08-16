@@ -22,16 +22,23 @@ export function getDeployUrl(deployKey?: string | null): string {
   return `${DEPLOY_BASE_URL}/${deployKey}/`
 }
 
+/** 当前支持静态预览的生成类型 */
+const STATIC_PREVIEW_TYPES = new Set(['html', 'multi_file', 'vue'])
+
 /**
  * 获取生成预览地址
  *
- * @param codeGenType 代码生成类型（html / multi_file）
+ * @param codeGenType 代码生成类型（html / multi_file / vue）
  * @param appId 应用 ID
- * @returns 预览 URL，如 /api/static/{codeGenType}_{appId}/
+ * @returns 预览 URL；不支持预览的类型返回空串。
+ *  VUE 工程是源码，需构建后才有产物，预览指向 dist/index.html（vite base './'，资源为相对路径）
  */
 export function getPreviewUrl(codeGenType?: string | null, appId?: number | string | null): string {
-  if (!codeGenType || !appId) {
+  if (!codeGenType || !appId || !STATIC_PREVIEW_TYPES.has(codeGenType)) {
     return ''
+  }
+  if (codeGenType === 'vue') {
+    return `${PREVIEW_BASE_URL}/vue_${appId}/dist/index.html`
   }
   return `${PREVIEW_BASE_URL}/${codeGenType}_${appId}/`
 }
