@@ -68,5 +68,7 @@ langchain4j:
       api-key: ${AI_API_KEY:your-api-key-here}
       model-name: deepseek-v4-flash
       max-tokens: 16384
+      # 解析 delta.reasoning_content → TokenStream.onPartialThinking 事件，用于前端流式展示模型推理过程
+      return-thinking: true
       log-requests: true
       log-responses: false

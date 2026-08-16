@@ -3,6 +3,7 @@ package top.littlewin.codespark.service;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
 import reactor.core.publisher.Flux;
+import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.model.dto.app.AppAddRequest;
 import top.littlewin.codespark.model.dto.app.AppQueryRequest;
 import top.littlewin.codespark.model.entity.App;
@@ -65,9 +66,9 @@ public interface AppService extends IService<App> {
      * @param appId 应用 ID
      * @param message 用户提示词
      * @param loginUser 登录用户
-     * @return 流式响应结果
+     * @return 流式响应结果（强类型消息：ai_thinking / ai_response / tool_request / tool_executed）
      */
-    Flux<String> chatToGenCode(Long appId, String message, User loginUser);
+    Flux<StreamMessage> chatToGenCode(Long appId, String message, User loginUser);
 
     /**
      * 应用部署

@@ -6,8 +6,10 @@ import { Modal, message } from 'ant-design-vue'
 import {
   ArrowLeftOutlined,
   ArrowUpOutlined,
+  CheckCircleFilled,
   CloudUploadOutlined,
   DownOutlined,
+  LoadingOutlined,
   PaperClipOutlined,
   SettingOutlined,
   ThunderboltOutlined,
@@ -39,7 +41,41 @@ interface ChatMessage {
   history?: boolean
   /** 内容是否被用户手动折叠 */
   collapsed?: boolean
+  /** 模型推理（thinking）流式文本，仅实时生成时存在 */
+  thinking?: string
+  /** 推理是否结束（第一条正文到达即结束） */
+  thinkingDone?: boolean
+  /** 思考面板展开态 */
+  thinkingExpanded?: boolean
+  /** 首片思考到达时间戳（毫秒） */
+  thinkingStart?: number
+  /** 思考总耗时（秒），推理结束时冻结，避免完成后数字继续跳动 */
+  thinkingElapsed?: number
+  /** AI 消息的渲染块（文本块与文件写入卡片按流式顺序排列） */
+  blocks?: MessageBlock[]
+  /** 工具轮之间的"规划下一步"占位状态（模型静默推理 + API 往返期间亮起） */
+  planningNext?: boolean
 }
+
+/** 文本块：AI 正文流 */
+interface TextBlock {
+  type: 'text'
+  text: string
+}
+
+/** 文件写入卡片：由工具事件驱动（writing = 正在写入 / 已写入） */
+interface ToolBlock {
+  type: 'tool'
+  path: string
+  lang?: string
+  content?: string
+  writing: boolean
+  /** 进入"正在写入"态的时间戳（毫秒），用于保证写入态最短可见时长 */
+  writingStart?: number
+  expanded?: boolean
+}
+
+type MessageBlock = TextBlock | ToolBlock
 
 const { t } = useI18n()
 const route = useRoute()
@@ -65,6 +101,33 @@ let eventSource: EventSource | null = null
 const appId = computed(() => String(route.params.id || ''))
 
 const sameId = (a?: string | number, b?: string | number) => String(a ?? '') === String(b ?? '')
+
+/** 思考耗时（秒）：推理结束时冻结（thinkingElapsed），进行中按时间戳实时计算 */
+const thinkingSeconds = (msg: ChatMessage) =>
+  msg.thinkingElapsed ??
+  (msg.thinkingStart ? Math.max(1, Math.round((Date.now() - msg.thinkingStart) / 1000)) : 0)
+
+/** 思考实时读秒（由 nowTick 驱动，思考期间每秒 +1） */
+const liveThinkingSeconds = (msg: ChatMessage) =>
+  msg.thinkingStart ? Math.max(1, Math.round((nowTick.value - msg.thinkingStart) / 1000)) : 0
+
+/** 思考读秒的"当前时刻"：思考期间每秒跳动一次，驱动面板时间实时更新 */
+const nowTick = ref(Date.now())
+let thinkingTimer: ReturnType<typeof setInterval> | null = null
+const startThinkingTimer = () => {
+  if (thinkingTimer) {
+    return
+  }
+  thinkingTimer = setInterval(() => {
+    nowTick.value = Date.now()
+  }, 1000)
+}
+const stopThinkingTimer = () => {
+  if (thinkingTimer) {
+    clearInterval(thinkingTimer)
+    thinkingTimer = null
+  }
+}
 
 const isOwner = computed(() => {
   return Boolean(app.value?.userId && sameId(app.value.userId, loginUserStore.loginUser.id))
@@ -121,30 +184,123 @@ const pollVuePreviewReady = () => {
   }, VUE_PREVIEW_POLL_INTERVAL)
 }
 
-const scrollToBottom = async () => {
-  await nextTick()
+/** 距底部该阈值（px）内视为"在底部"，自动滚动跟随；用户上滑超过阈值则暂停跟随 */
+const STICK_BOTTOM_THRESHOLD = 100
+const stickToBottom = ref(true)
+
+/** 滚动位置变化时更新"是否跟随底部"状态 */
+const handleMessageScroll = () => {
   const el = messageListRef.value
-  if (el) {
-    el.scrollTop = el.scrollHeight
+  if (!el) {
+    return
   }
+  stickToBottom.value =
+    el.scrollHeight - el.scrollTop - el.clientHeight <= STICK_BOTTOM_THRESHOLD
 }
 
-const extractFiles = (content: string): string[] => {
+/**
+ * 滚动到底部
+ * @param force 强制滚动（发送消息、加载历史等需要定位到底的场景）；默认仅在用户停留在底部附近时跟随
+ */
+const scrollToBottom = async (force = false) => {
+  await nextTick()
+  const el = messageListRef.value
+  if (!el) {
+    return
+  }
+  // 用户上滑离开底部后不再自动拉回，避免打断阅读
+  if (!force && !stickToBottom.value) {
+    return
+  }
+  el.scrollTop = el.scrollHeight
+}
+
+/**
+ * 提取真实生成的文件列表（与后端落盘行为对齐）：
+ * - VUE_PROJECT：来自工具事件（FileWriteTool 实际写入的相对路径，渲染为卡片）
+ * - MULTI_FILE：后端 CodeFileSaver 固定保存 index.html / style.css / script.js
+ *   （按代码围栏判定；CSS/JS 内容为空时后端不会落盘，此处保守地只在有对应围栏时列出）
+ * - HTML：后端固定保存 index.html
+ */
+const extractFiles = (msg: ChatMessage): string[] => {
   const files: string[] = []
-  if (/```html/i.test(content)) {
+  for (const block of msg.blocks ?? []) {
+    if (block.type === 'tool' && block.path) {
+      files.push(block.path)
+    }
+  }
+  const text = msgText(msg)
+  if (/```html/i.test(text) || /<!doctype html/i.test(text)) {
     files.push('index.html')
   }
-  if (/```css/i.test(content)) {
+  if (/```css/i.test(text)) {
     files.push('style.css')
   }
-  if (/```(?:js|javascript)/i.test(content)) {
+  if (/```(?:js|javascript)/i.test(text)) {
     files.push('script.js')
   }
-  return files
+  // 去重，保持首次出现顺序
+  return [...new Set(files)]
+}
+
+/** AI 消息的纯文本（全部文本块拼接；无块时回退 content） */
+const msgText = (msg: ChatMessage): string =>
+  msg.blocks
+    ?.filter((block): block is TextBlock => block.type === 'text')
+    .map((block) => block.text)
+    .join('') ?? msg.content
+
+/** 渲染块兜底：无块时把 content 当作单个文本块 */
+const blocksOf = (msg: ChatMessage): MessageBlock[] =>
+  msg.blocks?.length
+    ? msg.blocks
+    : msg.content
+      ? [{ type: 'text', text: msg.content }]
+      : []
+
+/** 文件写入卡片数量（折叠时的摘要提示） */
+const toolCardCount = (msg: ChatMessage): number =>
+  (msg.blocks ?? []).filter((block) => block.type === 'tool').length
+
+/**
+ * 解析历史消息文本为渲染块
+ * 历史持久化格式：正文 + `[工具调用] 写入文件 <path>\n```<lang>\n<content>\n```` 文本块
+ */
+const parseMessageBlocks = (text: string): MessageBlock[] => {
+  if (!text) {
+    return [{ type: 'text', text: '' }]
+  }
+  const blocks: MessageBlock[] = []
+  const toolBlockRe = /\[工具调用\] 写入文件\s+([^\s]+)\n```(\w*)\n([\s\S]*?)```/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = toolBlockRe.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      blocks.push({ type: 'text', text: text.slice(lastIndex, match.index) })
+    }
+    blocks.push({
+      type: 'tool',
+      path: match[1],
+      lang: match[2] || '',
+      content: match[3] || '',
+      writing: false,
+    })
+    lastIndex = match.index + match[0].length
+  }
+  const tail = text.slice(lastIndex)
+  if (tail) {
+    blocks.push({ type: 'text', text: tail })
+  } else if (blocks.length === 0) {
+    blocks.push({ type: 'text', text })
+  }
+  return blocks
 }
 
 // 内容超过该行数才显示收起按钮，收起时展示前 N 行内容
 const FOLD_LINE_COUNT = 10
+
+/** 文件写入卡片的"正在写入"态最短可见时长（ms）：文件写入本身只需几毫秒，太短用户感知不到 */
+const MIN_WRITING_MS = 400
 
 const contentLineCount = (content: string): number => content.split('\n').length
 
@@ -156,20 +312,17 @@ const toggleCollapse = (msg: ChatMessage) => {
 
 /** 内容超过 FOLD_LINE_COUNT 行时提供折叠/展开按钮 */
 const shouldShowFoldBtn = (msg: ChatMessage): boolean =>
-  contentLineCount(msg.content) > FOLD_LINE_COUNT
+  contentLineCount(msgText(msg)) > FOLD_LINE_COUNT
 
 /** 折叠时展示的内容：前 FOLD_LINE_COUNT 行 */
 const foldedContent = (msg: ChatMessage): string =>
-  msg.content.split('\n').slice(0, FOLD_LINE_COUNT).join('\n')
+  msgText(msg)
+    .split('\n')
+    .slice(0, FOLD_LINE_COUNT)
+    .join('\n')
 
-/** AI 消息渲染的 HTML：折叠时渲染前 N 行，展开时渲染全部；内容为空时给占位文案 */
-const aiContentHtml = (msg: ChatMessage): string => {
-  const content = isFolded(msg) ? foldedContent(msg) : msg.content
-  if (content) {
-    return renderMarkdown(content)
-  }
-  return msg.history ? '-' : t('appChat.generating')
-}
+/** 单个文本块渲染的 Markdown HTML（空内容给占位符） */
+const blockHtml = (text: string): string => (text ? renderMarkdown(text) : '-')
 
 const closeSse = () => {
   if (eventSource) {
@@ -203,10 +356,15 @@ const sendMessage = async (text: string) => {
     files: [],
     done: false,
     collapsed: false,
+    thinking: '',
+    thinkingDone: false,
+    thinkingExpanded: true,
+    planningNext: false,
+    blocks: [{ type: 'text', text: '' }],
   }
   messages.value.push(userMsg, aiMsg)
   inputMessage.value = ''
-  await scrollToBottom()
+  await scrollToBottom(true)
 
   const aiIndex = messages.value.length - 1
 
@@ -216,20 +374,111 @@ const sendMessage = async (text: string) => {
       if (!current) {
         return
       }
-      current.content += chunk
-      current.files = extractFiles(current.content)
+      // 正文追加到最后一个文本块（若上一个是工具卡片则新建文本块，保持顺序）
+      const blocks = (current.blocks ??= [])
+      const last = blocks[blocks.length - 1]
+      if (!last || last.type !== 'text') {
+        blocks.push({ type: 'text', text: chunk })
+      } else {
+        last.text += chunk
+      }
+      current.content = msgText(current)
+      // 第一条正文到达 = 推理结束：冻结思考耗时，自动收起思考面板
+      if (!current.thinkingDone) {
+        current.thinkingElapsed = thinkingSeconds(current)
+      }
+      current.thinkingDone = true
+      current.thinkingExpanded = false
+      current.planningNext = false
+      current.files = extractFiles(current)
+      scrollToBottom()
+    },
+    onThinking: (chunk) => {
+      const current = messages.value[aiIndex]
+      if (!current) {
+        return
+      }
+      current.thinking = (current.thinking ?? '') + chunk
+      current.thinkingStart = current.thinkingStart ?? Date.now()
+      current.planningNext = false
+      startThinkingTimer() // 思考期间每秒跳动，驱动面板实时读秒
+      // 正文未到时跟随思考滚动，让用户看到"正在思考"的状态
+      if (!current.content) {
+        scrollToBottom()
+      }
+    },
+    onToolRequest: (payload) => {
+      const current = messages.value[aiIndex]
+      if (!current || !payload.path) {
+        return
+      }
+      const blocks = (current.blocks ??= [])
+      // 连续重复的写入请求（同一路径）不重复建卡
+      const last = blocks[blocks.length - 1]
+      if (last && last.type === 'tool' && last.writing && last.path === payload.path) {
+        return
+      }
+      blocks.push({
+        type: 'tool',
+        path: payload.path,
+        writing: true,
+        writingStart: Date.now(),
+      })
+      current.planningNext = false
+      scrollToBottom()
+    },
+    onToolExecuted: (payload) => {
+      const current = messages.value[aiIndex]
+      if (!current || !payload.path) {
+        return
+      }
+      const blocks = (current.blocks ??= [])
+      // 找到最后一个同路径的"写入中"卡片；没有则新建（tool_request 可能因时序太快未被感知到）
+      let card = [...blocks]
+        .reverse()
+        .find((b) => b.type === 'tool' && b.writing && b.path === payload.path)
+      if (!card || card.type !== 'tool') {
+        card = { type: 'tool', path: payload.path, writing: true, writingStart: Date.now() }
+        blocks.push(card)
+      }
+      card.lang = payload.lang
+      card.content = payload.content
+      // 保证"正在写入"状态有最小可见时长（文件写入通常只需几毫秒，一闪而过用户感知不到）
+      const wait = Math.max(0, MIN_WRITING_MS - (Date.now() - (card.writingStart ?? Date.now())))
+      setTimeout(() => {
+        if (card && card.type === 'tool' && card.writing) {
+          card.writing = false
+        }
+      }, wait)
+      // 工具执行完成 → 新一轮 API 请求开始前的间隔（模型静默规划 + 网络往返），亮起占位提示
+      current.planningNext = true
+      current.files = extractFiles(current)
       scrollToBottom()
     },
     onDone: () => {
       const current = messages.value[aiIndex]
       if (current) {
         current.done = true
+        current.thinkingDone = true
+        current.thinkingElapsed = current.thinkingElapsed ?? thinkingSeconds(current)
+        // 兜底：未完成的写入卡片全部置为完成态
+        for (const block of current.blocks ?? []) {
+          if (block.type === 'tool' && block.writing) {
+            block.writing = false
+          }
+        }
+        current.content = msgText(current)
         if (!current.content) {
           current.content = t('appChat.aiThinking')
+          current.blocks = [{ type: 'text', text: current.content }]
         }
-        current.files = extractFiles(current.content)
+        current.files = extractFiles(current)
       }
       generating.value = false
+      stopThinkingTimer()
+      if (current) {
+        current.planningNext = false
+      }
       showPreview.value = true
       previewKey.value += 1
       scrollToBottom()
@@ -242,10 +491,14 @@ const sendMessage = async (text: string) => {
     },
     onError: () => {
       generating.value = false
+      stopThinkingTimer()
       const current = messages.value[aiIndex]
-      if (current && !current.content) {
-        current.content = t('appChat.sendFailed')
-        current.done = true
+      if (current) {
+        current.planningNext = false
+        if (!current.content) {
+          current.content = t('appChat.sendFailed')
+          current.done = true
+        }
       }
       message.error(t('appChat.sendFailed'))
     },
@@ -356,18 +609,26 @@ const syncApp = async () => {
 /**
  * 后端对话历史记录 → 页面消息
  */
-const toChatMessage = (record: API.ChatHistory): ChatMessage => ({
-  id: `history-${record.id ?? ''}`,
-  role: record.messageType === 'ai' ? 'ai' : 'user',
-  content: record.message ?? '',
-  files: record.messageType === 'ai' ? extractFiles(record.message ?? '') : undefined,
-  done: true,
-  createTime: record.createTime,
-  history: true,
-  // 超过 10 行的用户历史消息默认折叠
-  collapsed:
-    record.messageType === 'user' && contentLineCount(record.message ?? '') > FOLD_LINE_COUNT,
-})
+const toChatMessage = (record: API.ChatHistory): ChatMessage => {
+  const isAi = record.messageType === 'ai'
+  const text = record.message ?? ''
+  const msg: ChatMessage = {
+    id: `history-${record.id ?? ''}`,
+    role: isAi ? 'ai' : 'user',
+    content: text,
+    done: true,
+    createTime: record.createTime,
+    history: true,
+    // 超过 10 行的用户历史消息默认折叠
+    collapsed: !isAi && contentLineCount(text) > FOLD_LINE_COUNT,
+  }
+  if (isAi) {
+    // 历史文本解析为渲染块：正文 + 文件写入卡片
+    msg.blocks = parseMessageBlocks(text)
+    msg.files = extractFiles(msg)
+  }
+  return msg
+}
 
 /**
  * 加载第一页对话历史（最近 10 条）
@@ -391,7 +652,7 @@ const loadHistory = async (): Promise<boolean> => {
       messages.value = [...records].reverse().map(toChatMessage)
       // 总数超过已加载条数时，说明还有更早的历史
       hasMoreHistory.value = (res.data.data.totalRow ?? 0) > records.length
-      await scrollToBottom()
+      await scrollToBottom(true)
       return true
     }
     message.error(
@@ -542,6 +803,7 @@ onBeforeUnmount(() => {
   closeSse()
   stopNamePolling()
   stopVuePreviewPolling()
+  stopThinkingTimer()
 })
 </script>
 
@@ -594,7 +856,7 @@ onBeforeUnmount(() => {
               {{ t('appChat.loadMore') }}
             </a-button>
           </div>
-          <div ref="messageListRef" class="message-list">
+          <div ref="messageListRef" class="message-list" @scroll="handleMessageScroll">
             <div
               v-for="msg in messages"
               :key="msg.id"
@@ -623,21 +885,82 @@ onBeforeUnmount(() => {
                   {{ msg.role === 'ai' ? t('appChat.aiName') : userMessageName }}
                 </div>
                 <div class="message-bubble" :class="msg.role === 'user' ? 'is-user' : 'is-ai'">
-                  <!-- AI 消息：折叠展示前 10 行 / 生成中纯文本 / 完成后 Markdown 渲染（代码高亮） -->
-                  <div
-                    v-if="msg.role === 'ai' && isFolded(msg) && !msg.done"
-                    class="message-content"
-                  >
-                    {{ foldedContent(msg) }}
+                  <!-- 深度思考面板：推理中实时展示，正文到达后自动收起为"已深度思考 N 秒"，点击可展开回顾 -->
+                  <div v-if="msg.role === 'ai' && msg.thinking" class="thinking-panel-wrap">
+                    <div
+                      class="thinking-panel"
+                      :class="{ 'thinking-panel--done': msg.thinkingDone }"
+                      @click="msg.thinkingExpanded = !msg.thinkingExpanded"
+                    >
+                      <ThunderboltOutlined class="thinking-panel__icon" />
+                      <span v-if="!msg.thinkingDone" class="thinking-panel__title">
+                        {{ t('appChat.thinkingLive', { sec: liveThinkingSeconds(msg) }) }}
+                      </span>
+                      <span v-else class="thinking-panel__done-text">
+                        {{ t('appChat.thinkingElapsed', { sec: thinkingSeconds(msg) }) }}
+                      </span>
+                      <DownOutlined v-if="!msg.thinkingExpanded" class="thinking-panel__arrow" />
+                      <UpOutlined v-else class="thinking-panel__arrow" />
+                    </div>
+                    <div v-if="msg.thinkingExpanded" class="thinking-panel__body">
+                      {{ msg.thinking }}
+                    </div>
                   </div>
-                  <div v-else-if="msg.role === 'ai' && !msg.done" class="message-content">
-                    {{ msg.content || t('appChat.generating') }}
-                  </div>
-                  <div
-                    v-else-if="msg.role === 'ai'"
-                    class="message-content message-content--md"
-                    v-html="aiContentHtml(msg)"
-                  ></div>
+                  <!-- AI 消息：按块渲染（文本 + 文件写入卡片）；折叠时只展示前 N 行文本与文件摘要 -->
+                  <template v-if="msg.role === 'ai'">
+                    <template v-if="isFolded(msg)">
+                      <div class="message-content">{{ foldedContent(msg) }}</div>
+                      <div v-if="toolCardCount(msg)" class="message-fold-hint">
+                        {{ t('appChat.filesGenerated') }}（{{ toolCardCount(msg) }}）
+                      </div>
+                    </template>
+                    <template v-else>
+                      <template v-for="(block, bi) in blocksOf(msg)" :key="bi">
+                        <div
+                          v-if="block.type === 'text'"
+                          class="message-content message-content--md"
+                        >
+                          <!-- 流式与完成态统一走 Markdown 渲染：代码块随分片实时生长，避免"全部生成后才渲染"的割裂感 -->
+                          <span v-if="block.text" v-html="blockHtml(block.text)"></span>
+                          <template v-else>{{ bi === 0 ? t('appChat.generating') : '' }}</template>
+                        </div>
+                        <div v-else class="tool-card">
+                          <div class="tool-card__head">
+                            <LoadingOutlined
+                              v-if="block.writing"
+                              spin
+                              class="tool-card__icon tool-card__icon--writing"
+                            />
+                            <CheckCircleFilled v-else class="tool-card__icon tool-card__icon--done" />
+                            <span class="tool-card__path">{{ block.path }}</span>
+                            <span
+                              class="tool-card__status"
+                              :class="block.writing ? 'is-writing' : 'is-done'"
+                            >
+                              {{ block.writing ? t('appChat.writingFile') : t('appChat.wroteFile') }}
+                            </span>
+                            <a-button
+                              v-if="!block.writing && block.content"
+                              type="link"
+                              size="small"
+                              class="tool-card__toggle"
+                              @click="block.expanded = !block.expanded"
+                            >
+                              {{ block.expanded ? t('appChat.collapse') : t('appChat.viewCode') }}
+                            </a-button>
+                          </div>
+                          <pre v-if="!block.writing && block.expanded" class="tool-card__code"><code>{{
+                            block.content
+                          }}</code></pre>
+                        </div>
+                      </template>
+                      <!-- 工具轮之间的间隔占位：模型静默规划下一步 + API 往返期间亮起 -->
+                      <div v-if="msg.planningNext && !msg.done" class="planning-indicator">
+                        <LoadingOutlined spin class="planning-indicator__icon" />
+                        <span>{{ t('appChat.planningNext') }}</span>
+                      </div>
+                    </template>
+                  </template>
                   <!-- 用户消息：折叠时展示前 10 行 -->
                   <div v-else class="message-content">
                     {{ isFolded(msg) ? foldedContent(msg) : msg.content }}
@@ -695,6 +1018,18 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
+          <!-- 用户上滑阅读时，显示"回到底部"悬浮按钮；点击强制回到最新内容 -->
+          <a-button
+            v-if="!stickToBottom"
+            class="scroll-to-bottom"
+            shape="circle"
+            size="small"
+            :title="t('appChat.backToBottom')"
+            @click="scrollToBottom(true)"
+          >
+            <template #icon><DownOutlined /></template>
+          </a-button>
+
           <div v-if="canChat" class="chat-input">
             <a-textarea
               v-model:value="inputMessage"
@@ -732,12 +1067,30 @@ onBeforeUnmount(() => {
               :title="t('appChat.previewTitle')"
             />
             <div v-else class="preview-empty">
-              <template v-if="generating">{{ t('appChat.generating') }}</template>
-              <template
-                v-else-if="app?.codeGenType === CodeGenTypeEnum.VUE_PROJECT && !previewReady"
+              <!-- 生成中 / 构建中：骨架屏加载动画，缓解等待期的单调感 -->
+              <div
+                v-if="
+                  generating || (app?.codeGenType === CodeGenTypeEnum.VUE_PROJECT && !previewReady)
+                "
+                class="preview-loading"
               >
-                {{ t('appChat.vueBuilding') }}
-              </template>
+                <div class="preview-loading__browser">
+                  <div class="preview-loading__bar">
+                    <i></i><i></i><i></i>
+                  </div>
+                  <div class="skeleton skeleton--line skeleton--w45"></div>
+                  <div class="skeleton skeleton--line skeleton--w80"></div>
+                  <div class="skeleton skeleton--line skeleton--w65"></div>
+                  <div class="skeleton skeleton--line skeleton--w90"></div>
+                  <div class="skeleton skeleton--line skeleton--w40"></div>
+                </div>
+                <div class="preview-loading__text">
+                  <LoadingOutlined spin class="preview-loading__icon" />
+                  <span>
+                    {{ generating ? t('appChat.generating') : t('appChat.vueBuilding') }}
+                  </span>
+                </div>
+              </div>
               <template v-else>{{ t('appChat.previewEmpty') }}</template>
             </div>
           </div>
@@ -832,12 +1185,24 @@ onBeforeUnmount(() => {
 }
 
 .chat-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
   border-right: 1px solid #ececec;
   background: #fafafa;
+}
+
+/* 回到底部悬浮按钮：用户上滑离开底部时出现 */
+.scroll-to-bottom {
+  position: absolute;
+  right: 18px;
+  bottom: 88px;
+  z-index: 10;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  border-color: #e5e6eb;
 }
 
 .history-more {
@@ -966,6 +1331,158 @@ onBeforeUnmount(() => {
 .message-bubble.is-ai {
   background: #fff;
   border: 1px solid #ececec;
+}
+
+/* 深度思考面板：推理过程展示（置灰、紧凑，与正文视觉分离） */
+.thinking-panel-wrap {
+  margin-bottom: 10px;
+}
+
+.thinking-panel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 5px 10px;
+  border-radius: 10px;
+  background: #f4f5f7;
+  color: #8a919f;
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+  user-select: none;
+}
+
+.thinking-panel--done {
+  background: transparent;
+  border: 1px dashed #e5e6eb;
+}
+
+.thinking-panel__icon {
+  font-size: 13px;
+  color: #a8abb2;
+}
+
+.thinking-panel__title {
+  font-weight: 500;
+}
+
+.thinking-panel__done-text {
+  color: #9aa0a6;
+}
+
+.thinking-panel__arrow {
+  font-size: 10px;
+  color: #b0b3b8;
+}
+
+.thinking-panel__body {
+  margin-top: 6px;
+  padding: 10px 12px;
+  max-height: 240px;
+  overflow-y: auto;
+  border-radius: 10px;
+  background: #f7f8fa;
+  color: #8a919f;
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Courier New', monospace;
+}
+
+/* 文件写入卡片：正在写入 / 已写入状态 */
+.tool-card {
+  margin: 8px 0;
+  border: 1px solid #e8eaed;
+  border-radius: 10px;
+  background: #fafbfc;
+  overflow: hidden;
+}
+
+.tool-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+}
+
+.tool-card__icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.tool-card__icon--writing {
+  color: #1677ff;
+}
+
+.tool-card__icon--done {
+  color: #52c41a;
+}
+
+.tool-card__path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: #3c3f45;
+}
+
+.tool-card__status {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.tool-card__status.is-writing {
+  color: #8a919f;
+}
+
+.tool-card__status.is-done {
+  color: #52c41a;
+}
+
+.tool-card__toggle {
+  padding: 0;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.tool-card__code {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 260px;
+  overflow: auto;
+  background: #fff;
+  border-top: 1px solid #f0f1f3;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.message-fold-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #8a919f;
+}
+
+/* 工具轮间隔占位：模型静默规划/API 往返期间的轻量状态提示 */
+.planning-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #9aa0a6;
+}
+
+.planning-indicator__icon {
+  font-size: 13px;
+  color: #a8abb2;
 }
 
 .file-list {
@@ -1152,6 +1669,8 @@ onBeforeUnmount(() => {
   height: 100%;
   border: none;
   background: #fff;
+  /* 渲染完成后淡入，避免生硬闪现 */
+  animation: preview-fade-in 0.45s ease;
 }
 
 .preview-empty {
@@ -1162,6 +1681,109 @@ onBeforeUnmount(() => {
   color: #8c8c8c;
   padding: 24px;
   text-align: center;
+}
+
+/* 预览加载动画：浏览器窗口骨架屏 + 流光效果 */
+.preview-loading {
+  width: min(80%, 360px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.preview-loading__browser {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #e8eaed;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.preview-loading__bar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.preview-loading__bar i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e3e5e8;
+}
+
+.preview-loading__bar i:nth-child(1) {
+  background: #ffb3ab;
+}
+.preview-loading__bar i:nth-child(2) {
+  background: #ffe08a;
+}
+.preview-loading__bar i:nth-child(3) {
+  background: #b7e4c7;
+}
+
+.skeleton {
+  height: 12px;
+  margin-bottom: 9px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #eef0f3 25%, #f8f9fa 37%, #eef0f3 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+
+.skeleton--line {
+  height: 12px;
+}
+
+.skeleton--w40 {
+  width: 40%;
+}
+.skeleton--w45 {
+  width: 45%;
+}
+.skeleton--w65 {
+  width: 65%;
+}
+.skeleton--w80 {
+  width: 80%;
+}
+.skeleton--w90 {
+  width: 90%;
+}
+
+.preview-loading__text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #8a919f;
+}
+
+.preview-loading__icon {
+  font-size: 16px;
+  color: #a8abb2;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+@keyframes preview-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 960px) {

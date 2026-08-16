@@ -2,7 +2,6 @@ package top.littlewin.codespark.controller;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.json.JSONUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import jakarta.annotation.Resource;
@@ -12,12 +11,14 @@ import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.annotation.AuthCheck;
 import top.littlewin.codespark.common.BaseResponse;
 import top.littlewin.codespark.common.DeleteRequest;
 import top.littlewin.codespark.common.ResultUtils;
 import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.constant.UserConstant;
+import top.littlewin.codespark.core.stream.StreamSseMapper;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
 import top.littlewin.codespark.exception.ThrowUtils;
@@ -30,7 +31,7 @@ import top.littlewin.codespark.service.UserService;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 
 /**
  * 应用表 控制层。
@@ -47,6 +48,9 @@ public class AppController {
     @Resource
     private UserService userService;
 
+    @Resource
+    private StreamSseMapper streamSseMapper;
+
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
                                       @RequestParam String message,
@@ -59,16 +63,11 @@ public class AppController {
         // 2. 获取当前登录用户
         User loginUser = userService.getLoginUser(request);
 
-        // 3. 返回流式的封装结果
-        Flux<String> contentFlux =  appService.chatToGenCode(appId, message, loginUser);
+        // 3. 强类型消息流 → SSE 命名事件（thinking / tool_request / tool_executed / message / done）
+        Flux<StreamMessage> contentFlux =  appService.chatToGenCode(appId, message, loginUser);
         return contentFlux
-                .map(chunk->{
-                    Map<String, String> wapper = Map.of("d", chunk);
-                    String jsonData = JSONUtil.toJsonStr(wapper);
-                    return ServerSentEvent.<String>builder()
-                            .data(jsonData)
-                            .build();
-                })
+                .map(streamSseMapper::toServerSentEvent)
+                .filter(Objects::nonNull)
                 .concatWith(Mono.just(
                         // 发送结束标志
                         ServerSentEvent.<String>builder()

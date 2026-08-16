@@ -13,11 +13,11 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
-import top.littlewin.codespark.ai.AICodeGeneratorService;
+import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.core.AICodeGeneratorFacade;
 import top.littlewin.codespark.core.builder.VueProjectBulider;
-import top.littlewin.codespark.core.handler.StreamHandlerExecutor;
+import top.littlewin.codespark.core.handler.StreamMessageHandler;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
 import top.littlewin.codespark.exception.ThrowUtils;
@@ -65,7 +65,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     private AICodeGeneratorFacade aiCodeGeneratorFacade;
 
     @Resource
-    private StreamHandlerExecutor streamHandlerExecutor;
+    private StreamMessageHandler streamMessageHandler;
 
     @Resource
     private VueProjectBulider vueProjectBulider;
@@ -129,7 +129,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     }
 
     @Override
-    public Flux<String> chatToGenCode(Long appId, String message, User loginUser) {
+    public Flux<StreamMessage> chatToGenCode(Long appId, String message, User loginUser) {
         // 1.参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "INVALID_APP_ID");
         ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "EMPTY_CHAT_MESSAGE");
@@ -149,10 +149,10 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
 
         // 6. 调用 AI 生成代码
-        Flux<String> contentStream =  aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenType, appId);
+        Flux<StreamMessage> contentStream =  aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenType, appId);
 
-        // 7. 保存 AI 响应结果
-        return streamHandlerExecutor.doExecute(contentStream, chatHistoryService, appId, loginUser, codeGenType);
+        // 7. 渲染展示文本 + 保存 AI 响应结果
+        return streamMessageHandler.handle(contentStream, appId, loginUser, codeGenType);
     }
 
     @Override

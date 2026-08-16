@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @EqualsAndHashCode(callSuper = true)
 @Data
 @NoArgsConstructor
-public class AiResponseMessage extends StreamMessage {
+public class AiResponseMessage extends StreamMessage implements DisplayTextMessage {
 
     private String data;
 
