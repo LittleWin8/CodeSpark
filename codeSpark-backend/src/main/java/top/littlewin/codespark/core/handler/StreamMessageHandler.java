@@ -14,11 +14,8 @@ import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.ai.model.message.StreamMessageTypeEnum;
 import top.littlewin.codespark.ai.model.message.ToolExecutedMessage;
 import top.littlewin.codespark.ai.model.message.ToolRequestMessage;
-import top.littlewin.codespark.constant.AppConstant;
-import top.littlewin.codespark.core.builder.VueProjectBulider;
 import top.littlewin.codespark.model.entity.User;
 import top.littlewin.codespark.model.enums.ChatHistoryMessageTypeEnum;
-import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 import top.littlewin.codespark.service.ChatHistoryService;
 
 /**
@@ -32,6 +29,9 @@ import top.littlewin.codespark.service.ChatHistoryService;
  *    与既有历史数据兼容，前端按同一格式解析渲染。
  * <p>
  * 历史累积 = ai_response 文本 + tool_executed 文本块（tool_request 不进历史）。
+ * <p>
+ * 流完成后的生成物动作（HTML/MULTI 解析落盘、VUE 异步构建）由
+ * {@link top.littlewin.codespark.core.AICodeGeneratorFacade} 触发，本类不感知生成模式。
  */
 @Slf4j
 @Component
@@ -40,20 +40,16 @@ public class StreamMessageHandler {
     @Resource
     private ChatHistoryService chatHistoryService;
 
-    @Resource
-    private VueProjectBulider vueProjectBulider;
-
     /**
      * 处理强类型事件流
      *
      * @param eventStream 原始事件流（TokenStreamMessageEmitter 产出）
      * @param appId       应用 ID
      * @param loginUser   登录用户
-     * @param codeGenType 代码生成类型
      * @return 展示事件流（ai_thinking 保持原类型；工具事件保持原类型；其余携带展示文本）
      */
     public Flux<StreamMessage> handle(Flux<StreamMessage> eventStream,
-                                      long appId, User loginUser, CodeGenTypeEnum codeGenType) {
+                                      long appId, User loginUser) {
         // 收集数据用于生成后端记忆格式（不含 thinking）
         StringBuilder chatHistoryStringBuilder = new StringBuilder();
         return eventStream
@@ -66,11 +62,6 @@ public class StreamMessageHandler {
                     // 流式响应完成后，添加 AI 消息到对话历史
                     String aiResponse = chatHistoryStringBuilder.toString();
                     chatHistoryService.addChatMessage(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
-                    // Vue 工程：流完成后异步构建（npm install + build）
-                    if (codeGenType == CodeGenTypeEnum.VUE_PROJECT) {
-                        String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR + "/vue_" + appId;
-                        vueProjectBulider.buildProjectAsync(projectPath);
-                    }
                 })
                 .doOnError(error -> {
                     // 如果AI回复失败，也要记录错误消息

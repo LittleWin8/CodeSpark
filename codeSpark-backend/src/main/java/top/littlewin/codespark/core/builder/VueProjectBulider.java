@@ -20,12 +20,26 @@ public class VueProjectBulider {
      * @param projectPath 项目路径
      */
     public void buildProjectAsync(String projectPath){
+        buildProjectAsync(projectPath, null);
+    }
+
+    /**
+     * 异步构建 Vue 项目，构建成功（dist 生成）后回调 onBuildSuccess
+     *
+     * @param projectPath    项目路径
+     * @param onBuildSuccess 构建成功回调（可为 null），用于在成功后触发后续动作（如生成封面截图）
+     */
+    public void buildProjectAsync(String projectPath, Runnable onBuildSuccess){
         Thread.ofVirtual().name("vue-builder-" + System.currentTimeMillis())
                 .start(() -> {
+                    boolean success = false;
                     try {
-                        buildProject(projectPath);
+                        success = buildProject(projectPath);
                     } catch (Exception e){
                         log.error("异步构建 Vue 项目时发生异常：{}", e.getMessage(), e);
+                    }
+                    if (success && onBuildSuccess != null) {
+                        onBuildSuccess.run();
                     }
                 });
     }

@@ -80,6 +80,14 @@ public interface AppService extends IService<App> {
     String deployApp(Long appId, User loginUser);
 
     /**
+     * 异步生成应用截图并更新封面（HTML/MULTI 在流完成落盘后触发；VUE 在构建成功回调中触发）
+     *
+     * @param appId  应用 ID
+     * @param appUrl 应用访问 URL（预览地址）
+     */
+    void generateAppScreenshotAsync(Long appId, String appUrl);
+
+    /**
      * 删除应用及磁盘文件
      */
     boolean deleteAppAndFiles(Long appId);

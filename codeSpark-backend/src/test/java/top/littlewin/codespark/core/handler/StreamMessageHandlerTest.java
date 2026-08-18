@@ -14,10 +14,8 @@ import top.littlewin.codespark.ai.model.message.DisplayTextMessage;
 import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.ai.model.message.ToolExecutedMessage;
 import top.littlewin.codespark.ai.model.message.ToolRequestMessage;
-import top.littlewin.codespark.core.builder.VueProjectBulider;
 import top.littlewin.codespark.model.entity.User;
 import top.littlewin.codespark.model.enums.ChatHistoryMessageTypeEnum;
-import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 import top.littlewin.codespark.service.ChatHistoryService;
 
 import java.util.List;
@@ -28,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -36,18 +33,16 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 /**
  * StreamMessageHandler 单元测试
- * 验证：thinking 透传不进历史、正文累积、工具去重与格式化、VUE 完成构建、错误落历史。
+ * 验证：thinking 透传不进历史、正文累积、工具去重与格式化、错误落历史。
  */
 class StreamMessageHandlerTest {
 
     private final ChatHistoryService chatHistoryService = mock(ChatHistoryService.class);
-    private final VueProjectBulider vueProjectBulider = mock(VueProjectBulider.class);
     private final StreamMessageHandler handler = new StreamMessageHandler();
 
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(handler, "chatHistoryService", chatHistoryService);
-        ReflectionTestUtils.setField(handler, "vueProjectBulider", vueProjectBulider);
     }
 
     private User buildUser() {
@@ -70,7 +65,7 @@ class StreamMessageHandlerTest {
                 Flux.just(
                         new AiThinkingMessage("分析页面结构"),
                         new AiResponseMessage("正文内容")),
-                1L, buildUser(), CodeGenTypeEnum.HTML);
+                1L, buildUser());
 
         List<StreamMessage> messages = result.collectList().block();
         assertNotNull(messages);
@@ -84,7 +79,6 @@ class StreamMessageHandlerTest {
         verify(chatHistoryService).addChatMessage(eq(1L), captor.capture(),
                 eq(ChatHistoryMessageTypeEnum.AI.getValue()), eq(2L));
         assertEquals("正文内容", captor.getValue()); // thinking 不进历史
-        verifyNoInteractions(vueProjectBulider);    // 非 VUE 模式不触发构建
     }
 
     @Test
@@ -101,7 +95,7 @@ class StreamMessageHandlerTest {
                                 .invocationContext(mock(InvocationContext.class))
                                 .build()),
                         new AiResponseMessage("收尾文本")),
-                1L, buildUser(), CodeGenTypeEnum.VUE_PROJECT);
+                1L, buildUser());
 
         List<StreamMessage> messages = result.collectList().block();
         assertNotNull(messages);
@@ -119,14 +113,13 @@ class StreamMessageHandlerTest {
         assertTrue(history.contains("[工具调用] 写入文件 src/App.vue"), "工具执行块进历史");
         assertTrue(history.contains("收尾文本"), "正文进历史");
         assertFalse(history.contains("[选择工具]"), "工具请求不进历史");
-        verify(vueProjectBulider).buildProjectAsync(anyString());
     }
 
     @Test
     void handle_writesFailureMessageOnError() {
         assertThrows(RuntimeException.class, () ->
                 handler.handle(Flux.error(new RuntimeException("boom")),
-                                1L, buildUser(), CodeGenTypeEnum.HTML)
+                                1L, buildUser())
                         .blockLast());
 
         verify(chatHistoryService).addChatMessage(eq(1L), eq("AI回复失败: boom"),

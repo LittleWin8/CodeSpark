@@ -21,6 +21,7 @@ import top.littlewin.codespark.core.handler.StreamMessageHandler;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
 import top.littlewin.codespark.exception.ThrowUtils;
+import top.littlewin.codespark.manager.OssManager;
 import top.littlewin.codespark.model.dto.app.AppAddRequest;
 import top.littlewin.codespark.model.dto.app.AppQueryRequest;
 import top.littlewin.codespark.model.entity.App;
@@ -33,7 +34,9 @@ import top.littlewin.codespark.model.vo.UserVO;
 import top.littlewin.codespark.service.AppService;
 import org.springframework.stereotype.Service;
 import top.littlewin.codespark.service.ChatHistoryService;
+import top.littlewin.codespark.service.ScreenshotService;
 import top.littlewin.codespark.service.UserService;
+import top.littlewin.codespark.utils.AppUrlUtil;
 
 import java.io.File;
 import java.io.Serializable;
@@ -70,6 +73,12 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     @Resource
     private VueProjectBulider vueProjectBulider;
 
+    @Resource
+    private ScreenshotService screenshotService;
+
+    @Resource
+    private OssManager ossManager;
+
     /** 自注入代理：createApp 内部调用 @Async 方法时，需通过代理走异步线程池 */
     @Lazy
     @Resource
@@ -79,6 +88,25 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
      * AI 生成失败时的兜底提示（写入聊天历史，避免空消息）
      */
     private static final String GENERATE_FAILED_MESSAGE = "应用生成失败，请重试~";
+
+    /** 封面存储标识前缀：oss: + 对象 key，表示该封面存 OSS，输出层需动态签名 */
+    private static final String OSS_COVER_PREFIX = "oss:";
+
+    /**
+     * 解析封面为前端可访问的 URL：
+     * - oss: 标识 → 用 OssManager 生成当前有效的预签名 URL（私有桶可访问、永不过期）；
+     * - 本地 URL（/api/file/cover/...）→ 原样返回；
+     * - 空/签名失败 → 返回 null（前端自动落到占位符兜底）。
+     */
+    private String resolveCoverUrl(String cover) {
+        if (StrUtil.isBlank(cover)) {
+            return null;
+        }
+        if (cover.startsWith(OSS_COVER_PREFIX)) {
+            return ossManager.buildPresignedUrl(cover.substring(OSS_COVER_PREFIX.length()));
+        }
+        return cover;
+    }
 
     @Override
     public Long createApp(AppAddRequest appAddRequest, User loginUser) {
@@ -151,8 +179,16 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 6. 调用 AI 生成代码
         Flux<StreamMessage> contentStream =  aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenType, appId);
 
-        // 7. 渲染展示文本 + 保存 AI 响应结果
-        return streamMessageHandler.handle(contentStream, appId, loginUser, codeGenType);
+        // 7. 渲染展示文本 + 保存 AI 响应结果（生成物落盘/构建已由 Facade 在流完成时触发）
+        Flux<StreamMessage> handledStream = streamMessageHandler.handle(contentStream, appId, loginUser);
+
+        // 8. 非 VUE 模式：流完成后（文件已落盘）异步截图设为应用封面；
+        //    VUE 需等构建完成（dist 生成），由 Facade 的构建成功回调触发
+        if (codeGenType != CodeGenTypeEnum.VUE_PROJECT) {
+            handledStream = handledStream.doOnComplete(() ->
+                    generateAppScreenshotAsync(appId, AppUrlUtil.buildPreviewUrl(codeGenType, appId)));
+        }
+        return handledStream;
     }
 
     @Override
@@ -226,6 +262,30 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     }
 
     @Override
+    public void generateAppScreenshotAsync(Long appId, String appUrl) {
+        // 使用虚拟线程异步执行，不阻塞 SSE 响应流；任何失败只记日志，不影响主流程
+        Thread.startVirtualThread(() -> {
+            try {
+                // 调用截图服务生成截图并保存（优先 OSS，失败本地回退），返回稳定标识或本地 URL
+                String screenshotUrl = screenshotService.generateAndUploadScreenshot(appUrl, appId);
+                if (StrUtil.isBlank(screenshotUrl)) {
+                    log.error("应用封面截图上传结果为空，跳过更新: appId={}, appUrl={}", appId, appUrl);
+                    return;
+                }
+                // 更新应用封面字段
+                App updateApp = new App();
+                updateApp.setId(appId);
+                updateApp.setCover(screenshotUrl);
+                boolean updated = this.updateById(updateApp);
+                ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, "更新应用封面字段失败");
+                log.info("应用封面截图更新成功: appId={}, url={}", appId, screenshotUrl);
+            } catch (Exception e) {
+                log.error("应用封面截图失败: appId={}, appUrl={}", appId, appUrl, e);
+            }
+        });
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteAppAndFiles(Long appId) {
         // 1. 查询应用信息（需要 codeGenType 和 deployKey 来定位磁盘目录）
@@ -285,6 +345,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         }
         AppVO appVO = new AppVO();
         BeanUtil.copyProperties(app, appVO);
+        // 封面动态解析：OSS 标识→现场签名（私有桶可访问且永不过期）；本地 URL 原样返回
+        appVO.setCover(resolveCoverUrl(appVO.getCover()));
         // 关联查询用户信息
         Long userId = app.getUserId();
         if (userId != null) {
@@ -309,6 +371,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         return appList.stream().map(app -> {
             AppVO appVO = new AppVO();
             BeanUtil.copyProperties(app, appVO);
+            // 封面动态解析：OSS 标识→现场签名；本地 URL 原样返回
+            appVO.setCover(resolveCoverUrl(appVO.getCover()));
             UserVO userVO = userVOMap.get(app.getUserId());
             appVO.setUser(userVO);
             return appVO;

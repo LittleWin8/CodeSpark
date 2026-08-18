@@ -920,8 +920,15 @@ onBeforeUnmount(() => {
                           v-if="block.type === 'text'"
                           class="message-content message-content--md"
                         >
-                          <!-- 流式与完成态统一走 Markdown 渲染：代码块随分片实时生长，避免"全部生成后才渲染"的割裂感 -->
-                          <span v-if="block.text" v-html="blockHtml(block.text)"></span>
+                          <!--
+                            流式期间渲染纯文本（Vue 插值自动转义），避免每个分片都对整段代码重复做
+                            markdown 解析 + highlight.js 高亮（非 VUE 模式的大段代码会导致 O(n²) 卡顿）；
+                            done 后统一做一次完整 Markdown 渲染。
+                          -->
+                          <template v-if="block.text">
+                            <span v-if="msg.done" class="msg-rendered" v-html="blockHtml(block.text)"></span>
+                            <span v-else class="message-stream">{{ block.text }}</span>
+                          </template>
                           <template v-else>{{ bi === 0 ? t('appChat.generating') : '' }}</template>
                         </div>
                         <div v-else class="tool-card">
@@ -1536,6 +1543,26 @@ onBeforeUnmount(() => {
 /* Markdown 渲染内容（AI 输出） */
 .message-content--md {
   white-space: normal;
+}
+
+/* 流式期间的纯文本渲染：保留换行与空白，避免每个分片重跑 Markdown/高亮导致卡顿 */
+.message-stream {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 生成完成后由纯文本切换到 Markdown 渲染时，做一次淡入过渡，避免"突然变脸" */
+.msg-rendered {
+  animation: msg-render-in 0.3s ease;
+}
+
+@keyframes msg-render-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .message-content--md :deep(p) {
