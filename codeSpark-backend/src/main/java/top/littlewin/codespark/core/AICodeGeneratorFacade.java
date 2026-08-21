@@ -1,8 +1,8 @@
 package top.littlewin.codespark.core;
 
 import jakarta.annotation.Resource;
+
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import top.littlewin.codespark.ai.AICodeGeneratorService;
@@ -16,10 +16,9 @@ import top.littlewin.codespark.core.saver.CodeFileSaverExecutor;
 import top.littlewin.codespark.core.stream.TokenStreamMessageEmitter;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
+import top.littlewin.codespark.exception.ErrorMessage;
 import top.littlewin.codespark.exception.ThrowUtils;
 import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
-import top.littlewin.codespark.service.AppService;
-import top.littlewin.codespark.utils.AppUrlUtil;
 
 import java.io.File;
 
@@ -39,10 +38,6 @@ public class AICodeGeneratorFacade {
     @Resource
     private VueProjectBulider vueProjectBulider;
 
-    @Lazy
-    @Resource
-    private AppService appService;
-
 
     /**
      * 根据 App 的初始提示词生成应用名称
@@ -52,7 +47,7 @@ public class AICodeGeneratorFacade {
      */
     public String generateAppName(String userMessage, CodeGenTypeEnum codeGenType){
 
-        ThrowUtils.throwIf(codeGenType != CodeGenTypeEnum.NAMING, ErrorCode.PARAMS_ERROR, "只有命名功能才可以调用方法");
+        ThrowUtils.throwIf(codeGenType != CodeGenTypeEnum.NAMING, ErrorCode.PARAMS_ERROR, ErrorMessage.ONLY_NAMING_ALLOWED);
 
         AICodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAICodeGeneratorService(0, codeGenType);
 
@@ -73,7 +68,7 @@ public class AICodeGeneratorFacade {
      */
     public Flux<StreamMessage> generateAndSaveCodeStream(String userMessage, CodeGenTypeEnum codeGenType, Long appId){
 
-        ThrowUtils.throwIf(codeGenType == null, ErrorCode.PARAMS_ERROR, "生成类型不能为空");
+        ThrowUtils.throwIf(codeGenType == null, ErrorCode.PARAMS_ERROR, ErrorMessage.CODE_GEN_TYPE_REQUIRED);
 
         AICodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAICodeGeneratorService(appId, codeGenType);
 
@@ -84,10 +79,7 @@ public class AICodeGeneratorFacade {
                     aiCodeGeneratorService.generateMultiFileCodeStream(userMessage));
             case VUE_PROJECT -> tokenStreamMessageEmitter.emit(
                     aiCodeGeneratorService.generateVueProjectCodeStream(appId, userMessage));
-            default -> {
-                String errorMessage = "不支持生成类型：" + codeGenType.getValue();
-                throw new BusinessException(ErrorCode.SYSTEM_ERROR, errorMessage);
-            }
+            default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, ErrorMessage.UNSUPPORTED_CODE_GEN_TYPE);
         };
 
         // 流完成后的生成物动作统一在此编排（HTML/MULTI 解析落盘；VUE 异步构建）
@@ -110,19 +102,17 @@ public class AICodeGeneratorFacade {
         return switch (codeGenType) {
             case VUE_PROJECT -> attachVueBuild(eventStream, appId);
             case HTML, MULTI_FILE -> attachParseAndSave(eventStream, codeGenType, appId);
-            default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的生成类型：" + codeGenType.getValue());
+            default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, ErrorMessage.UNSUPPORTED_CODE_GEN_TYPE);
         };
     }
 
     /**
-     * VUE 模式：落盘由文件写入工具实时完成，流完成后只需异步构建（npm install + build），产出 dist 供预览/部署
+     * VUE 模式：落盘由文件写入工具实时完成，流完成后只需异步构建（npm install + build），产出 dist 供部署
      */
     private Flux<StreamMessage> attachVueBuild(Flux<StreamMessage> eventStream, Long appId) {
         return eventStream.doOnComplete(() -> {
             String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + "vue_" + appId;
-            // 构建成功后异步截图设为应用封面（dist 已生成，静态资源可访问）
-            vueProjectBulider.buildProjectAsync(projectPath, () ->
-                    appService.generateAppScreenshotAsync(appId, AppUrlUtil.buildPreviewUrl(CodeGenTypeEnum.VUE_PROJECT, appId)));
+            vueProjectBulider.buildProjectAsync(projectPath);
         });
     }
 

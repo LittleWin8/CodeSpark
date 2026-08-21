@@ -1,9 +1,9 @@
 package top.littlewin.codespark.config;
 
+import cn.hutool.core.util.StrUtil;
 import com.aliyun.sdk.service.oss2.OSSClient;
 import com.aliyun.sdk.service.oss2.OSSClientBuilder;
 import com.aliyun.sdk.service.oss2.credentials.StaticCredentialsProvider;
-import cn.hutool.core.util.StrUtil;
 import jakarta.annotation.PostConstruct;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +23,7 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "aliyun.oss")
 public class OssClientConfig {
 
+    /** 总开关：是否启用阿里云 OSS */
     private Boolean enabled;
 
     private String region;
@@ -38,11 +39,17 @@ public class OssClientConfig {
     private Long presignExpireSeconds;
 
     /**
-     * 构建 OSS 客户端
+     * 构建 OSS 客户端：开关未开启或 AK 未配置时返回 null（原因由 logOssStatus 启动时统一输出）
      */
     @Bean
-    @ConditionalOnProperty(prefix = "aliyun.oss", name = "enabled", havingValue = "true", matchIfMissing = true)
     public OSSClient buildOssClient() {
+
+        if (!isAvailable()){
+            return null;
+        }
+
+        log.info("初始化阿里云 OSS V2 客户端：region={}, bucket={}", region, bucketName);
+
         OSSClientBuilder builder = OSSClient.newBuilder()
                 .credentialsProvider(new StaticCredentialsProvider(accessKeyId, accessKeySecret))
                 .region(region)
@@ -51,6 +58,16 @@ public class OssClientConfig {
                 // 设置应用读写数据的超时时间, 默认值 20秒
                 .readWriteTimeout(Duration.ofSeconds(30));
         return builder.build();
+    }
+
+    /**
+     * OSS 客户端是否可用
+     * @return
+     */
+    public boolean isAvailable() {
+        return Boolean.TRUE.equals(enabled)
+                && StrUtil.isNotBlank(accessKeyId)
+                && StrUtil.isNotBlank(accessKeySecret);
     }
 
     /**

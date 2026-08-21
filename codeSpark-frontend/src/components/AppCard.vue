@@ -1,9 +1,15 @@
 <template>
   <div class="app-card" @click="emit('click')">
     <div class="app-card__cover">
-      <!-- 有封面：显示封面；无封面：picsum 兜底；加载失败：占位符 -->
+      <!-- 有封面：StorageImg 自动处理存储标识解析与预签名过期重试（403 兜底）；无封面：picsum 兜底；加载失败：占位符 -->
+      <StorageImg
+        v-if="props.app.cover"
+        :src="props.app.cover"
+        :alt="app.appName"
+        class="app-card__cover-img"
+      />
       <img
-        v-if="coverSrc && !coverError"
+        v-else-if="coverSrc && !coverError"
         :src="coverSrc"
         :alt="app.appName"
         @error="coverError = true"
@@ -67,6 +73,7 @@ import { useI18n } from 'vue-i18n'
 import { EyeOutlined, MessageOutlined } from '@ant-design/icons-vue'
 import { useCodeGenType } from '@/constants/codeGenType'
 import { formatRelativeTime } from '@/utils/time'
+import StorageImg from './StorageImg.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -90,14 +97,11 @@ const { label: codeGenTypeLabel, color: codeGenTypeColor } = useCodeGenType()
 
 const isDeployed = computed(() => Boolean(props.app.deployKey))
 
-// 封面图片加载失败时回退占位符
+// 封面图片加载失败时回退占位符（仅 picsum 兜底图用；真实封面由 StorageImg 组件自行处理 403 重试）
 const coverError = ref(false)
 
-// 封面：优先用户上传的 cover；无 cover 用 picsum（按应用名生成稳定图）
+// 无封面时的 picsum 兜底图（按应用名生成稳定图）
 const coverSrc = computed(() => {
-  if (props.app.cover) {
-    return props.app.cover
-  }
   const seed = encodeURIComponent(props.app.appName || 'app')
   return `https://picsum.photos/seed/${seed}/400/300`
 })
@@ -176,6 +180,11 @@ const handlePreview = (e: MouseEvent) => {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.app-card__cover-img {
+  width: 100%;
+  height: 100%;
 }
 
 .app-card__cover-placeholder {

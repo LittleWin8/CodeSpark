@@ -4,6 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import top.littlewin.codespark.ai.model.HTMLCodeResult;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
+import top.littlewin.codespark.exception.ErrorMessage;
 import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 
 /**
@@ -25,7 +26,7 @@ public class HTMLCodeFileSaverTemplate extends CodeFileSaverTemplate<HTMLCodeRes
     protected void validateInput(HTMLCodeResult result) {
         super.validateInput(result);
         if (StrUtil.isBlank(result.getHtmlCode())){
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "HTML 代码不能为空");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, ErrorMessage.CODE_CONTENT_EMPTY);
         }
     }
 

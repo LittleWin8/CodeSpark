@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Lazy;
 import top.littlewin.codespark.ai.tools.FileWriteTool;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
+import top.littlewin.codespark.exception.ErrorMessage;
 import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 import top.littlewin.codespark.service.ChatHistoryService;
 
@@ -142,7 +143,7 @@ public class AICodeGeneratorServiceFactory {
                             .maxMessages(20)
                             .build())
                     .build();
-            default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型: " + codeGenType);
+            default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, ErrorMessage.UNSUPPORTED_CODE_GEN_TYPE);
         };
     }
 

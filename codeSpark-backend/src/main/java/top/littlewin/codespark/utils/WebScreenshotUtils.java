@@ -17,6 +17,7 @@ import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
+import top.littlewin.codespark.exception.ErrorMessage;
 
 import java.io.File;
 import java.time.Duration;
@@ -122,7 +123,7 @@ public class WebScreenshotUtils {
             return driver;
         } catch (Exception e) {
             log.error("初始化 Chrome 浏览器失败", e);
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "初始化 Chrome 浏览器失败");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, ErrorMessage.CHROME_INIT_FAILED);
         }
     }
 
@@ -134,7 +135,7 @@ public class WebScreenshotUtils {
             FileUtil.writeBytes(imageBytes, imagePath);
         } catch (Exception e) {
             log.error("保存图片失败: {}", imagePath, e);
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "保存图片失败");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, ErrorMessage.IMAGE_SAVE_FAILED);
         }
     }
 
@@ -152,7 +153,7 @@ public class WebScreenshotUtils {
             );
         } catch (Exception e) {
             log.error("压缩图片失败: {} -> {}", originalImagePath, compressedImagePath, e);
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "压缩图片失败");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, ErrorMessage.IMAGE_COMPRESS_FAILED);
         }
     }
 

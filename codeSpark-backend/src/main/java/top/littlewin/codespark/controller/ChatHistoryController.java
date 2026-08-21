@@ -1,8 +1,9 @@
 package top.littlewin.codespark.controller;
 
+import jakarta.annotation.Resource;
+
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
-import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 import top.littlewin.codespark.annotation.AuthCheck;

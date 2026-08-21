@@ -4,7 +4,6 @@ import { useI18n } from 'vue-i18n'
 import { message, Upload } from 'ant-design-vue'
 import {
   CameraOutlined,
-  CloudUploadOutlined,
   CopyOutlined,
   CrownOutlined,
   EditOutlined,
@@ -17,6 +16,7 @@ import { useLoginUserStore } from '@/stores/loginUser'
 import { getErrorMessage } from '@/utils/errorMessage'
 import { formatDateTime } from '@/utils/time'
 import { uploadAvatar } from '@/utils/upload'
+import { resolveFileUrl } from '@/utils/storage'
 
 const { t } = useI18n()
 const loginUserStore = useLoginUserStore()
@@ -26,13 +26,18 @@ const avatarUploading = ref(false)
 
 const formState = reactive({
   userName: '',
+  // 头像展示值（上传后为解析后的 URL，供预览）
   userAvatar: '',
+  // 头像存储标识（oss: / local:）：提交入库用，与展示 URL 分离
+  userAvatarKey: '',
   userProfile: '',
 })
 
 onMounted(() => {
   formState.userName = loginUserStore.loginUser.userName || ''
+  // 回显：userAvatar 为解析后的 URL（展示），userAvatarKey 为原始存储标识（提交），兼容无 key 的存量数据
   formState.userAvatar = loginUserStore.loginUser.userAvatar || ''
+  formState.userAvatarKey = loginUserStore.loginUser.userAvatarKey || ''
   formState.userProfile = loginUserStore.loginUser.userProfile || ''
 })
 
@@ -43,15 +48,21 @@ const roleLabel = computed(() =>
 const roleTagColor = computed(() => (loginUserStore.loginUser.userRole === 'admin' ? 'green' : 'blue'))
 
 /**
- * 上传头像：调后端 /file/upload/avatar，成功后回填 URL
+ * 上传头像：上传即生效（后端直接更新头像字段），成功后刷新全局用户信息并提示
  */
 const handleAvatarUpload = async (options: UploadRequestOption) => {
   avatarUploading.value = true
   try {
     const res = await uploadAvatar(options.file as File)
     if (res.data.code === 0 && res.data.data) {
-      formState.userAvatar = res.data.data
-      message.success(t('profile.avatarUploadSuccess'))
+      // 上传返回存储标识：提交用标识、预览用解析后的 URL（避免 oss:/local: 标识直接当图片 src 裂图）
+      const storageKey = res.data.data
+      const url = await resolveFileUrl(storageKey)
+      formState.userAvatarKey = storageKey
+      formState.userAvatar = url || storageKey
+      // 后端已更新头像，刷新全局登录用户信息（顶栏等即时生效）
+      await loginUserStore.fetchLoginUser()
+      message.success(t('profile.avatarUpdateSuccess'))
     } else {
       message.error(getErrorMessage(res.data.code, res.data.message) || t('profile.saveFailed'))
     }
@@ -90,7 +101,8 @@ const handleSubmit = async () => {
   try {
     const res = await updateMyUser({
       userName: formState.userName.trim(),
-      userAvatar: formState.userAvatar,
+      // 优先提交存储标识（后端原样入库）；无标识（手填 URL/存量数据）时提交展示值，后端按外链转存处理
+      userAvatar: formState.userAvatarKey || formState.userAvatar,
       userProfile: formState.userProfile.trim(),
     })
     if (res.data.code === 0) {
@@ -198,25 +210,6 @@ const handleSubmit = async () => {
             <span class="card-title"><EditOutlined /> {{ t('profile.editTitle') }}</span>
           </template>
           <a-form :model="formState" layout="vertical" @finish="handleSubmit">
-            <a-form-item :label="t('profile.avatarUrl')" name="userAvatar">
-              <div class="avatar-url-row">
-                <a-input
-                  v-model:value="formState.userAvatar"
-                  :placeholder="t('profile.avatarUrlPlaceholder')"
-                  class="avatar-url-input"
-                />
-                <Upload
-                  :show-upload-list="false"
-                  :custom-request="handleAvatarUpload"
-                  accept="image/*"
-                >
-                  <a-button class="avatar-upload-btn">
-                    <template #icon><CloudUploadOutlined /></template>
-                    {{ t('profile.uploadAvatar') }}
-                  </a-button>
-                </Upload>
-              </div>
-            </a-form-item>
             <a-form-item :label="t('profile.userName')" name="userName">
               <a-input v-model:value="formState.userName" :maxlength="20" show-count />
             </a-form-item>

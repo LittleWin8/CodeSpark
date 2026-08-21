@@ -1,5 +1,7 @@
 package top.littlewin.codespark.service.impl;
 
+import jakarta.annotation.Resource;
+
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.paginate.Page;
@@ -8,11 +10,11 @@ import com.mybatisflex.spring.service.impl.ServiceImpl;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import top.littlewin.codespark.constant.UserConstant;
 import top.littlewin.codespark.exception.ErrorCode;
+import top.littlewin.codespark.exception.ErrorMessage;
 import top.littlewin.codespark.exception.ThrowUtils;
 import top.littlewin.codespark.model.dto.chathistory.ChatHistoryQueryRequest;
 import top.littlewin.codespark.model.entity.App;
@@ -43,10 +45,10 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
     @Override
     public boolean addChatMessage(Long appId, String message, String messageType, Long userId) {
         // 1. 参数校验
-        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "INVALID_APP_ID");
-        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "EMPTY_CHAT_MESSAGE");
-        ThrowUtils.throwIf(StrUtil.isBlank(messageType) || ChatHistoryMessageTypeEnum.getEnumByValue(messageType) == null, ErrorCode.PARAMS_ERROR, "INVALID_MESSAGE_TYPE");
-        ThrowUtils.throwIf(userId == null || userId <= 0, ErrorCode.PARAMS_ERROR, "INVALID_USER_ID");
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_APP_ID);
+        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, ErrorMessage.EMPTY_CHAT_MESSAGE);
+        ThrowUtils.throwIf(StrUtil.isBlank(messageType) || ChatHistoryMessageTypeEnum.getEnumByValue(messageType) == null, ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_MESSAGE_TYPE);
+        ThrowUtils.throwIf(userId == null || userId <= 0, ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_USER_ID);
 
         // 2. 构造并保存聊天记录（createTime/updateTime 由数据库默认值与触发器自动维护）
         ChatHistory chatHistory = ChatHistory.builder()
@@ -61,7 +63,7 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
 
     @Override
     public boolean deleteByAppId(Long appId) {
-        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "INVALID_APP_ID");
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_APP_ID);
         QueryWrapper queryWrapper = QueryWrapper.create()
                 .where(ChatHistory::getAppId).eq(appId);
         return this.remove(queryWrapper);
@@ -71,12 +73,12 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
     public Page<ChatHistory> listAppChatHistoryByPage(Long appId, int pageSize,
                                                       LocalDateTime lastCreateTime,
                                                       User loginUser) {
-        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "INVALID_APP_ID");
-        ThrowUtils.throwIf(pageSize <= 0 || pageSize > 50, ErrorCode.PARAMS_ERROR, "INVALID_PAGE_SIZE");
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_APP_ID);
+        ThrowUtils.throwIf(pageSize <= 0 || pageSize > 50, ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_PAGE_SIZE);
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
         // 验证权限：只有应用创建者和管理员可以查看
         App app = appService.getById(appId);
-        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "APP_NOT_FOUND");
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, ErrorMessage.APP_NOT_FOUND);
         boolean isAdmin = UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole());
         boolean isCreator = app.getUserId().equals(loginUser.getId());
         ThrowUtils.throwIf(!isAdmin && !isCreator, ErrorCode.NO_AUTH_ERROR);

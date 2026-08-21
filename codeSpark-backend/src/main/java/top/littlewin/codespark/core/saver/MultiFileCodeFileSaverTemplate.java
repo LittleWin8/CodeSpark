@@ -4,6 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import top.littlewin.codespark.ai.model.MultiFileCodeResult;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
+import top.littlewin.codespark.exception.ErrorMessage;
 import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 
 /**
@@ -31,7 +32,7 @@ public class MultiFileCodeFileSaverTemplate extends CodeFileSaverTemplate<MultiF
         super.validateInput(result);
         // 至少要有 HTML 代码，CSS 和 JS 可以为空
         if (StrUtil.isBlank(result.getHtmlCode())) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "HTML代码内容不能为空");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, ErrorMessage.CODE_CONTENT_EMPTY);
         }
     }
 }

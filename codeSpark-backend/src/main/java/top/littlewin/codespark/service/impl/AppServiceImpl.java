@@ -1,5 +1,7 @@
 package top.littlewin.codespark.service.impl;
 
+import jakarta.annotation.Resource;
+
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.io.FileUtil;
@@ -7,21 +9,21 @@ import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
-import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 import reactor.core.publisher.Flux;
 import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.core.AICodeGeneratorFacade;
 import top.littlewin.codespark.core.builder.VueProjectBulider;
-import top.littlewin.codespark.core.handler.StreamMessageHandler;
+import top.littlewin.codespark.core.stream.StreamMessageHandler;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
+import top.littlewin.codespark.exception.ErrorMessage;
 import top.littlewin.codespark.exception.ThrowUtils;
-import top.littlewin.codespark.manager.OssManager;
 import top.littlewin.codespark.model.dto.app.AppAddRequest;
 import top.littlewin.codespark.model.dto.app.AppQueryRequest;
 import top.littlewin.codespark.model.entity.App;
@@ -34,12 +36,11 @@ import top.littlewin.codespark.model.vo.UserVO;
 import top.littlewin.codespark.service.AppService;
 import org.springframework.stereotype.Service;
 import top.littlewin.codespark.service.ChatHistoryService;
+import top.littlewin.codespark.service.FileService;
 import top.littlewin.codespark.service.ScreenshotService;
 import top.littlewin.codespark.service.UserService;
-import top.littlewin.codespark.utils.AppUrlUtil;
 
 import java.io.File;
-import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -77,42 +78,27 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     private ScreenshotService screenshotService;
 
     @Resource
-    private OssManager ossManager;
+    private FileService fileService;
 
     /** 自注入代理：createApp 内部调用 @Async 方法时，需通过代理走异步线程池 */
     @Lazy
     @Resource
     private AppService self;
 
+    /** AI 应用命名开关：false 时创建应用直接使用提示词截取名，不调用 AI（默认开启，环境变量 APP_NAME_ENABLED 可覆盖） */
+    @Value("${codespark.ai.app-name.enabled:true}")
+    private boolean appNameAiEnabled;
+
     /**
      * AI 生成失败时的兜底提示（写入聊天历史，避免空消息）
      */
     private static final String GENERATE_FAILED_MESSAGE = "应用生成失败，请重试~";
 
-    /** 封面存储标识前缀：oss: + 对象 key，表示该封面存 OSS，输出层需动态签名 */
-    private static final String OSS_COVER_PREFIX = "oss:";
-
-    /**
-     * 解析封面为前端可访问的 URL：
-     * - oss: 标识 → 用 OssManager 生成当前有效的预签名 URL（私有桶可访问、永不过期）；
-     * - 本地 URL（/api/file/cover/...）→ 原样返回；
-     * - 空/签名失败 → 返回 null（前端自动落到占位符兜底）。
-     */
-    private String resolveCoverUrl(String cover) {
-        if (StrUtil.isBlank(cover)) {
-            return null;
-        }
-        if (cover.startsWith(OSS_COVER_PREFIX)) {
-            return ossManager.buildPresignedUrl(cover.substring(OSS_COVER_PREFIX.length()));
-        }
-        return cover;
-    }
-
     @Override
     public Long createApp(AppAddRequest appAddRequest, User loginUser) {
         ThrowUtils.throwIf(appAddRequest == null, ErrorCode.PARAMS_ERROR);
         String initPrompt = appAddRequest.getInitPrompt();
-        ThrowUtils.throwIf(StrUtil.isBlank(initPrompt), ErrorCode.PARAMS_ERROR, "EMPTY_INIT_PROMPT");
+        ThrowUtils.throwIf(StrUtil.isBlank(initPrompt), ErrorCode.PARAMS_ERROR, ErrorMessage.EMPTY_INIT_PROMPT);
 
         // 构造入库对象
         App app = new App();
@@ -125,15 +111,21 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 校验生成类型,NAMING类型不可
         String codeGenType = appAddRequest.getCodeGenType();
         ThrowUtils.throwIf(CodeGenTypeEnum.getEnumByValue(codeGenType) == null &&
-                CodeGenTypeEnum.NAMING.getValue().equals(codeGenType), ErrorCode.PARAMS_ERROR, "INVALID_CODE_GEN_TYPE");
+                CodeGenTypeEnum.NAMING.getValue().equals(codeGenType),
+                ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_CODE_GEN_TYPE);
         app.setCodeGenType(codeGenType);
 
         // 插入数据库
         boolean result = this.save(app);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
 
-        // 异步生成应用名称并更新（不阻塞响应，名称生成后前端刷新可见）
-        self.updateAppNameAsync(app.getId(), initPrompt);
+        // 开启 AI 命名开关时，异步生成应用名称并更新（不阻塞响应，名称生成后前端刷新可见）；
+        // 关闭时保持提示词截取名（后续用户可在编辑中手动改名）
+        if (appNameAiEnabled) {
+            self.updateAppNameAsync(app.getId(), initPrompt);
+        } else {
+            log.info("AI 应用命名已关闭（codespark.ai.app-name.enabled=false），应用名使用提示词截取: appId={}", app.getId());
+        }
 
         return app.getId();
     }
@@ -144,6 +136,11 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     @Async
     @Override
     public void updateAppNameAsync(Long appId, String userMessage) {
+        // 开关防御：关闭时直接跳过，避免覆盖用户已手动修改的应用名
+        if (!appNameAiEnabled) {
+            log.info("AI 应用命名已关闭，跳过异步更新名称: appId={}", appId);
+            return;
+        }
         try {
             String name = this.generateAppName(userMessage);
             App updateApp = new App();
@@ -159,19 +156,19 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     @Override
     public Flux<StreamMessage> chatToGenCode(Long appId, String message, User loginUser) {
         // 1.参数校验
-        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "INVALID_APP_ID");
-        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "EMPTY_CHAT_MESSAGE");
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_APP_ID);
+        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, ErrorMessage.EMPTY_CHAT_MESSAGE);
 
         // 2.查询应用信息
         App app = this.getById(appId);
-        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "APP_NOT_FOUND");
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, ErrorMessage.APP_NOT_FOUND);
 
         // 3.权限校验，仅本人可以和 AI 对话
         ThrowUtils.throwIf(!app.getUserId().equals(loginUser.getId()), ErrorCode.NO_AUTH_ERROR);
 
         // 4. 应用代码类型
         CodeGenTypeEnum codeGenType = CodeGenTypeEnum.getEnumByValue(app.getCodeGenType());
-        ThrowUtils.throwIf(codeGenType == null, ErrorCode.SYSTEM_ERROR, "INVALID_CODE_GEN_TYPE");
+        ThrowUtils.throwIf(codeGenType == null, ErrorCode.SYSTEM_ERROR, ErrorMessage.INVALID_CODE_GEN_TYPE);
 
         // 5. 保存用户消息
         chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
@@ -179,28 +176,20 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 6. 调用 AI 生成代码
         Flux<StreamMessage> contentStream =  aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenType, appId);
 
-        // 7. 渲染展示文本 + 保存 AI 响应结果（生成物落盘/构建已由 Facade 在流完成时触发）
-        Flux<StreamMessage> handledStream = streamMessageHandler.handle(contentStream, appId, loginUser);
-
-        // 8. 非 VUE 模式：流完成后（文件已落盘）异步截图设为应用封面；
-        //    VUE 需等构建完成（dist 生成），由 Facade 的构建成功回调触发
-        if (codeGenType != CodeGenTypeEnum.VUE_PROJECT) {
-            handledStream = handledStream.doOnComplete(() ->
-                    generateAppScreenshotAsync(appId, AppUrlUtil.buildPreviewUrl(codeGenType, appId)));
-        }
-        return handledStream;
+        // 7. 渲染展示文本 + 保存 AI 响应结果
+        return streamMessageHandler.handle(contentStream, appId, loginUser);
     }
 
     @Override
     public String deployApp(Long appId, User loginUser) {
 
         // 1. 参数校验
-        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "INVALID_APP_ID");
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_APP_ID);
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
 
         // 2. 查询应用信息
         App app = this.getById(appId);
-        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "APP_NOT_FOUND");
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, ErrorMessage.APP_NOT_FOUND);
 
         // 3. 权限校验，仅本人可以部署自己生成的应用
         ThrowUtils.throwIf(!app.getUserId().equals(loginUser.getId()), ErrorCode.NO_AUTH_ERROR);
@@ -219,7 +208,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
 
         // 6. 检查路径是否存在
         File sourceDir  = new File(sourceDirPath);
-        ThrowUtils.throwIf(!sourceDir.exists() || !sourceDir.isDirectory(), ErrorCode.SYSTEM_ERROR, "APP_CODE_NOT_GENERATED");
+        ThrowUtils.throwIf(!sourceDir.exists() || !sourceDir.isDirectory(), ErrorCode.SYSTEM_ERROR, ErrorMessage.APP_CODE_NOT_GENERATED);
 
         // 7. 复制文件到部署目录，为保证vue能够顺利部署，需要在构建一遍
         CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
@@ -227,11 +216,11 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
 
             // Vue 项目构建
             boolean buildSuccess =vueProjectBulider.buildProject(sourceDirPath);
-            ThrowUtils.throwIf(!buildSuccess, ErrorCode.SYSTEM_ERROR, "Vue 项目构建失败，请重试");
+            ThrowUtils.throwIf(!buildSuccess, ErrorCode.SYSTEM_ERROR, ErrorMessage.VUE_BUILD_FAILED);
 
             // 检查 dist目录是否存在
             File distDir = new File(sourceDirPath, "dist");
-            ThrowUtils.throwIf(!distDir.exists(), ErrorCode.SYSTEM_ERROR, "Vue 项目构建我完成，但是炳文生成 dist 目录");
+            ThrowUtils.throwIf(!distDir.exists(), ErrorCode.SYSTEM_ERROR, ErrorMessage.VUE_DIST_NOT_FOUND);
 
             // 构建成功，将源目录设置为 dist 目录
             sourceDir = distDir;
@@ -242,7 +231,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         try {
             FileUtil.copyContent(sourceDir, new File(deployDirPath), true);
         }catch (Exception e){
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "APP_DEPLOY_FAILED");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, ErrorMessage.APP_DEPLOY_FAILED);
         }
 
         // 9. 更新数据库
@@ -254,11 +243,15 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         if (!updateResult) {
             // 清理已复制的部署目录，避免"文件已部署、数据库未记录"的状态不一致
             FileUtil.del(deployDirPath);
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "APP_DEPLOY_UPDATE_FAILED");
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, ErrorMessage.APP_DEPLOY_UPDATE_FAILED);
         }
 
-        // 10. 返回可访问的 URL
-        return String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
+        // 10. 部署成功后异步生成封面（稳定，减少多次生成浪费OSS）
+        String deployUrl = String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
+        this.generateAppScreenshotAsync(appId, deployUrl);
+
+        // 11. 返回可访问的 URL
+        return deployUrl;
     }
 
     @Override
@@ -277,7 +270,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                 updateApp.setId(appId);
                 updateApp.setCover(screenshotUrl);
                 boolean updated = this.updateById(updateApp);
-                ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, "更新应用封面字段失败");
+                ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, ErrorMessage.UPDATE_COVER_FAILED);
                 log.info("应用封面截图更新成功: appId={}, url={}", appId, screenshotUrl);
             } catch (Exception e) {
                 log.error("应用封面截图失败: appId={}, appUrl={}", appId, appUrl, e);
@@ -290,7 +283,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     public boolean deleteAppAndFiles(Long appId) {
         // 1. 查询应用信息（需要 codeGenType 和 deployKey 来定位磁盘目录）
         App app = this.getById(appId);
-        ThrowUtils.throwIf(app == null, ErrorCode.PARAMS_ERROR, "APP_NOT_FOUND");
+        ThrowUtils.throwIf(app == null, ErrorCode.PARAMS_ERROR, ErrorMessage.APP_NOT_FOUND);
 
         // 2. 删除生成目录：code_output/{codeGenType}_{appId}
         String codeGenType = app.getCodeGenType();
@@ -313,7 +306,15 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
             }
         }
 
-        // 4. 删除封面目录：app_cover/{appId}
+        // 4. 删除封面：按存储标识路由删除（OSS 对象 / 本地文件），并清理本地封面目录兜底
+        String cover = app.getCover();
+        if (StrUtil.isNotBlank(cover)) {
+            try {
+                fileService.delete(cover);
+            } catch (Exception e) {
+                log.error("删除应用封面失败: appId={}, cover={}", appId, cover, e);
+            }
+        }
         String coverDir = AppConstant.APP_COVER_ROOT_DIR + File.separator + appId;
         try {
             FileUtil.del(coverDir);
@@ -332,7 +333,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         boolean removed = this.removeById(appId);
         if (!removed) {
             log.error("删除应用记录失败: appId={}", appId);
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "APP_DELETE_FAILED");
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, ErrorMessage.APP_DELETE_FAILED);
         }
         return true;
     }
@@ -345,8 +346,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         }
         AppVO appVO = new AppVO();
         BeanUtil.copyProperties(app, appVO);
-        // 封面动态解析：OSS 标识→现场签名（私有桶可访问且永不过期）；本地 URL 原样返回
-        appVO.setCover(resolveCoverUrl(appVO.getCover()));
+        // 封面动态解析：cover 下发可访问 URL，coverKey 仅在原始值为两态存储标识时下发（供前端编辑回显提交）
+        appVO.setCoverKey(storageKey(app.getCover()));
+        appVO.setCover(fileService.resolveUrl(appVO.getCover()));
         // 关联查询用户信息
         Long userId = app.getUserId();
         if (userId != null) {
@@ -371,8 +373,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         return appList.stream().map(app -> {
             AppVO appVO = new AppVO();
             BeanUtil.copyProperties(app, appVO);
-            // 封面动态解析：OSS 标识→现场签名；本地 URL 原样返回
-            appVO.setCover(resolveCoverUrl(appVO.getCover()));
+            // 封面动态解析：cover 下发可访问 URL，coverKey 仅在原始值为两态存储标识时下发（供前端编辑回显提交）
+            appVO.setCoverKey(storageKey(app.getCover()));
+            appVO.setCover(fileService.resolveUrl(appVO.getCover()));
             UserVO userVO = userVOMap.get(app.getUserId());
             appVO.setUser(userVO);
             return appVO;
@@ -463,7 +466,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     private static final Set<String> GENERIC_TITLES = Set.of("vite + vue", "vue", "index", "untitled", "document");
 
     /**
-     * 从模型输出的 HTML 代码中提取 &lt;title&gt; 作为应用名称（模型输出代码时的兜底）
+     * 从模型输出的 HTML 代码中提取 <title>; 作为应用名称（模型输出代码时的兜底）
      */
     private String extractTitle(String content) {
         Matcher matcher = TITLE_PATTERN.matcher(content);
@@ -485,5 +488,18 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
             return "未命名应用";
         }
         return prompt.substring(0, Math.min(prompt.length(), 15));
+    }
+
+    /**
+     * 仅当原始值为两态存储标识（oss: / local:）时返回其本身，否则返回 null（存量 URL 数据不向下游透传标识）
+     */
+    private String storageKey(String cover) {
+        if (StrUtil.isBlank(cover)) {
+            return null;
+        }
+        if (cover.startsWith("oss:") || cover.startsWith("local:")) {
+            return cover;
+        }
+        return null;
     }
 }

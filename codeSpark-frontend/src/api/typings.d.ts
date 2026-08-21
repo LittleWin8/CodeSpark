@@ -40,6 +40,7 @@ declare namespace API {
     id?: number
     appName?: string
     cover?: string
+    coverKey?: string
     initPrompt?: string
     codeGenType?: string
     deployKey?: string
@@ -182,6 +183,7 @@ declare namespace API {
     userEmail?: string
     userName?: string
     userAvatar?: string
+    userAvatarKey?: string
     userProfile?: string
     userRole?: string
     createTime?: string
@@ -301,6 +303,7 @@ declare namespace API {
     userEmail?: string
     userName?: string
     userAvatar?: string
+    userAvatarKey?: string
     userProfile?: string
     userRole?: string
     createTime?: string

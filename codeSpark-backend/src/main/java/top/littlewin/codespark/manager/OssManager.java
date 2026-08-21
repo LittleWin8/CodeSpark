@@ -1,14 +1,20 @@
 package top.littlewin.codespark.manager;
 
+import jakarta.annotation.Resource;
+
 import cn.hutool.core.util.StrUtil;
 import com.aliyun.sdk.service.oss2.OSSClient;
 import com.aliyun.sdk.service.oss2.PresignOptions;
+import com.aliyun.sdk.service.oss2.models.DeleteObjectRequest;
 import com.aliyun.sdk.service.oss2.models.GetObjectRequest;
+import com.aliyun.sdk.service.oss2.models.ListObjectsRequest;
+import com.aliyun.sdk.service.oss2.models.ListObjectsResult;
+import com.aliyun.sdk.service.oss2.models.ObjectSummary;
 import com.aliyun.sdk.service.oss2.models.PresignResult;
 import com.aliyun.sdk.service.oss2.models.PutObjectRequest;
 import com.aliyun.sdk.service.oss2.models.PutObjectResult;
+import com.aliyun.sdk.service.oss2.paginator.ListObjectsIterable;
 import com.aliyun.sdk.service.oss2.transport.BinaryData;
-import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -20,6 +26,9 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * OSS 对象存储管理器
@@ -44,7 +53,7 @@ public class OssManager {
      */
     public String upLoadFile(String key, File file){
         if (ossClient == null) {
-            log.warn("OSS 未启用或客户端未创建，回退本地存储: {}", file.getName());
+            log.error("OSS 客户端未初始化（未启用或未配置 AccessKey），无法上传: {}", file.getName());
             return null;
         }
         try {
@@ -89,6 +98,59 @@ public class OssManager {
     }
 
     /**
+     * 上传文件流到 OSS 并返回访问 URL（流式上传，无需落盘临时文件）
+     *
+     * @param key OSS 对象唯一键
+     * @param in  文件输入流（本方法读取后会关闭该流）
+     * @return 文件的访问 URL，失败返回 null
+     */
+    public String upLoadFile(String key, InputStream in) {
+        if (ossClient == null) {
+            log.error("OSS 客户端未初始化（未启用或未配置 AccessKey），无法上传: key={}", key);
+            return null;
+        }
+        try {
+            PutObjectResult result = putObject(key, in);
+            if (result.statusCode() == 200) {
+                String url = buildAccessUrl(key);
+                log.info("文件流上传到 OSS 成功：{} -> {}", key, url);
+                return url;
+            }
+            log.error("文件流上传到 OSS 失败：{}，statusCode={}", key, result.statusCode());
+            return null;
+        } catch (Exception e) {
+            log.error("OSS 上传异常: key={}", key, e);
+            return null;
+        }
+    }
+
+    /**
+     * 上传对象（内部方法，仅供 upLoadFile(InputStream) 使用，读取后关闭传入流）
+     *
+     * @param key 对象唯一键
+     * @param in  待上传输入流
+     * @return 上传结果（含 statusCode / requestId / eTag）
+     */
+    private PutObjectResult putObject(String key, InputStream in) {
+
+        try (InputStream stream = in) {
+
+            PutObjectRequest request = PutObjectRequest.newBuilder()
+                    .bucket(ossClientConfig.getBucketName())
+                    .key(key)
+                    .body(BinaryData.fromStream(stream))
+                    .build();
+
+            PutObjectResult result = ossClient.putObject(request);
+            log.info("OSS 上传成功: key={}, statusCode={}, requestId={}, eTag={}",
+                    key, result.statusCode(), result.requestId(), result.eTag());
+            return result;
+        } catch (IOException e) {
+            throw new UncheckedIOException("读取上传流失败: " + key, e);
+        }
+    }
+
+    /**
      * 拼接对外访问地址：优先自定义域名（aliyun.oss.domain / OSS_DOMAIN），
      * 否则用 Bucket 默认公网域名（{bucket}.{region}.aliyuncs.com）
      *
@@ -104,20 +166,19 @@ public class OssManager {
     }
 
     /**
-     * 生成预签名访问 URL（私有桶读取场景，有效期取自 aliyun.oss.presign-expire-seconds，默认 3600 秒）
+     * 生成预签名访问 URL（私有桶读取场景，有效期取自 aliyun.oss.presign-expire-seconds，默认 24小时 ）
      *
      * @param key OSS 对象键（兼容带/不带前导斜杠）
-     * @return 预签名 URL，客户端或客户端未初始化时返回 null
+     * @return 预签名 URL，客户端不可用或失败时返回 null
      */
     public String buildPresignedUrl(String key) {
-
         if (ossClient == null) {
-            log.warn("OSS 未启用或客户端未创建，无法生成预签名 URL: {}", key);
+            log.error("OSS 客户端未初始化（未启用或未配置 AccessKey），无法生成预签名 URL: {}", key);
             return null;
         }
 
         long expireSeconds = ossClientConfig.getPresignExpireSeconds() == null
-                ? 3600L
+                ? 86400L
                 : ossClientConfig.getPresignExpireSeconds();
         try {
             GetObjectRequest request = GetObjectRequest.newBuilder()
@@ -133,6 +194,68 @@ public class OssManager {
         } catch (Exception e) {
             log.error("生成预签名 URL 异常: key={}", key, e);
             return null;
+        }
+    }
+
+    /**
+     * 删除 OSS 对象（失败仅记日志，不抛异常；供定时对账清理孤儿对象使用）
+     *
+     * @param key OSS 对象键（兼容带/不带前导斜杠）
+     */
+    public void deleteObject(String key) {
+        if (ossClient == null) {
+            log.error("OSS 客户端未初始化（未启用或未配置 AccessKey），无法删除: {}", key);
+            return;
+        }
+        try {
+            DeleteObjectRequest request = DeleteObjectRequest.newBuilder()
+                    .bucket(ossClientConfig.getBucketName())
+                    .key(stripLeadSlash(key))
+                    .build();
+            ossClient.deleteObject(request);
+            log.info("OSS 删除成功: key={}", key);
+        } catch (Exception e) {
+            log.error("OSS 删除异常: key={}", key, e);
+        }
+    }
+
+    /**
+     * 列出指定前缀下最后修改时间早于 cutoff 的对象 key（cutoff 为 null 时不按时间过滤），
+     * 供孤儿清理使用：只清"足够旧"的对象，防止误删当日上传但尚未落库的对象
+     *
+     * @param prefix 对象 key 前缀
+     * @param cutoff 截止时间（含）
+     * @return 对象 key 列表
+     */
+    public List<String> listObjectKeysBefore(String prefix, Instant cutoff) {
+        if (ossClient == null) {
+            log.error("OSS 客户端未初始化（未启用或未配置 AccessKey），无法列举对象: prefix={}", prefix);
+            return List.of();
+        }
+        try {
+            List<String> keys = new ArrayList<>();
+            ListObjectsIterable paginator = ossClient.listObjectsPaginator(
+                    ListObjectsRequest.newBuilder()
+                            .bucket(ossClientConfig.getBucketName())
+                            .prefix(prefix)
+                            .build());
+            for (ListObjectsResult result : paginator) {
+                if (result.contents() == null) {
+                    continue;
+                }
+                for (ObjectSummary obj : result.contents()) {
+                    if (cutoff != null && obj.lastModified() != null && obj.lastModified().isAfter(cutoff)) {
+                        // 近期对象跳过，留给下一轮，防止误删未落库的当日上传
+                        continue;
+                    }
+                    keys.add(obj.key());
+                }
+            }
+            log.info("OSS 列举对象完成: prefix={}, count={}", prefix, keys.size());
+            return keys;
+        } catch (Exception e) {
+            log.error("OSS 列举对象异常: prefix={}", prefix, e);
+            return List.of();
         }
     }
 

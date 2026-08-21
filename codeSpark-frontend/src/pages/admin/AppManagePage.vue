@@ -121,6 +121,32 @@
     >
       <a-spin :spinning="editLoading">
         <a-form class="edit-form" :model="editForm" layout="vertical" @finish="doUpdate">
+          <!-- 只读详情（不可编辑） -->
+          <a-form-item label="ID">
+            <a-input :value="detail?.id != null ? String(detail.id) : ''" disabled />
+          </a-form-item>
+          <a-form-item :label="t('appManage.cover')">
+            <div v-if="detail?.cover" class="cover-preview-wrap">
+              <a-image :src="detail.cover" :width="120" :height="72" style="object-fit: cover; border-radius: 6px" />
+            </div>
+            <a-input v-else value="-" disabled />
+          </a-form-item>
+          <a-form-item label="初始 Prompt">
+            <a-textarea :value="detail?.initPrompt ?? ''" :auto-size="{ minRows: 2, maxRows: 4 }" disabled />
+          </a-form-item>
+          <a-form-item label="代码生成类型">
+            <a-input :value="detail?.codeGenType ?? ''" disabled />
+          </a-form-item>
+          <a-form-item label="部署标识">
+            <a-input :value="detail?.deployKey ?? ''" placeholder="-" disabled />
+          </a-form-item>
+          <a-form-item label="创建用户">
+            <a-input :value="detail?.userId != null ? String(detail.userId) : ''" disabled />
+          </a-form-item>
+          <a-form-item label="创建时间">
+            <a-input :value="formatDateTime(detail?.createTime) || ''" disabled />
+          </a-form-item>
+          <a-divider style="margin: 12px 0">可编辑</a-divider>
           <a-form-item
             :label="t('appEdit.appName')"
             name="appName"
@@ -129,14 +155,6 @@
             <a-input
               v-model:value="editForm.appName"
               :placeholder="t('appEdit.appNamePlaceholder')"
-              allow-clear
-            />
-          </a-form-item>
-
-          <a-form-item :label="t('appEdit.cover')" name="cover">
-            <a-input
-              v-model:value="editForm.cover"
-              :placeholder="t('appEdit.coverPlaceholder')"
               allow-clear
             />
           </a-form-item>
@@ -211,9 +229,10 @@ const editSaving = ref(false)
 const editForm = reactive<API.AppAdminUpdateRequest>({
   id: undefined,
   appName: '',
-  cover: '',
   priority: 0,
 })
+
+const detail = ref<API.AppVO | null>(null)
 
 const searchParams = reactive<API.AppQueryRequest>({
   pageNum: 1,
@@ -278,8 +297,8 @@ const doSearch = () => {
 const resetEditForm = () => {
   editForm.id = undefined
   editForm.appName = ''
-  editForm.cover = ''
   editForm.priority = 0
+  detail.value = null
 }
 
 const openEditDrawer = async (record: API.AppVO) => {
@@ -293,9 +312,9 @@ const openEditDrawer = async (record: API.AppVO) => {
     const res = await getAppVoByIdByAdmin({ id: record.id })
     if (res.data.code === 0 && res.data.data) {
       const app = res.data.data
+      detail.value = app
       editForm.id = app.id
       editForm.appName = app.appName ?? ''
-      editForm.cover = app.cover ?? ''
       editForm.priority = app.priority ?? 0
     } else {
       message.error(getErrorMessage(res.data.code, res.data.message) || t('appEdit.loadFailed'))
@@ -318,7 +337,6 @@ const doUpdate = async () => {
     const res = await updateAppByAdmin({
       id: editForm.id,
       appName: editForm.appName,
-      cover: editForm.cover,
       priority: editForm.priority,
     })
     if (res.data.code === 0) {
@@ -345,7 +363,6 @@ const doFeature = async (record: API.AppVO) => {
     const res = await updateAppByAdmin({
       id: record.id,
       appName: record.appName,
-      cover: record.cover,
       priority: isFeatured ? 0 : GOOD_APP_PRIORITY,
     })
     if (res.data.code === 0) {

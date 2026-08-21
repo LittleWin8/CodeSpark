@@ -1,8 +1,10 @@
 package top.littlewin.codespark.controller;
 
-import cn.hutool.core.bean.BeanUtil;
-import com.mybatisflex.core.paginate.Page;
 import jakarta.annotation.Resource;
+
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.StrUtil;
+import com.mybatisflex.core.paginate.Page;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,6 +17,7 @@ import top.littlewin.codespark.common.ResultUtils;
 import top.littlewin.codespark.constant.UserConstant;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
+import top.littlewin.codespark.exception.ErrorMessage;
 import top.littlewin.codespark.exception.ThrowUtils;
 import top.littlewin.codespark.model.dto.user.*;
 import top.littlewin.codespark.model.entity.User;
@@ -23,6 +26,7 @@ import top.littlewin.codespark.model.vo.UserVO;
 import top.littlewin.codespark.service.UserService;
 import top.littlewin.codespark.utils.PasswordUtils;
 import org.springframework.web.bind.annotation.RestController;
+
 import java.util.List;
 
 /**
@@ -152,7 +156,7 @@ public class UserController {
         User loginUser = userService.getLoginUser(request);
         // 不可以删除自己
         if (deleteRequest.getId().equals(loginUser.getId())) {
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "CANNOT_DELETE_SELF");
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, ErrorMessage.CANNOT_DELETE_SELF);
         }
         // 删除目标必须存在
         User targetUser = userService.getById(deleteRequest.getId());
@@ -191,11 +195,37 @@ public class UserController {
         User user = new User();
         user.setId(loginUser.getId());
         user.setUserName(userUpdateMyRequest.getUserName());
-        user.setUserAvatar(userUpdateMyRequest.getUserAvatar());
+        // 头像入参规范化：两态标识原样收；外链下载转存；本地路径（存量数据）兼容；非法值拒绝，杜绝外链直接落库
+        user.setUserAvatar(resolveAvatarInput(userUpdateMyRequest.getUserAvatar(), loginUser.getId()));
         user.setUserProfile(userUpdateMyRequest.getUserProfile());
         boolean result = userService.updateById(user);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
+    }
+
+    /**
+     * 头像入库规范化：
+     * - 空 → null（清空头像）；
+     * - 两态标识（oss: / local:）→ 原样收；
+     * - 本地静态路径（/ 开头，存量数据回显）→ 原样收，不动它；
+     * - 外链 http(s):// → 拒绝（已禁用外链，头像仅支持本地上传，避免依赖第三方链接可用性）；
+     * - 其余（伪协议/非法格式）→ 拒绝。
+     */
+    private String resolveAvatarInput(String avatar, Long ownerId) {
+        if (StrUtil.isBlank(avatar)) {
+            return null;
+        }
+        if (avatar.startsWith("oss:") || avatar.startsWith("local:")) {
+            return avatar;
+        }
+        if (avatar.startsWith("/")) {
+            // 存量数据里的本地静态路径，原样保留
+            return avatar;
+        }
+        if (avatar.startsWith("http://") || avatar.startsWith("https://")) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, ErrorMessage.UNSUPPORTED_EXTERNAL_URL);
+        }
+        throw new BusinessException(ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_FILE_URL);
     }
 
     /**

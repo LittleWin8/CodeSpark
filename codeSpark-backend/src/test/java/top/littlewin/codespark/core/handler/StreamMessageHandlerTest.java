@@ -14,6 +14,7 @@ import top.littlewin.codespark.ai.model.message.DisplayTextMessage;
 import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.ai.model.message.ToolExecutedMessage;
 import top.littlewin.codespark.ai.model.message.ToolRequestMessage;
+import top.littlewin.codespark.core.stream.StreamMessageHandler;
 import top.littlewin.codespark.model.entity.User;
 import top.littlewin.codespark.model.enums.ChatHistoryMessageTypeEnum;
 import top.littlewin.codespark.service.ChatHistoryService;
@@ -29,7 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 
 /**
  * StreamMessageHandler 单元测试

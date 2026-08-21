@@ -1,7 +1,8 @@
 package top.littlewin.codespark.ai;
 
-import dev.langchain4j.service.TokenStream;
 import jakarta.annotation.Resource;
+
+import dev.langchain4j.service.TokenStream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

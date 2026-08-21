@@ -1,11 +1,11 @@
 package top.littlewin.codespark.core.saver;
 
 import cn.hutool.core.io.FileUtil;
-import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
+import top.littlewin.codespark.exception.ErrorMessage;
 import top.littlewin.codespark.exception.ThrowUtils;
 import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 
@@ -58,7 +58,6 @@ public abstract class CodeFileSaverTemplate<T> {
         }
     }
 
-
     /**
      * 校验输入参数
      *
@@ -66,7 +65,7 @@ public abstract class CodeFileSaverTemplate<T> {
      */
     protected void validateInput(T result) {
         if (result == null){
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "代码结果对象不能为空");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, ErrorMessage.CODE_RESULT_EMPTY);
         }
     }
 
@@ -77,7 +76,7 @@ public abstract class CodeFileSaverTemplate<T> {
      * @return 目录路径
      */
     protected String buildUniqueDir(Long appId){
-        ThrowUtils.throwIf(appId == null ,ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        ThrowUtils.throwIf(appId == null ,ErrorCode.PARAMS_ERROR, ErrorMessage.APP_ID_REQUIRED);
         String codeType = genCodeType().getValue();
         String uniqueDirName = StrUtil.format("{}_{}", codeType, appId);
         String dirPath = FILE_SAVE_ROOT_DIR + File.separator + uniqueDirName;

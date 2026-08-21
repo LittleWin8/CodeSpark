@@ -2,14 +2,11 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { message, Upload } from 'ant-design-vue'
-import { CloudUploadOutlined } from '@ant-design/icons-vue'
-import type { UploadRequestOption } from 'ant-design-vue/es/vc-upload/interface'
+import { message } from 'ant-design-vue'
 import { deleteApp, getAppVoById, updateApp } from '@/api/appController'
 import AppDetailDescriptions from '@/components/AppDetailDescriptions.vue'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { getErrorMessage } from '@/utils/errorMessage'
-import { uploadCover } from '@/utils/upload'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -25,6 +22,7 @@ const appDetail = ref<API.AppVO>()
 
 const formState = reactive({
   appName: '',
+  // 封面仅展示（由系统自动生成，不可手动修改）
   cover: '',
 })
 
@@ -69,27 +67,6 @@ const handleDelete = async () => {
   }
 }
 
-/**
- * 本地上传封面：调 /file/upload/cover，成功后回填 URL
- */
-const handleCoverUpload = async (options: UploadRequestOption) => {
-  if (!appId.value) {
-    message.error(t('appEdit.loadFailed'))
-    return
-  }
-  try {
-    const res = await uploadCover(appId.value, options.file as File)
-    if (res.data.code === 0 && res.data.data) {
-      formState.cover = res.data.data
-      message.success(t('appEdit.coverUploadSuccess'))
-    } else {
-      message.error(getErrorMessage(res.data.code, res.data.message) || t('appEdit.saveFailed'))
-    }
-  } catch {
-    message.error(t('appEdit.saveFailed'))
-  }
-}
-
 const handleSubmit = async () => {
   saving.value = true
   try {
@@ -97,7 +74,6 @@ const handleSubmit = async () => {
     const res = await updateApp({
       id: idParam,
       appName: formState.appName,
-      cover: formState.cover,
     })
 
     if (res.data.code === 0) {
@@ -139,30 +115,9 @@ onMounted(() => {
             />
           </a-form-item>
 
-          <a-form-item :label="t('appEdit.cover')" name="cover">
-            <div class="cover-row">
-              <a-input
-                v-model:value="formState.cover"
-                :placeholder="t('appEdit.coverPlaceholder')"
-                class="cover-input"
-              />
-              <Upload
-                :show-upload-list="false"
-                :custom-request="handleCoverUpload"
-                accept="image/*"
-              >
-                <a-button class="cover-upload-btn">
-                  <template #icon><CloudUploadOutlined /></template>
-                  {{ t('appEdit.coverUpload') }}
-                </a-button>
-              </Upload>
-            </div>
-            <img
-              v-if="formState.cover"
-              :src="formState.cover"
-              alt="cover"
-              class="cover-preview"
-            />
+          <!-- 封面统一由系统自动生成，仅展示 -->
+          <a-form-item v-if="formState.cover" :label="t('appEdit.cover')">
+            <img :src="formState.cover" alt="cover" class="cover-preview" />
           </a-form-item>
 
           <a-form-item>
@@ -238,10 +193,13 @@ onMounted(() => {
 
 .cover-preview {
   margin-top: 8px;
-  max-width: 160px;
-  max-height: 90px;
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+  max-height: 270px;
   border-radius: 8px;
   object-fit: cover;
   border: 1px solid #f0f0f0;
+  display: block;
 }
 </style>

@@ -3,6 +3,7 @@ package top.littlewin.codespark.core.parser;
 
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
+import top.littlewin.codespark.exception.ErrorMessage;
 import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 
 /**
@@ -18,7 +19,7 @@ public class CodeParserExecutor {
         return switch (codeGenTypeEnum){
             case HTML -> htmlCodeParser.parseCode(context);
             case MULTI_FILE -> multiFileCodeParser.parseCode(context);
-            default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型");
+            default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, ErrorMessage.UNSUPPORTED_CODE_GEN_TYPE);
         };
 
     }

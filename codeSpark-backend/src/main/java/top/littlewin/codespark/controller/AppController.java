@@ -1,10 +1,11 @@
 package top.littlewin.codespark.controller;
 
+import jakarta.annotation.Resource;
+
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
-import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -21,10 +22,12 @@ import top.littlewin.codespark.constant.UserConstant;
 import top.littlewin.codespark.core.stream.StreamSseMapper;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
+import top.littlewin.codespark.exception.ErrorMessage;
 import top.littlewin.codespark.exception.ThrowUtils;
 import top.littlewin.codespark.model.dto.app.*;
 import top.littlewin.codespark.model.entity.App;
 import top.littlewin.codespark.model.entity.User;
+import top.littlewin.codespark.model.enums.FileBizEnum;
 import top.littlewin.codespark.model.vo.AppVO;
 import top.littlewin.codespark.service.AppService;
 import top.littlewin.codespark.service.UserService;
@@ -57,8 +60,8 @@ public class AppController {
                                       HttpServletRequest request){
 
         // 1. 参数校验
-        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "INVALID_APP_ID");
-        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "EMPTY_CHAT_MESSAGE");
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_APP_ID);
+        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, ErrorMessage.EMPTY_CHAT_MESSAGE);
 
         // 2. 获取当前登录用户
         User loginUser = userService.getLoginUser(request);
@@ -82,7 +85,7 @@ public class AppController {
         ThrowUtils.throwIf(appDeployRequest == null, ErrorCode.PARAMS_ERROR);
 
         Long appId = appDeployRequest.getAppId();
-        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "INVALID_APP_ID");
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_APP_ID);
 
         User loginUser = userService.getLoginUser(request);
 
@@ -103,7 +106,7 @@ public class AppController {
         ThrowUtils.throwIf(appAddRequest == null, ErrorCode.PARAMS_ERROR);
         // 获取当前登录用户
         User loginUser = userService.getLoginUser(request);
-        // 创建应用（业务逻辑下沉到 service 层）
+        // 创建应用
         Long appId = appService.createApp(appAddRequest, loginUser);
         return ResultUtils.success(appId);
     }
@@ -143,26 +146,30 @@ public class AppController {
      */
     @PostMapping("/update")
     public BaseResponse<Boolean> updateApp(@RequestBody AppUpdateRequest appUpdateRequest, HttpServletRequest request) {
+
+        // 1. 参数校验
         if (appUpdateRequest == null || appUpdateRequest.getId() == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+
+        // 2. 获取当前登录用户
         User loginUser = userService.getLoginUser(request);
         long id = appUpdateRequest.getId();
-        // 判断是否存在
+
+        // 3. 判断用户是否存在
         App oldApp = appService.getById(id);
         ThrowUtils.throwIf(oldApp == null, ErrorCode.NOT_FOUND_ERROR);
-        // 仅本人可更新
+
+        // 4. 仅本人可更新
         if (!oldApp.getUserId().equals(loginUser.getId())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
         App app = new App();
         app.setId(id);
         app.setAppName(appUpdateRequest.getAppName());
-        app.setCover(appUpdateRequest.getCover());
-        // 设置编辑时间
         app.setEditTime(LocalDateTime.now());
         boolean result = appService.updateById(app);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        ThrowUtils.throwIf(!result, ErrorCode.SYSTEM_ERROR);
         return ResultUtils.success(true);
     }
 
@@ -197,7 +204,7 @@ public class AppController {
 
         // 限制每页最多 20 个
         long pageSize = appQueryRequest.getPageSize();
-        ThrowUtils.throwIf(pageSize > 20, ErrorCode.PARAMS_ERROR, "PAGE_SIZE_LIMIT");
+        ThrowUtils.throwIf(pageSize > 20, ErrorCode.PARAMS_ERROR, ErrorMessage.PAGE_SIZE_LIMIT);
         long pageNum = appQueryRequest.getPageNum();
 
         // 只查询当前用户的应用
@@ -224,7 +231,7 @@ public class AppController {
 
         // 限制每页最多 20 个
         long pageSize = appQueryRequest.getPageSize();
-        ThrowUtils.throwIf(pageSize > 20, ErrorCode.PARAMS_ERROR, "PAGE_SIZE_LIMIT");
+        ThrowUtils.throwIf(pageSize > 20, ErrorCode.PARAMS_ERROR, ErrorMessage.PAGE_SIZE_LIMIT);
         long pageNum = appQueryRequest.getPageNum();
 
         // 只查询精选的应用
@@ -272,18 +279,17 @@ public class AppController {
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Boolean> updateAppByAdmin(@RequestBody AppAdminUpdateRequest appAdminUpdateRequest) {
 
-        if (appAdminUpdateRequest == null || appAdminUpdateRequest.getId() == null) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-        }
+        // 1. 参数校验
+        ThrowUtils.throwIf(appAdminUpdateRequest == null || appAdminUpdateRequest.getId() == null, ErrorCode.PARAMS_ERROR);
         long id = appAdminUpdateRequest.getId();
 
-        // 判断是否存在
+        // 2. 更新数据库字段
         App oldApp = appService.getById(id);
         ThrowUtils.throwIf(oldApp == null, ErrorCode.NOT_FOUND_ERROR);
         App app = new App();
-        BeanUtil.copyProperties(appAdminUpdateRequest, app);
-
-        // 设置编辑时间
+        app.setId(id);
+        app.setAppName(appAdminUpdateRequest.getAppName());
+        app.setPriority(appAdminUpdateRequest.getPriority());
         app.setEditTime(LocalDateTime.now());
         boolean result = appService.updateById(app);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
@@ -332,5 +338,4 @@ public class AppController {
         // 获取封装类
         return ResultUtils.success(appService.getAppVO(app));
     }
-
 }

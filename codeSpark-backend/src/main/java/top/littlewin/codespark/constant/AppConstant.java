@@ -37,8 +37,14 @@ public interface AppConstant {
     String PREVIEW_BASE_URL = System.getenv().getOrDefault("PREVIEW_BASE_URL", "http://localhost:8080/api/static");
 
     /**
-     * 应用封面上传目录：tmp/app_cover/{appId}
+     * 应用封面上传目录：tmp/app_cover/{appId}（旧结构，仅删除应用时兜底清理）
      */
     String APP_COVER_ROOT_DIR = System.getProperty("user.dir") + "/tmp/app_cover";
+
+    /**
+     * 本地文件存储统一根目录：tmp/storage/{biz}/{yyyy}/{MM}/{dd}/{fileName}
+     * （与 OSS 对象 key 结构对齐，本地标识为 local:{biz}/{yyyy}/{MM}/{dd}/{fileName}）
+     */
+    String STORAGE_ROOT_DIR = System.getProperty("user.dir") + "/tmp/storage";
 
 }

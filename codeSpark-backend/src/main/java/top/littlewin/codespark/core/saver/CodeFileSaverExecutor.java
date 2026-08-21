@@ -4,6 +4,7 @@ import top.littlewin.codespark.ai.model.HTMLCodeResult;
 import top.littlewin.codespark.ai.model.MultiFileCodeResult;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
+import top.littlewin.codespark.exception.ErrorMessage;
 import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 
 import java.io.File;
@@ -30,7 +31,7 @@ public class CodeFileSaverExecutor {
         return switch (codeGenType) {
             case HTML -> htmlCodeFileSaver.saveCode((HTMLCodeResult) codeResult, appId);
             case MULTI_FILE -> multiFileCodeFileSaver.saveCode((MultiFileCodeResult) codeResult, appId);
-            default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型: " + codeGenType);
+            default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, ErrorMessage.UNSUPPORTED_CODE_GEN_TYPE);
         };
     }
 }

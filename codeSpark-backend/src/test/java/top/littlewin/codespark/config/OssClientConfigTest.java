@@ -5,8 +5,8 @@ import com.aliyun.sdk.service.oss2.models.BucketSummary;
 import com.aliyun.sdk.service.oss2.models.ListBucketsRequest;
 import com.aliyun.sdk.service.oss2.models.ListBucketsResult;
 import com.aliyun.sdk.service.oss2.paginator.ListBucketsIterable;
-import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 
@@ -17,18 +17,18 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest
 class OssClientConfigTest {
 
-    @Resource
-    private OssClientConfig ossClientConfig;
+    /** 与 OssManager 同款注入方式：OSS 未启用/未配置 AK 时容器注册 null Bean，required=false 兼容两种场景 */
+    @Autowired(required = false)
+    private OSSClient ossClient;
 
     @Test
     void ossClient() {
-        OSSClient client = ossClientConfig.getOssClient();
-        if (client == null) {
+        if (ossClient == null) {
             System.out.println("未配置 AccessKey（OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET），跳过 OSS 连通性测试");
             return;
         }
 
-        ListBucketsIterable paginator = client.listBucketsPaginator(
+        ListBucketsIterable paginator = ossClient.listBucketsPaginator(
                 ListBucketsRequest.newBuilder()
                         .build());
 

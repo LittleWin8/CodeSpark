@@ -1,10 +1,11 @@
-package top.littlewin.codespark.core.handler;
+package top.littlewin.codespark.core.stream;
+
+import jakarta.annotation.Resource;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
-import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -20,18 +21,15 @@ import top.littlewin.codespark.service.ChatHistoryService;
 
 /**
  * 强类型流式消息处理器（统一处理 HTML / MULTI_FILE / VUE_PROJECT 三种模式）
- * <p>
+ *
  * 职责：
  * 1. 展示事件：thinking / 正文原样透传；工具事件（tool_request / tool_executed）以强类型透传，
  *    由 Controller 转为 SSE 命名事件，前端渲染为"正在写入 / 已写入"状态卡片；
  * 2. 维护聊天历史：只累积正文与工具执行块（thinking 是过程状态不落历史，历史会回放进
  *    对话记忆作为上下文，把思考当正文回喂会污染对话）。工具执行块仍以文本格式持久化，
  *    与既有历史数据兼容，前端按同一格式解析渲染。
- * <p>
+ *
  * 历史累积 = ai_response 文本 + tool_executed 文本块（tool_request 不进历史）。
- * <p>
- * 流完成后的生成物动作（HTML/MULTI 解析落盘、VUE 异步构建）由
- * {@link top.littlewin.codespark.core.AICodeGeneratorFacade} 触发，本类不感知生成模式。
  */
 @Slf4j
 @Component

@@ -32,9 +32,14 @@ public class UserVO implements Serializable {
     private String userName;
 
     /**
-     * 用户头像
+     * 用户头像（解析后可访问的 URL：oss: → 预签名 URL；local: → 本地静态地址）
      */
     private String userAvatar;
+
+    /**
+     * 用户头像存储标识（oss:... 或 local:...，供前端上传/编辑回显时提交入库，与 userAvatar 展示值分离）
+     */
+    private String userAvatarKey;
 
     /**
      * 用户简介

@@ -27,7 +27,7 @@
             <div v-if="loginUserStore.loginUser.id">
               <a-dropdown>
                 <a-space>
-                  <a-avatar :src="loginUserStore.loginUser.userAvatar" />
+                  <a-avatar :src="avatarSrc" @error="handleAvatarError" />
                   {{ loginUserStore.loginUser.userName ?? t('header.anonymous') }}
                 </a-space>
                 <template #overlay>
@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, ref } from 'vue'
+import { computed, h, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { MenuProps } from 'ant-design-vue'
@@ -70,6 +70,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons-vue'
 import { getErrorMessage } from '@/utils/errorMessage'
+import { extractOssKeyFromUrl, resolveFileUrl } from '@/utils/storage'
 import LanguageSwitcher from './LanguageSwitcher.vue'
 import { message } from 'ant-design-vue'
 import { userLogout } from '@/api/userController.ts'
@@ -80,6 +81,28 @@ import ACCESS_ENUM from '@/access/accessEnum.ts'
 const loginUserStore = useLoginUserStore()
 const { t } = useI18n()
 const router = useRouter()
+
+// 头像展示值：跟随登录用户信息，预签名 URL 过期时原地换新票
+const avatarSrc = ref(loginUserStore.loginUser.userAvatar || '')
+watch(
+  () => loginUserStore.loginUser.userAvatar,
+  (v) => {
+    avatarSrc.value = v || ''
+  },
+)
+
+// 头像 403（OSS 预签名过期）时自动兑换新 URL 重试一次
+const handleAvatarError = async () => {
+  const key = extractOssKeyFromUrl(avatarSrc.value)
+  if (!key) {
+    return
+  }
+  const url = await resolveFileUrl(key)
+  if (url) {
+    avatarSrc.value = url
+    loginUserStore.setLoginUser({ ...loginUserStore.loginUser, userAvatar: url })
+  }
+}
 
 // 跳转个人中心
 const goProfile = () => {
