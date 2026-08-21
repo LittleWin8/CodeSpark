@@ -29,6 +29,10 @@ CREATE TABLE IF NOT EXISTS "user"
 );
 
 CREATE INDEX IF NOT EXISTS idx_userName ON "user" ("userName");
+-- 头像存储标识查询优化（定时任务 like 'oss:%' / 'local:%'）
+CREATE INDEX IF NOT EXISTS idx_user_avatar ON "user" ("userAvatar");
+CREATE INDEX IF NOT EXISTS idx_user_avatar_oss ON "user" ("userAvatar") WHERE "userAvatar" LIKE 'oss:%';
+CREATE INDEX IF NOT EXISTS idx_user_avatar_local ON "user" ("userAvatar") WHERE "userAvatar" LIKE 'local:%';
 
 COMMENT ON TABLE "user" IS '用户表';
 COMMENT ON COLUMN "user".id IS 'id';
@@ -89,6 +93,10 @@ CREATE TABLE IF NOT EXISTS app
 CREATE INDEX IF NOT EXISTS idx_appName ON app ("appName");
 -- 提升基于用户 ID 的查询性能
 CREATE INDEX IF NOT EXISTS idx_userId ON app ("userId");
+-- 封面存储标识查询优化（定时任务 like 'oss:%' / 'local:%' 全量扫用）
+CREATE INDEX IF NOT EXISTS idx_app_cover ON app ("cover");
+CREATE INDEX IF NOT EXISTS idx_app_cover_oss ON app ("cover") WHERE "cover" LIKE 'oss:%';
+CREATE INDEX IF NOT EXISTS idx_app_cover_local ON app ("cover") WHERE "cover" LIKE 'local:%';
 
 COMMENT ON TABLE app IS '应用表';
 COMMENT ON COLUMN app.id IS 'id';

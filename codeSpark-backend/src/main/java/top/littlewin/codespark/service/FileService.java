@@ -8,7 +8,7 @@ import java.io.File;
 
 /**
  * 文件存储业务服务：业务层对文件操作的唯一入口。
- * <p>
+ *
  * 定位 = 应用服务层（介于 {业务 Controller/Service} 与 {存储门面 FileStorageFacade} 之间）：
  * - 把存储细节（操作类型枚举、入参模型、校验器）封装在实现内部，业务层只需表达业务语义；
  * - 内部统一委托 {@code FileStorageFacade} 完成存储，业务层感知不到具体存储方式（OSS / 本地）。

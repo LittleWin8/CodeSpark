@@ -193,7 +193,7 @@ public class LocalStorageStrategy implements StorageStrategy {
             return false;
         }
         for (String part : parts) {
-            if (StrUtil.isBlank(part) || !part.matches(FILE_NAME_PATTERN)) {
+            if (StrUtil.isBlank(part) || !part.matches(FILE_NAME_PATTERN) || "..".equals(part)) {
                 return false;
             }
         }

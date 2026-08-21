@@ -182,7 +182,8 @@ public class UserController {
     }
 
     /**
-     * 更新个人信息（本人，仅昵称/头像/简介，不能改角色等敏感字段）
+     * 更新个人信息（本人，仅昵称/简介，不能改角色等敏感字段）
+     * 头像信息由 FileController 中接口管理
      */
     @PostMapping("/update/my")
     public BaseResponse<Boolean> updateMyUser(@RequestBody UserUpdateMyRequest userUpdateMyRequest,
@@ -195,37 +196,10 @@ public class UserController {
         User user = new User();
         user.setId(loginUser.getId());
         user.setUserName(userUpdateMyRequest.getUserName());
-        // 头像入参规范化：两态标识原样收；外链下载转存；本地路径（存量数据）兼容；非法值拒绝，杜绝外链直接落库
-        user.setUserAvatar(resolveAvatarInput(userUpdateMyRequest.getUserAvatar(), loginUser.getId()));
         user.setUserProfile(userUpdateMyRequest.getUserProfile());
         boolean result = userService.updateById(user);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
-    }
-
-    /**
-     * 头像入库规范化：
-     * - 空 → null（清空头像）；
-     * - 两态标识（oss: / local:）→ 原样收；
-     * - 本地静态路径（/ 开头，存量数据回显）→ 原样收，不动它；
-     * - 外链 http(s):// → 拒绝（已禁用外链，头像仅支持本地上传，避免依赖第三方链接可用性）；
-     * - 其余（伪协议/非法格式）→ 拒绝。
-     */
-    private String resolveAvatarInput(String avatar, Long ownerId) {
-        if (StrUtil.isBlank(avatar)) {
-            return null;
-        }
-        if (avatar.startsWith("oss:") || avatar.startsWith("local:")) {
-            return avatar;
-        }
-        if (avatar.startsWith("/")) {
-            // 存量数据里的本地静态路径，原样保留
-            return avatar;
-        }
-        if (avatar.startsWith("http://") || avatar.startsWith("https://")) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, ErrorMessage.UNSUPPORTED_EXTERNAL_URL);
-        }
-        throw new BusinessException(ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_FILE_URL);
     }
 
     /**
