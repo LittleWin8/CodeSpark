@@ -71,6 +71,13 @@ const errorMessageMap: Record<string, string> = {
   AVATAR_UPDATE_LIMIT_EXCEEDED: 'error.avatarUpdateLimitExceeded',
   VUE_BUILD_FAILED: 'error.vueBuildFailed',
   VUE_DIST_NOT_FOUND: 'error.vueDistNotFound',
+  DOWNLOAD_NO_AUTH: 'error.downloadNoAuth',
+  APP_CODE_NOT_FOUND: 'error.appCodeNotFound',
+  PROJECT_PATH_EMPTY: 'error.projectPathEmpty',
+  DOWNLOAD_FILENAME_EMPTY: 'error.downloadFilenameEmpty',
+  PROJECT_DIR_NOT_FOUND: 'error.projectDirNotFound',
+  PROJECT_PATH_NOT_DIR: 'error.projectPathNotDir',
+  PROJECT_DOWNLOAD_FAILED: 'error.projectDownloadFailed',
   ok: 'error.default',
 }
 

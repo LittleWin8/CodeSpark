@@ -204,7 +204,8 @@ const openChat = (record: API.ChatHistory) => {
   if (record.appId == null) {
     return
   }
-  router.push(`/app/chat/${record.appId}`)
+  // 携带 from=manage：对话页返回时直接回对话管理页
+  router.push({ path: `/app/chat/${record.appId}`, query: { from: 'manage' } })
 }
 
 onMounted(() => {

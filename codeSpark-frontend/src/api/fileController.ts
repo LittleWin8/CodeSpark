@@ -1,30 +1,38 @@
 /* eslint-disable */
 import request from '@/request'
 
-/** 此处后端没有提供注释 GET /file/avatar/${param0}/${param1} */
-export async function getAvatar(
+/** 此处后端没有提供注释 GET /file/${param0}/${param1}/${param2}/${param3}/${param4} */
+export async function getFile(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
-  params: API.getAvatarParams,
+  params: API.getFileParams,
   options?: { [key: string]: any }
 ) {
-  const { userId: param0, fileName: param1, ...queryParams } = params
-  return request<string>(`/file/avatar/${param0}/${param1}`, {
+  const {
+    biz: param0,
+    yyyy: param1,
+    MM: param2,
+    dd: param3,
+    fileName: param4,
+    ...queryParams
+  } = params
+  return request<string>(`/file/${param0}/${param1}/${param2}/${param3}/${param4}`, {
     method: 'GET',
     params: { ...queryParams },
     ...(options || {}),
   })
 }
 
-/** 此处后端没有提供注释 GET /file/cover/${param0}/${param1} */
-export async function getCover(
+/** 此处后端没有提供注释 GET /file/resolve */
+export async function resolve(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
-  params: API.getCoverParams,
+  params: API.resolveParams,
   options?: { [key: string]: any }
 ) {
-  const { appId: param0, fileName: param1, ...queryParams } = params
-  return request<string>(`/file/cover/${param0}/${param1}`, {
+  return request<API.BaseResponseString>('/file/resolve', {
     method: 'GET',
-    params: { ...queryParams },
+    params: {
+      ...params,
+    },
     ...(options || {}),
   })
 }
@@ -35,26 +43,6 @@ export async function uploadAvatar(body: {}, options?: { [key: string]: any }) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-    },
-    data: body,
-    ...(options || {}),
-  })
-}
-
-/** 此处后端没有提供注释 POST /file/upload/cover */
-export async function uploadCover(
-  // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
-  params: API.uploadCoverParams,
-  body: {},
-  options?: { [key: string]: any }
-) {
-  return request<API.BaseResponseString>('/file/upload/cover', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    params: {
-      ...params,
     },
     data: body,
     ...(options || {}),

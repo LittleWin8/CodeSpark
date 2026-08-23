@@ -145,6 +145,10 @@ declare namespace API {
     id?: number
   }
 
+  type downloadAppCodeParams = {
+    appId: number
+  }
+
   type getAppVOByIdByAdminParams = {
     id: number
   }
@@ -153,13 +157,11 @@ declare namespace API {
     id: number
   }
 
-  type getAvatarParams = {
-    userId: number
-    fileName: string
-  }
-
-  type getCoverParams = {
-    appId: number
+  type getFileParams = {
+    biz: string
+    yyyy: string
+    MM: string
+    dd: string
     fileName: string
   }
 
@@ -220,14 +222,14 @@ declare namespace API {
     optimizeCountQuery?: boolean
   }
 
+  type resolveParams = {
+    storageKey: string
+  }
+
   type ServerSentEventString = true
 
   type serveStaticResourceParams = {
     deployKey: string
-  }
-
-  type uploadCoverParams = {
-    appId: number
   }
 
   type User = {
@@ -285,7 +287,6 @@ declare namespace API {
 
   type UserUpdateMyRequest = {
     userName?: string
-    userAvatar?: string
     userProfile?: string
   }
 

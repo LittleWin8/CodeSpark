@@ -6,76 +6,25 @@ import { Modal, message } from 'ant-design-vue'
 import {
   ArrowLeftOutlined,
   ArrowUpOutlined,
-  CheckCircleFilled,
   CloudUploadOutlined,
+  DownloadOutlined,
   DownOutlined,
   LoadingOutlined,
   PaperClipOutlined,
-  SettingOutlined,
   ThunderboltOutlined,
-  UpOutlined,
 } from '@ant-design/icons-vue'
-import { deployApp, getAppVoById } from '@/api/appController'
+import { deployApp, downloadAppCode, getAppVoById } from '@/api/appController'
 import { listAppChatHistory } from '@/api/chatHistoryController'
+import MessageItem from '@/components/chat/MessageItem.vue'
 import { CodeGenTypeEnum, useCodeGenType } from '@/constants/codeGenType'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { getErrorMessage } from '@/utils/errorMessage'
-import { renderMarkdown } from '@/utils/markdown'
 import { getPreviewUrl } from '@/utils/url'
 import { connectChatSse } from '@/utils/sse'
-import systemLogo from '@/assets/logo.png'
-type ChatRole = 'user' | 'ai'
+import type { ChatMessage, MessageBlock, TextBlock } from '@/types/chat'
 
 // 生成模式展示工具
 const { label: codeGenTypeLabel, color: codeGenTypeColor } = useCodeGenType()
-
-interface ChatMessage {
-  id: string
-  role: ChatRole
-  content: string
-  files?: string[]
-  done?: boolean
-  /** 后端创建时间，用于历史消息游标分页 */
-  createTime?: string
-  /** 是否为历史记录（区分当前会话实时生成的消息） */
-  history?: boolean
-  /** 内容是否被用户手动折叠 */
-  collapsed?: boolean
-  /** 模型推理（thinking）流式文本，仅实时生成时存在 */
-  thinking?: string
-  /** 推理是否结束（第一条正文到达即结束） */
-  thinkingDone?: boolean
-  /** 思考面板展开态 */
-  thinkingExpanded?: boolean
-  /** 首片思考到达时间戳（毫秒） */
-  thinkingStart?: number
-  /** 思考总耗时（秒），推理结束时冻结，避免完成后数字继续跳动 */
-  thinkingElapsed?: number
-  /** AI 消息的渲染块（文本块与文件写入卡片按流式顺序排列） */
-  blocks?: MessageBlock[]
-  /** 工具轮之间的"规划下一步"占位状态（模型静默推理 + API 往返期间亮起） */
-  planningNext?: boolean
-}
-
-/** 文本块：AI 正文流 */
-interface TextBlock {
-  type: 'text'
-  text: string
-}
-
-/** 文件写入卡片：由工具事件驱动（writing = 正在写入 / 已写入） */
-interface ToolBlock {
-  type: 'tool'
-  path: string
-  lang?: string
-  content?: string
-  writing: boolean
-  /** 进入"正在写入"态的时间戳（毫秒），用于保证写入态最短可见时长 */
-  writingStart?: number
-  expanded?: boolean
-}
-
-type MessageBlock = TextBlock | ToolBlock
 
 const { t } = useI18n()
 const route = useRoute()
@@ -86,6 +35,7 @@ const app = ref<API.AppVO>()
 const loading = ref(true)
 const nameLoading = ref(false)
 const deploying = ref(false)
+const downloading = ref(false)
 const generating = ref(false)
 const showPreview = ref(false)
 const previewKey = ref(0)
@@ -107,11 +57,7 @@ const thinkingSeconds = (msg: ChatMessage) =>
   msg.thinkingElapsed ??
   (msg.thinkingStart ? Math.max(1, Math.round((Date.now() - msg.thinkingStart) / 1000)) : 0)
 
-/** 思考实时读秒（由 nowTick 驱动，思考期间每秒 +1） */
-const liveThinkingSeconds = (msg: ChatMessage) =>
-  msg.thinkingStart ? Math.max(1, Math.round((nowTick.value - msg.thinkingStart) / 1000)) : 0
-
-/** 思考读秒的"当前时刻"：思考期间每秒跳动一次，驱动面板时间实时更新 */
+/** 思考读秒的"当前时刻"：思考期间每秒跳动一次，驱动面板时间实时更新（透传给 MessageItem 实时读秒） */
 const nowTick = ref(Date.now())
 let thinkingTimer: ReturnType<typeof setInterval> | null = null
 const startThinkingTimer = () => {
@@ -250,18 +196,6 @@ const msgText = (msg: ChatMessage): string =>
     .map((block) => block.text)
     .join('') ?? msg.content
 
-/** 渲染块兜底：无块时把 content 当作单个文本块 */
-const blocksOf = (msg: ChatMessage): MessageBlock[] =>
-  msg.blocks?.length
-    ? msg.blocks
-    : msg.content
-      ? [{ type: 'text', text: msg.content }]
-      : []
-
-/** 文件写入卡片数量（折叠时的摘要提示） */
-const toolCardCount = (msg: ChatMessage): number =>
-  (msg.blocks ?? []).filter((block) => block.type === 'tool').length
-
 /**
  * 解析历史消息文本为渲染块
  * 历史持久化格式：正文 + `[工具调用] 写入文件 <path>\n```<lang>\n<content>\n```` 文本块
@@ -303,26 +237,6 @@ const FOLD_LINE_COUNT = 10
 const MIN_WRITING_MS = 400
 
 const contentLineCount = (content: string): number => content.split('\n').length
-
-const isFolded = (msg: ChatMessage): boolean => Boolean(msg.collapsed)
-
-const toggleCollapse = (msg: ChatMessage) => {
-  msg.collapsed = !msg.collapsed
-}
-
-/** 内容超过 FOLD_LINE_COUNT 行时提供折叠/展开按钮 */
-const shouldShowFoldBtn = (msg: ChatMessage): boolean =>
-  contentLineCount(msgText(msg)) > FOLD_LINE_COUNT
-
-/** 折叠时展示的内容：前 FOLD_LINE_COUNT 行 */
-const foldedContent = (msg: ChatMessage): string =>
-  msgText(msg)
-    .split('\n')
-    .slice(0, FOLD_LINE_COUNT)
-    .join('\n')
-
-/** 单个文本块渲染的 Markdown HTML（空内容给占位符） */
-const blockHtml = (text: string): string => (text ? renderMarkdown(text) : '-')
 
 const closeSse = () => {
   if (eventSource) {
@@ -368,6 +282,29 @@ const sendMessage = async (text: string) => {
 
   const aiIndex = messages.value.length - 1
 
+  // ---- 思考分片节流 ----
+  // DeepSeek 推理阶段 chunk 极密（每几 token 一个分片），逐 chunk 更新响应式 thinking 会触发
+  // 整个页面组件重渲染，思考文本越长、对话历史越多，主线程越容易被占满（表现为"思考时卡死"）。
+  // 这里先把分片累积到本地数组，按固定间隔（100ms）批量 flush，重渲染频率从每秒数百次降到约 10 次；
+  // 数组累积 + 一次性 join 也避免了逐 chunk 字符串拼接的 O(n²) 开销。
+  const thinkingChunks: string[] = []
+  let thinkingFlushTimer: ReturnType<typeof setTimeout> | null = null
+  const flushThinking = (scroll: boolean) => {
+    if (thinkingFlushTimer) {
+      clearTimeout(thinkingFlushTimer)
+      thinkingFlushTimer = null
+    }
+    const current = messages.value[aiIndex]
+    if (current && thinkingChunks.length) {
+      current.thinking = (current.thinking ?? '') + thinkingChunks.join('')
+      thinkingChunks.length = 0
+      // 正文未到时跟随思考滚动，让用户看到"正在思考"的状态（随节流低频执行，避免频繁布局）
+      if (scroll && !current.content) {
+        scrollToBottom()
+      }
+    }
+  }
+
   eventSource = connectChatSse(app.value.id, messageText, {
     onMessage: (chunk) => {
       const current = messages.value[aiIndex]
@@ -398,13 +335,13 @@ const sendMessage = async (text: string) => {
       if (!current) {
         return
       }
-      current.thinking = (current.thinking ?? '') + chunk
       current.thinkingStart = current.thinkingStart ?? Date.now()
       current.planningNext = false
       startThinkingTimer() // 思考期间每秒跳动，驱动面板实时读秒
-      // 正文未到时跟随思考滚动，让用户看到"正在思考"的状态
-      if (!current.content) {
-        scrollToBottom()
+      // 累积分片，节流批量刷新（见上方 flushThinking 注释），避免每 chunk 触发整页重渲染
+      thinkingChunks.push(chunk)
+      if (!thinkingFlushTimer) {
+        thinkingFlushTimer = setTimeout(() => flushThinking(true), 100)
       }
     },
     onToolRequest: (payload) => {
@@ -456,6 +393,8 @@ const sendMessage = async (text: string) => {
       scrollToBottom()
     },
     onDone: () => {
+      // 先把尚未落盘的思考分片合并进消息，避免尾部内容丢失
+      flushThinking(false)
       const current = messages.value[aiIndex]
       if (current) {
         current.done = true
@@ -490,6 +429,8 @@ const sendMessage = async (text: string) => {
       }
     },
     onError: () => {
+      // 冲刷未落盘的思考分片（失败时也保留已收到的思考内容）
+      flushThinking(false)
       generating.value = false
       stopThinkingTimer()
       const current = messages.value[aiIndex]
@@ -510,7 +451,17 @@ const handleSend = () => {
 }
 
 const handleBack = () => {
-  // 有上一页历史时返回上一页，直接打开链接（无历史）时回首页
+  // 按进入来源返回：首页进入回首页，对话管理进入回对话管理页；
+  // 其他来源（无 from 标记）走浏览器历史，无历史时兜底回首页
+  const from = route.query.from as string | undefined
+  if (from === 'manage') {
+    router.push('/admin/chatHistoryManage')
+    return
+  }
+  if (from === 'home') {
+    router.push('/')
+    return
+  }
   if (window.history.state?.back) {
     router.back()
   } else {
@@ -553,8 +504,106 @@ const handleDeploy = async () => {
     } else {
       message.error(getErrorMessage(res.data.code, res.data.message) || t('appChat.deployFailed'))
     }
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { code?: number; message?: string } }; data?: { code?: number; message?: string } }
+    const code = err?.response?.data?.code ?? err?.data?.code
+    const msg = err?.response?.data?.message ?? err?.data?.message
+    if (code || msg) {
+      message.error(getErrorMessage(code, msg))
+    } else {
+      message.error(t('appChat.deployFailed'))
+    }
   } finally {
     deploying.value = false
+  }
+}
+
+const handleDownload = async () => {
+  if (!app.value?.id) {
+    return
+  }
+  downloading.value = true
+  try {
+    const res = await downloadAppCode(
+      { appId: app.value.id },
+      { responseType: 'blob' },
+    )
+    const contentType: string = String(res.headers?.['content-type'] ?? res.headers?.['Content-Type'] ?? '')
+    const blob: Blob = res.data as Blob
+    // 后端异常时，即使 responseType=blob，返回的仍是 JSON（Blob 形式），需解析并提示错误
+    if (blob.type && blob.type.includes('application/json')) {
+      const text = await blob.text()
+      try {
+        const json = JSON.parse(text)
+        message.error(getErrorMessage(json.code, json.message) || t('appChat.downloadFailed'))
+      } catch {
+        message.error(t('appChat.downloadFailed'))
+      }
+      return
+    }
+    if (contentType.includes('application/json')) {
+      // 某些情况下 blob.type 可能为空，通过响应头判断
+      try {
+        const text = await blob.text()
+        const json = JSON.parse(text)
+        if (json.code !== undefined) {
+          message.error(getErrorMessage(json.code, json.message) || t('appChat.downloadFailed'))
+          return
+        }
+      } catch {
+        // 非 JSON，继续走下载流程
+      }
+    }
+    // 从 Content-Disposition 解析文件名：attachment; filename="xxx.zip"
+    let filename = `${app.value.id}.zip`
+    const disposition: string = String(
+      res.headers?.['content-disposition'] ?? res.headers?.['Content-Disposition'] ?? '',
+    )
+    if (disposition) {
+      const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i)
+      if (utf8Match && utf8Match[1]) {
+        try {
+          filename = decodeURIComponent(utf8Match[1].replace(/"/g, ''))
+        } catch {
+          filename = utf8Match[1].replace(/"/g, '')
+        }
+      } else {
+        const match = disposition.match(/filename="?([^"]+)"?/i)
+        if (match && match[1]) {
+          filename = match[1]
+        }
+      }
+    }
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+    message.success(t('appChat.downloadSuccess'))
+  } catch (error: unknown) {
+    const err = error as {
+      response?: { data?: Blob & { code?: number; message?: string }; headers?: Record<string, string>; status?: number }
+    }
+    const blob = err?.response?.data
+    if (blob instanceof Blob) {
+      try {
+        const text = await blob.text()
+        const json = JSON.parse(text)
+        message.error(getErrorMessage(json.code, json.message) || t('appChat.downloadFailed'))
+      } catch {
+        message.error(t('appChat.downloadFailed'))
+      }
+    } else if (err?.response?.data) {
+      const data = err.response.data as unknown as { code?: number; message?: string }
+      message.error(getErrorMessage(data.code, data.message) || t('appChat.downloadFailed'))
+    } else {
+      message.error(t('appChat.downloadFailed'))
+    }
+  } finally {
+    downloading.value = false
   }
 }
 
@@ -834,6 +883,10 @@ onBeforeUnmount(() => {
           <a-button v-if="canChat" @click="router.push(`/app/edit/${appId}`)">
             {{ t('common.edit') }}
           </a-button>
+          <a-button :loading="downloading" :disabled="!canChat || generating" @click="handleDownload">
+            <template #icon><DownloadOutlined /></template>
+            {{ t('appChat.download') }}
+          </a-button>
           <a-popconfirm
             :title="t('appChat.deployConfirm')"
             :ok-text="t('common.confirm')"
@@ -857,172 +910,14 @@ onBeforeUnmount(() => {
             </a-button>
           </div>
           <div ref="messageListRef" class="message-list" @scroll="handleMessageScroll">
-            <div
+            <MessageItem
               v-for="msg in messages"
               :key="msg.id"
-              class="message-row"
-              :class="msg.role === 'user' ? 'message-row--user' : 'message-row--ai'"
-            >
-              <!-- 头像（左侧：AI logo；右侧：用户头像） -->
-              <div v-if="msg.role === 'ai'" class="message-avatar">
-                <img class="message-avatar__img" :src="systemLogo" alt="CodeSpark AI" />
-              </div>
-              <div v-else class="message-avatar">
-                <img
-                  v-if="userMessageAvatar"
-                  class="message-avatar__img"
-                  :src="userMessageAvatar"
-                  alt=""
-                />
-                <span v-else class="message-avatar__fallback">
-                  {{ userMessageName?.slice(0, 1) || 'U' }}
-                </span>
-              </div>
-
-              <!-- 昵称 + 气泡 -->
-              <div class="message-body">
-                <div class="message-nickname">
-                  {{ msg.role === 'ai' ? t('appChat.aiName') : userMessageName }}
-                </div>
-                <div class="message-bubble" :class="msg.role === 'user' ? 'is-user' : 'is-ai'">
-                  <!-- 深度思考面板：推理中实时展示，正文到达后自动收起为"已深度思考 N 秒"，点击可展开回顾 -->
-                  <div v-if="msg.role === 'ai' && msg.thinking" class="thinking-panel-wrap">
-                    <div
-                      class="thinking-panel"
-                      :class="{ 'thinking-panel--done': msg.thinkingDone }"
-                      @click="msg.thinkingExpanded = !msg.thinkingExpanded"
-                    >
-                      <ThunderboltOutlined class="thinking-panel__icon" />
-                      <span v-if="!msg.thinkingDone" class="thinking-panel__title">
-                        {{ t('appChat.thinkingLive', { sec: liveThinkingSeconds(msg) }) }}
-                      </span>
-                      <span v-else class="thinking-panel__done-text">
-                        {{ t('appChat.thinkingElapsed', { sec: thinkingSeconds(msg) }) }}
-                      </span>
-                      <DownOutlined v-if="!msg.thinkingExpanded" class="thinking-panel__arrow" />
-                      <UpOutlined v-else class="thinking-panel__arrow" />
-                    </div>
-                    <div v-if="msg.thinkingExpanded" class="thinking-panel__body">
-                      {{ msg.thinking }}
-                    </div>
-                  </div>
-                  <!-- AI 消息：按块渲染（文本 + 文件写入卡片）；折叠时只展示前 N 行文本与文件摘要 -->
-                  <template v-if="msg.role === 'ai'">
-                    <template v-if="isFolded(msg)">
-                      <div class="message-content">{{ foldedContent(msg) }}</div>
-                      <div v-if="toolCardCount(msg)" class="message-fold-hint">
-                        {{ t('appChat.filesGenerated') }}（{{ toolCardCount(msg) }}）
-                      </div>
-                    </template>
-                    <template v-else>
-                      <template v-for="(block, bi) in blocksOf(msg)" :key="bi">
-                        <div
-                          v-if="block.type === 'text'"
-                          class="message-content message-content--md"
-                        >
-                          <!--
-                            流式期间渲染纯文本（Vue 插值自动转义），避免每个分片都对整段代码重复做
-                            markdown 解析 + highlight.js 高亮（非 VUE 模式的大段代码会导致 O(n²) 卡顿）；
-                            done 后统一做一次完整 Markdown 渲染。
-                          -->
-                          <template v-if="block.text">
-                            <span v-if="msg.done" class="msg-rendered" v-html="blockHtml(block.text)"></span>
-                            <span v-else class="message-stream">{{ block.text }}</span>
-                          </template>
-                          <template v-else>{{ bi === 0 ? t('appChat.generating') : '' }}</template>
-                        </div>
-                        <div v-else class="tool-card">
-                          <div class="tool-card__head">
-                            <LoadingOutlined
-                              v-if="block.writing"
-                              spin
-                              class="tool-card__icon tool-card__icon--writing"
-                            />
-                            <CheckCircleFilled v-else class="tool-card__icon tool-card__icon--done" />
-                            <span class="tool-card__path">{{ block.path }}</span>
-                            <span
-                              class="tool-card__status"
-                              :class="block.writing ? 'is-writing' : 'is-done'"
-                            >
-                              {{ block.writing ? t('appChat.writingFile') : t('appChat.wroteFile') }}
-                            </span>
-                            <a-button
-                              v-if="!block.writing && block.content"
-                              type="link"
-                              size="small"
-                              class="tool-card__toggle"
-                              @click="block.expanded = !block.expanded"
-                            >
-                              {{ block.expanded ? t('appChat.collapse') : t('appChat.viewCode') }}
-                            </a-button>
-                          </div>
-                          <pre v-if="!block.writing && block.expanded" class="tool-card__code"><code>{{
-                            block.content
-                          }}</code></pre>
-                        </div>
-                      </template>
-                      <!-- 工具轮之间的间隔占位：模型静默规划下一步 + API 往返期间亮起 -->
-                      <div v-if="msg.planningNext && !msg.done" class="planning-indicator">
-                        <LoadingOutlined spin class="planning-indicator__icon" />
-                        <span>{{ t('appChat.planningNext') }}</span>
-                      </div>
-                    </template>
-                  </template>
-                  <!-- 用户消息：折叠时展示前 10 行 -->
-                  <div v-else class="message-content">
-                    {{ isFolded(msg) ? foldedContent(msg) : msg.content }}
-                  </div>
-
-                  <div v-if="msg.files?.length && !isFolded(msg)" class="file-list">
-                    <div class="file-list__title">{{ t('appChat.filesGenerated') }}</div>
-                    <div v-for="file in msg.files" :key="file" class="file-item">
-                      <SettingOutlined />
-                      <span>{{ file }}</span>
-                    </div>
-                  </div>
-
-                  <!-- AI 消息底部：实时完成的显示「已保存」，超过 10 行提供折叠按钮 -->
-                  <div
-                    v-if="
-                      msg.role === 'ai' && ((msg.done && !msg.history) || shouldShowFoldBtn(msg))
-                    "
-                    class="message-footer message-footer--ai"
-                  >
-                    <span v-if="msg.done && !msg.history" class="message-footer__saved">
-                      {{ t('appChat.saved') }}
-                    </span>
-                    <a-button
-                      v-if="shouldShowFoldBtn(msg)"
-                      type="link"
-                      size="small"
-                      class="fold-btn"
-                      @click="toggleCollapse(msg)"
-                    >
-                      <template #icon>
-                        <DownOutlined v-if="isFolded(msg)" />
-                        <UpOutlined v-else />
-                      </template>
-                      {{ isFolded(msg) ? t('appChat.expand') : t('appChat.collapse') }}
-                    </a-button>
-                  </div>
-                  <!-- 用户消息：超过 10 行提供折叠/展开 -->
-                  <div v-else-if="shouldShowFoldBtn(msg)" class="message-footer">
-                    <a-button
-                      type="link"
-                      size="small"
-                      class="fold-btn"
-                      @click="toggleCollapse(msg)"
-                    >
-                      <template #icon>
-                        <DownOutlined v-if="isFolded(msg)" />
-                        <UpOutlined v-else />
-                      </template>
-                      {{ isFolded(msg) ? t('appChat.expand') : t('appChat.collapse') }}
-                    </a-button>
-                  </div>
-                </div>
-              </div>
-            </div>
+              :msg="msg"
+              :user-name="userMessageName"
+              :user-avatar="userMessageAvatar"
+              :now-tick="nowTick"
+            />
           </div>
 
           <!-- 用户上滑阅读时，显示"回到底部"悬浮按钮；点击强制回到最新内容 -->
@@ -1225,438 +1120,6 @@ onBeforeUnmount(() => {
   padding: 20px 16px;
 }
 
-.message-row {
-  display: flex;
-  margin-bottom: 16px;
-  align-items: flex-start;
-}
-
-.message-row--user {
-  justify-content: flex-end;
-}
-
-/* 用户消息：头像移到右侧 */
-.message-row--user .message-avatar {
-  order: 2;
-}
-
-.message-row--user .message-body {
-  margin-right: 10px;
-}
-
-.message-row--ai {
-  justify-content: flex-start;
-  gap: 10px;
-}
-
-/* 圆形头像 */
-.message-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: #1f8f7a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.message-avatar__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.message-avatar__fallback {
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-/* 昵称 + 气泡列：限制最大宽度（宽屏也不超过 640px），保证代码等内容正常换行 */
-.message-body {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  min-width: 0;
-  max-width: min(70%, 640px);
-}
-
-/* 用户消息：昵称和气泡靠右 */
-.message-row--user .message-body {
-  align-items: flex-end;
-}
-
-.message-nickname {
-  font-size: 12px;
-  color: #8c8c8c;
-  margin-bottom: 4px;
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.message-bubble {
-  position: relative;
-  border-radius: 14px;
-  padding: 12px 14px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.6;
-}
-
-/* AI 气泡左侧箭头（指向左侧头像） */
-.message-bubble.is-ai::before {
-  content: '';
-  position: absolute;
-  top: 14px;
-  left: -8px;
-  border: 5px solid transparent;
-  border-right-color: #fff;
-  border-left: 0;
-}
-
-/* 用户气泡右侧箭头（指向右侧头像） */
-.message-bubble.is-user::before {
-  content: '';
-  position: absolute;
-  top: 14px;
-  right: -8px;
-  border: 5px solid transparent;
-  border-left-color: #e8e8ed;
-  border-right: 0;
-}
-
-.message-bubble.is-user {
-  background: #e8e8ed;
-  color: #1d1d1f;
-}
-
-.message-bubble.is-ai {
-  background: #fff;
-  border: 1px solid #ececec;
-}
-
-/* 深度思考面板：推理过程展示（置灰、紧凑，与正文视觉分离） */
-.thinking-panel-wrap {
-  margin-bottom: 10px;
-}
-
-.thinking-panel {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 100%;
-  padding: 5px 10px;
-  border-radius: 10px;
-  background: #f4f5f7;
-  color: #8a919f;
-  font-size: 12px;
-  line-height: 1.5;
-  cursor: pointer;
-  user-select: none;
-}
-
-.thinking-panel--done {
-  background: transparent;
-  border: 1px dashed #e5e6eb;
-}
-
-.thinking-panel__icon {
-  font-size: 13px;
-  color: #a8abb2;
-}
-
-.thinking-panel__title {
-  font-weight: 500;
-}
-
-.thinking-panel__done-text {
-  color: #9aa0a6;
-}
-
-.thinking-panel__arrow {
-  font-size: 10px;
-  color: #b0b3b8;
-}
-
-.thinking-panel__body {
-  margin-top: 6px;
-  padding: 10px 12px;
-  max-height: 240px;
-  overflow-y: auto;
-  border-radius: 10px;
-  background: #f7f8fa;
-  color: #8a919f;
-  font-size: 12px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Courier New', monospace;
-}
-
-/* 文件写入卡片：正在写入 / 已写入状态 */
-.tool-card {
-  margin: 8px 0;
-  border: 1px solid #e8eaed;
-  border-radius: 10px;
-  background: #fafbfc;
-  overflow: hidden;
-}
-
-.tool-card__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
-}
-
-.tool-card__icon {
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.tool-card__icon--writing {
-  color: #1677ff;
-}
-
-.tool-card__icon--done {
-  color: #52c41a;
-}
-
-.tool-card__path {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
-  font-weight: 500;
-  color: #3c3f45;
-}
-
-.tool-card__status {
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-.tool-card__status.is-writing {
-  color: #8a919f;
-}
-
-.tool-card__status.is-done {
-  color: #52c41a;
-}
-
-.tool-card__toggle {
-  padding: 0;
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-.tool-card__code {
-  margin: 0;
-  padding: 10px 12px;
-  max-height: 260px;
-  overflow: auto;
-  background: #fff;
-  border-top: 1px solid #f0f1f3;
-  font-size: 12px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.message-fold-hint {
-  margin-top: 4px;
-  font-size: 12px;
-  color: #8a919f;
-}
-
-/* 工具轮间隔占位：模型静默规划/API 往返期间的轻量状态提示 */
-.planning-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-  font-size: 12px;
-  color: #9aa0a6;
-}
-
-.planning-indicator__icon {
-  font-size: 13px;
-  color: #a8abb2;
-}
-
-.file-list {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.file-list__title {
-  font-size: 12px;
-  color: #8c8c8c;
-}
-
-.file-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: #f5f5f7;
-  font-size: 13px;
-}
-
-.message-footer {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #8c8c8c;
-}
-
-.message-footer--ai {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.message-footer__saved {
-  color: #8c8c8c;
-}
-
-.fold-btn {
-  padding-inline: 0;
-  height: auto;
-  font-size: 12px;
-}
-
-.message-footer--ai .fold-btn {
-  margin-left: auto;
-}
-
-/* Markdown 渲染内容（AI 输出） */
-.message-content--md {
-  white-space: normal;
-}
-
-/* 流式期间的纯文本渲染：保留换行与空白，避免每个分片重跑 Markdown/高亮导致卡顿 */
-.message-stream {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-/* 生成完成后由纯文本切换到 Markdown 渲染时，做一次淡入过渡，避免"突然变脸" */
-.msg-rendered {
-  animation: msg-render-in 0.3s ease;
-}
-
-@keyframes msg-render-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.message-content--md :deep(p) {
-  margin: 0 0 8px;
-}
-
-.message-content--md :deep(p:last-child) {
-  margin-bottom: 0;
-}
-
-.message-content--md :deep(h1),
-.message-content--md :deep(h2),
-.message-content--md :deep(h3),
-.message-content--md :deep(h4) {
-  margin: 12px 0 8px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.message-content--md :deep(h1) {
-  font-size: 18px;
-}
-
-.message-content--md :deep(h2) {
-  font-size: 16px;
-}
-
-.message-content--md :deep(h3),
-.message-content--md :deep(h4) {
-  font-size: 14px;
-}
-
-.message-content--md :deep(ul),
-.message-content--md :deep(ol) {
-  margin: 8px 0;
-  padding-left: 20px;
-}
-
-.message-content--md :deep(blockquote) {
-  margin: 8px 0;
-  padding: 4px 12px;
-  border-left: 3px solid #1f8f7a;
-  color: #6b7280;
-  background: #f5f5f7;
-  border-radius: 0 6px 6px 0;
-}
-
-.message-content--md :deep(a) {
-  color: #1f8f7a;
-}
-
-.message-content--md :deep(table) {
-  border-collapse: collapse;
-  margin: 8px 0;
-}
-
-.message-content--md :deep(th),
-.message-content--md :deep(td) {
-  border: 1px solid #ececec;
-  padding: 6px 10px;
-}
-
-/* 代码块（highlight.js 高亮后的 pre.hljs）：自动换行，不产生横向滚动 */
-.message-content--md :deep(pre) {
-  margin: 8px 0;
-  padding: 12px;
-  background: #f6f8fa;
-  border: 1px solid #ececec;
-  border-radius: 8px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.message-content--md :deep(pre code) {
-  padding: 0;
-  background: transparent;
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
-}
-
-.message-content--md :deep(code) {
-  padding: 2px 5px;
-  background: rgba(27, 31, 35, 0.06);
-  border-radius: 4px;
-  font-size: 12px;
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
-}
-
 .chat-input {
   margin: 0 16px 16px;
   background: #fff;
@@ -1825,3 +1288,4 @@ onBeforeUnmount(() => {
   }
 }
 </style>
+

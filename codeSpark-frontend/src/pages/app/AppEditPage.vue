@@ -78,8 +78,9 @@ const handleSubmit = async () => {
 
     if (res.data.code === 0) {
       message.success(t('appEdit.saveSuccess'))
-      // 保存成功后跳转回对话页面
-      await router.push(`/app/chat/${idParam}`)
+      // 保存成功后跳转回对话页面（replace：编辑页已完成使命，不留在历史栈中，
+      // 避免从对话页返回时又回到编辑页造成"退不出去"）
+      await router.replace(`/app/chat/${idParam}`)
     } else {
       message.error(getErrorMessage(res.data.code, res.data.message) || t('appEdit.saveFailed'))
     }

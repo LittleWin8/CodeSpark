@@ -101,8 +101,7 @@ const handleSubmit = async () => {
   try {
     const res = await updateMyUser({
       userName: formState.userName.trim(),
-      // 优先提交存储标识（后端原样入库）；无标识（手填 URL/存量数据）时提交展示值，后端按外链转存处理
-      userAvatar: formState.userAvatarKey || formState.userAvatar,
+      // 头像由 uploadAvatar 上传接口单独管理（上传即生效），此处不提交
       userProfile: formState.userProfile.trim(),
     })
     if (res.data.code === 0) {

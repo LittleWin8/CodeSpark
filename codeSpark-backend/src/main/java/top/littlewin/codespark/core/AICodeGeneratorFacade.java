@@ -23,7 +23,8 @@ import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 import java.io.File;
 
 /**
- * AI 代码生成门面类，组合代码生成和保存功能，并封装 App 命名
+ * AI 代码生成门面类：组合代码生成和保存功能。
+ * 应用命名由独立的 AppNamingService 负责（轻量模型），不走本门面。
  */
 @Slf4j
 @Service
@@ -38,21 +39,6 @@ public class AICodeGeneratorFacade {
     @Resource
     private VueProjectBulider vueProjectBulider;
 
-
-    /**
-     * 根据 App 的初始提示词生成应用名称
-     * @param userMessage 应用初始提示词
-     * @param codeGenType 生成类型
-     * @return 应用名称
-     */
-    public String generateAppName(String userMessage, CodeGenTypeEnum codeGenType){
-
-        ThrowUtils.throwIf(codeGenType != CodeGenTypeEnum.NAMING, ErrorCode.PARAMS_ERROR, ErrorMessage.ONLY_NAMING_ALLOWED);
-
-        AICodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAICodeGeneratorService(0, codeGenType);
-
-        return aiCodeGeneratorService.generateAppName(userMessage);
-    }
 
     /**
      * 统一入口：根据类型生成并保存代码(流式)

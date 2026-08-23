@@ -15,6 +15,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import reactor.core.publisher.Flux;
+import top.littlewin.codespark.ai.AiCodeGenTypeRoutingService;
+import top.littlewin.codespark.ai.AppNamingService;
 import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.core.AICodeGeneratorFacade;
@@ -94,8 +96,18 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
      */
     private static final String GENERATE_FAILED_MESSAGE = "应用生成失败，请重试~";
 
+    /** AI 类型路由：轻量模型（deepseek-chat）判断生成类型 */
+    @Resource
+    private AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService;
+
+    /** AI 应用命名：轻量模型（deepseek-chat），独立服务 */
+    @Resource
+    private AppNamingService appNamingService;
+
     @Override
     public Long createApp(AppAddRequest appAddRequest, User loginUser) {
+
+        // 参数校验
         ThrowUtils.throwIf(appAddRequest == null, ErrorCode.PARAMS_ERROR);
         String initPrompt = appAddRequest.getInitPrompt();
         ThrowUtils.throwIf(StrUtil.isBlank(initPrompt), ErrorCode.PARAMS_ERROR, ErrorMessage.EMPTY_INIT_PROMPT);
@@ -108,12 +120,19 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 先使用截取名称快速落库，避免等待 AI 生成名称阻塞创建请求
         app.setAppName(this.truncateName(initPrompt));
 
-        // 校验生成类型,NAMING类型不可
-        String codeGenType = appAddRequest.getCodeGenType();
-        ThrowUtils.throwIf(CodeGenTypeEnum.getEnumByValue(codeGenType) == null &&
-                CodeGenTypeEnum.NAMING.getValue().equals(codeGenType),
+        // 由 AI 判断任务难度来选择不同的生成类型（轻量模型）；
+        // 路由偶发解析失败时降级为 MULTI_FILE，避免创建流程被 AI 不稳定拖垮
+        CodeGenTypeEnum codeGenType;
+        try {
+            codeGenType = aiCodeGenTypeRoutingService.routeCodeGenType(initPrompt);
+        } catch (Exception e) {
+            log.warn("AI 类型路由失败，降级为 MULTI_FILE: {}", e.getMessage());
+            codeGenType = CodeGenTypeEnum.MULTI_FILE;
+        }
+        // 路由结果必须是有效的生成类型（html / multi_file / vue）
+        ThrowUtils.throwIf(codeGenType == null,
                 ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_CODE_GEN_TYPE);
-        app.setCodeGenType(codeGenType);
+        app.setCodeGenType(codeGenType.getValue());
 
         // 插入数据库
         boolean result = this.save(app);
@@ -424,7 +443,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         }
         try {
 
-            String name = aiCodeGeneratorFacade.generateAppName(userMessage, CodeGenTypeEnum.NAMING);
+            String name = appNamingService.generateAppName(userMessage);
             if (StrUtil.isNotBlank(name)) {
                 // 去掉首尾空白与可能的引号包裹
                 name = name.trim().replace("\"", "").replace("'", "");

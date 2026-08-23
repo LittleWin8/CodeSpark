@@ -13,7 +13,6 @@ import {
 import dayjs from 'dayjs'
 import AppCard from '@/components/AppCard.vue'
 import { addApp, listGoodAppVoByPage, listMyAppVoByPage } from '@/api/appController'
-import { CodeGenTypeEnum, useCodeGenType } from '@/constants/codeGenType'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { getErrorMessage } from '@/utils/errorMessage'
 import { getDeployUrl, getPreviewUrl } from '@/utils/url'
@@ -22,13 +21,9 @@ import ACCESS_ENUM from '@/access/accessEnum'
 const { t } = useI18n()
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
-const { options: codeGenTypeOptions } = useCodeGenType()
 
 const prompt = ref('')
 const creating = ref(false)
-
-// 应用生成类型（默认多文件）
-const codeGenType = ref<string>(CodeGenTypeEnum.MULTI_FILE)
 
 const suggestKeys = [
   'suggestPopEcommerce',
@@ -132,10 +127,11 @@ const createApp = async () => {
 
   creating.value = true
   try {
-    const res = await addApp({ initPrompt, codeGenType: codeGenType.value })
+    const res = await addApp({ initPrompt })
     if (res.data.code === 0 && res.data.data) {
-      // 对话页会根据「自己的 app 且没有对话历史」自动发送初始消息
-      await router.push(`/app/chat/${res.data.data}`)
+      // 对话页会根据「自己的 app 且没有对话历史」自动发送初始消息；
+      // 携带 from=home：对话页返回时直接回首页
+      await router.push({ path: `/app/chat/${res.data.data}`, query: { from: 'home' } })
     } else {
       message.error(getErrorMessage(res.data.code, res.data.message) || t('home.createFailed'))
     }
@@ -148,7 +144,7 @@ const openApp = (app: API.AppVO) => {
   if (!app.id) {
     return
   }
-  router.push(`/app/chat/${app.id}`)
+  router.push({ path: `/app/chat/${app.id}`, query: { from: 'home' } })
 }
 
 /**
@@ -250,10 +246,6 @@ onUnmounted(() => {
             :bordered="false"
             @pressEnter.exact.prevent="createApp"
           />
-          <div class="prompt-box__type">
-            <span class="prompt-box__type-label">{{ t('home.codeGenType') }}</span>
-            <a-radio-group v-model:value="codeGenType" :options="codeGenTypeOptions" size="small" />
-          </div>
           <div class="prompt-box__toolbar">
             <a-space>
               <a-button type="text" @click="handleUpload">
@@ -483,18 +475,6 @@ onUnmounted(() => {
   resize: none;
   font-size: 16px;
   padding: 0;
-}
-
-.prompt-box__type {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 10px 2px 8px;
-}
-
-.prompt-box__type-label {
-  font-size: 13px;
-  color: #8a8a8e;
 }
 
 .prompt-box__toolbar {

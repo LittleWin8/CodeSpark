@@ -83,7 +83,14 @@
     "updateCoverFailed": "Failed to update app cover",
     "avatarUpdateLimitExceeded": "Avatar update limit reached (5 per day)",
     "vueBuildFailed": "Vue project build failed, please retry",
-    "vueDistNotFound": "Vue build succeeded but no dist directory was generated"
+    "vueDistNotFound": "Vue build succeeded but no dist directory was generated",
+    "downloadNoAuth": "No permission to download this app code",
+    "appCodeNotFound": "App code not found, please generate it first",
+    "projectPathEmpty": "Project path cannot be empty",
+    "downloadFilenameEmpty": "Download filename cannot be empty",
+    "projectDirNotFound": "Project directory not found",
+    "projectPathNotDir": "Specified path is not a directory",
+    "projectDownloadFailed": "Failed to package and download project"
   },
   "nav": {
     "home": "Home",
@@ -219,7 +226,10 @@
     "historyLoadFailed": "Failed to load chat history",
     "expand": "Expand",
     "collapse": "Collapse",
-    "vueBuilding": "Vue project is building, preview will appear when ready"
+    "vueBuilding": "Vue project is building, preview will appear when ready",
+    "download": "Download Code",
+    "downloadSuccess": "Downloaded successfully",
+    "downloadFailed": "Download failed"
   },
   "appEdit": {
     "title": "Edit App",

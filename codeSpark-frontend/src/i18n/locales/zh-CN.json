@@ -83,7 +83,14 @@
     "updateCoverFailed": "更新应用封面失败",
     "avatarUpdateLimitExceeded": "今日头像更新次数已达上限，每日最多5次",
     "vueBuildFailed": "Vue 项目构建失败，请重试",
-    "vueDistNotFound": "Vue 构建成功但未生成 dist 目录"
+    "vueDistNotFound": "Vue 构建成功但未生成 dist 目录",
+    "downloadNoAuth": "无权限下载该应用代码",
+    "appCodeNotFound": "应用代码不存在，请先生成代码",
+    "projectPathEmpty": "项目路径不能为空",
+    "downloadFilenameEmpty": "下载文件名不能为空",
+    "projectDirNotFound": "项目目录不存在",
+    "projectPathNotDir": "指定路径不是目录",
+    "projectDownloadFailed": "项目打包下载失败"
   },
   "nav": {
     "home": "首页",
@@ -219,7 +226,10 @@
     "historyLoadFailed": "加载对话历史失败",
     "expand": "展开",
     "collapse": "收起",
-    "vueBuilding": "VUE 工程构建中，构建完成后自动预览"
+    "vueBuilding": "VUE 工程构建中，构建完成后自动预览",
+    "download": "下载代码",
+    "downloadSuccess": "下载成功",
+    "downloadFailed": "下载失败"
   },
   "appEdit": {
     "title": "编辑应用信息",

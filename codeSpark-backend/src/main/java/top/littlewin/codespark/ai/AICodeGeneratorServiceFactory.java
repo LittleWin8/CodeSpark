@@ -7,14 +7,10 @@ import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
-import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.service.AiServices;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Service;
 import top.littlewin.codespark.ai.tools.FileWriteTool;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
@@ -25,54 +21,30 @@ import top.littlewin.codespark.service.ChatHistoryService;
 import java.time.Duration;
 
 /**
- * AI 服务创建工厂
- * 模型装配策略：
- * - deepseek-v4-flash（代码生成）：由 langchain4j 自动装配注入（langchain4j.open-ai.* 配置）
- * - deepseek-chat（应用命名）：由本工厂手动构建（轻量、无工具、无记忆）
+ * AI 代码生成服务工厂
+ *
+ * 模型装配策略（分级）：
+ * - 代码生成（VUE_PROJECT / HTML / MULTI_FILE）：统一使用主模型 deepseek-v4-flash
+ *   （langchain4j 自动装配注入，langchain4j.open-ai.* 配置）；
+ * - 路由判断、应用命名等简单任务：使用轻量模型 deepseek-chat（见 {@link top.littlewin.codespark.config.AiModelConfig}），
+ *   由 AiCodeGenTypeRoutingServiceFactory / AppNamingServiceFactory 独立装配，与本工厂无关。
  */
 @Slf4j
-@Configuration
+@Service
 public class AICodeGeneratorServiceFactory {
 
-    // ===== 自动装配：deepseek-v4-flash 模型 =====
+    // ===== 主模型：deepseek-v4-flash（代码生成） =====
     @Resource
     private ChatModel openAiChatModel;
 
     @Resource
     private StreamingChatModel streamingChatModel;
 
-    // ===== 手动装配：deepseek-chat 模型 =====
-    // @Lazy 延迟注入：namingChatModel 由本工厂的 @Bean 方法提供，
-    // 若普通字段注入会在工厂初始化时要求解析自身 @Bean，形成循环依赖
-    @Lazy
-    @Resource
-    private ChatModel namingChatModel;
-
     @Resource
     private RedisChatMemoryStore redisChatMemoryStore;
 
     @Resource
     private ChatHistoryService chatHistoryService;
-
-    /**
-     * 手动装配：deepseek-chat 模型
-     * 仅用于为应用命名，轻量、纯文本输出
-     */
-    @Bean
-    public ChatModel namingChatModel(
-            @Value("${langchain4j.open-ai.chat-model.base-url:https://api.deepseek.com}") String baseUrl,
-            @Value("${langchain4j.open-ai.chat-model.api-key:}") String apiKey,
-            @Value("${codespark.ai.app-name.model-name:deepseek-chat}") String modelName,
-            @Value("${codespark.ai.app-name.max-tokens:128}") Integer maxTokens) {
-
-        return OpenAiChatModel.builder()
-                .baseUrl(baseUrl)
-                .apiKey(apiKey)
-                .modelName(modelName)
-                .maxTokens(maxTokens)
-                .logRequests(true)
-                .build();
-    }
 
     /**
      * AI 服务实例缓存
@@ -97,9 +69,6 @@ public class AICodeGeneratorServiceFactory {
      * @param codeGenType 生成类型
      */
     public AICodeGeneratorService getAICodeGeneratorService(long appId, CodeGenTypeEnum codeGenType) {
-        if (codeGenType == CodeGenTypeEnum.NAMING){
-            return this.createAiCodeGeneratorService(appId, codeGenType);
-        }
         String cacheKey = buildCacheKey(appId, codeGenType);
         return serviceCache.get(cacheKey, key -> createAiCodeGeneratorService(appId, codeGenType));
     }
@@ -132,16 +101,6 @@ public class AICodeGeneratorServiceFactory {
                     .chatModel(openAiChatModel)
                     .streamingChatModel(streamingChatModel)
                     .chatMemory(buildChatMemory(appId))
-                    .build();
-            // 命名：deepseek-chat，无工具、无记忆
-            // 接口含 @MemoryId 方法（Vue 流式），langchain4j 构建校验要求必须配置 memory；
-            // 命名方法本身不使用 @MemoryId，此 provider 永远不会被调用（纯内存、不落库），仅用于通过校验
-            case NAMING -> AiServices.builder(AICodeGeneratorService.class)
-                    .chatModel(namingChatModel)
-                    .chatMemoryProvider(memoryId -> MessageWindowChatMemory.builder()
-                            .id(memoryId)
-                            .maxMessages(20)
-                            .build())
                     .build();
             default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, ErrorMessage.UNSUPPORTED_CODE_GEN_TYPE);
         };

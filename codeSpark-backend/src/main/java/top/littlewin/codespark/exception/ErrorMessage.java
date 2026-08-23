@@ -32,7 +32,6 @@ public enum ErrorMessage {
     INVALID_CODE_GEN_TYPE,
     CODE_GEN_TYPE_REQUIRED,
     UNSUPPORTED_CODE_GEN_TYPE,
-    ONLY_NAMING_ALLOWED,
     APP_CODE_NOT_GENERATED,
     APP_DEPLOY_FAILED,
     APP_DEPLOY_UPDATE_FAILED,
@@ -80,7 +79,16 @@ public enum ErrorMessage {
 
     // ---------- 代码文件保存 ----------
     CODE_CONTENT_EMPTY,
-    CODE_RESULT_EMPTY;
+    CODE_RESULT_EMPTY,
+
+    // ---------- 项目下载 ----------
+    DOWNLOAD_NO_AUTH,
+    APP_CODE_NOT_FOUND,
+    PROJECT_PATH_EMPTY,
+    DOWNLOAD_FILENAME_EMPTY,
+    PROJECT_DIR_NOT_FOUND,
+    PROJECT_PATH_NOT_DIR,
+    PROJECT_DOWNLOAD_FAILED;
 
     /**
      * @return 稳定英文 key（即枚举名）
