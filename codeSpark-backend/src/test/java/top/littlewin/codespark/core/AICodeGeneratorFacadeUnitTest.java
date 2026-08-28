@@ -12,6 +12,7 @@ import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.core.builder.VueProjectBulider;
 import top.littlewin.codespark.core.stream.TokenStreamMessageEmitter;
+import top.littlewin.codespark.model.enums.ChatStageEnum;
 import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 import top.littlewin.codespark.service.AppService;
 
@@ -52,7 +53,7 @@ class AICodeGeneratorFacadeUnitTest {
         when(emitter.emit(any())).thenReturn(Flux.just(new AiResponseMessage("代码")));
 
         Flux<StreamMessage> result = facade.generateAndSaveCodeStream(
-                "生成 Vue 项目", CodeGenTypeEnum.VUE_PROJECT, 1L);
+                "生成 Vue 项目", CodeGenTypeEnum.VUE_PROJECT, 1L, ChatStageEnum.CREATE);
         result.collectList().block();
 
         // 流完成后启动异步构建（仅 VUE 模式；HTML/MULTI 走 attachParseAndSave 的解析落盘分支）

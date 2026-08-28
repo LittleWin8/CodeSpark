@@ -140,6 +140,12 @@
             <artifactId>langchain4j-community-redis-spring-boot-starter</artifactId>
             <version>1.18.0-beta28</version>
         </dependency>
+        <!-- langgraph4j：状态化多智能体工作流框架。-->
+        <dependency>
+            <groupId>org.bsc.langgraph4j</groupId>
+            <artifactId>langgraph4j-core</artifactId>
+            <version>1.8.24</version>
+        </dependency>
     </dependencies>
 
     <build>

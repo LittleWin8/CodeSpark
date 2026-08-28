@@ -1,8 +1,12 @@
 export type ToolRequestPayload = {
+  /** 工具名：writeFile / readFile / modifyFile / deleteFile / readDir */
+  name?: string
   path?: string
 }
 
 export type ToolExecutedPayload = {
+  /** 工具名：writeFile / readFile / modifyFile / deleteFile / readDir */
+  name?: string
   path?: string
   lang?: string
   content?: string

@@ -2,9 +2,7 @@ package top.littlewin.codespark.core.stream;
 
 import jakarta.annotation.Resource;
 
-import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -15,6 +13,8 @@ import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.ai.model.message.StreamMessageTypeEnum;
 import top.littlewin.codespark.ai.model.message.ToolExecutedMessage;
 import top.littlewin.codespark.ai.model.message.ToolRequestMessage;
+import top.littlewin.codespark.ai.tools.BaseTool;
+import top.littlewin.codespark.ai.tools.ToolManager;
 import top.littlewin.codespark.model.entity.User;
 import top.littlewin.codespark.model.enums.ChatHistoryMessageTypeEnum;
 import top.littlewin.codespark.service.ChatHistoryService;
@@ -37,6 +37,9 @@ public class StreamMessageHandler {
 
     @Resource
     private ChatHistoryService chatHistoryService;
+
+    @Resource
+    private ToolManager toolManager;
 
     /**
      * 处理强类型事件流
@@ -89,19 +92,23 @@ public class StreamMessageHandler {
 
             case TOOL_EXECUTED -> {
                 ToolExecutedMessage toolExecutedMessage = (ToolExecutedMessage) msg;
-                // 历史仍以文本块格式持久化（与既有历史数据兼容，前端按同一格式解析渲染）
-                JSONObject jsonObject = JSONUtil.parseObj(toolExecutedMessage.getArguments());
-                String relativeFilePath = jsonObject.getStr("relativeFilePath");
-                String suffix = FileUtil.getSuffix(relativeFilePath);
-                String content = jsonObject.getStr("content");
-                String result = String.format("""
-                        [工具调用] 写入文件 %s
-                        ```%s
-                        %s
-                        ```
-                        """, relativeFilePath, suffix, content);
+                // 历史仍以文本块格式持久化；格式化逻辑统一由各工具（BaseTool#generateToolExecutedResult）负责
+                String toolName = toolExecutedMessage.getName();
+                String result;
+                BaseTool tool = toolManager.getTool(toolName);
+                if (tool != null) {
+                    try {
+                        result = tool.generateToolExecutedResult(
+                                JSONUtil.parseObj(toolExecutedMessage.getArguments()));
+                    } catch (Exception e) {
+                        log.warn("格式化工具执行结果失败，使用兜底格式: tool={}", toolName, e);
+                        result = "[工具调用] " + toolName;
+                    }
+                } else {
+                    result = "[工具调用] " + toolName;
+                }
                 chatHistoryStringBuilder.append(String.format("\n\n%s\n\n", result));
-                yield msg; // 强类型透传（前端渲染"已写入"卡片）
+                yield msg; // 强类型透传（前端渲染工具执行状态卡片）
             }
 
             default -> {

@@ -37,6 +37,14 @@ public interface ChatHistoryService extends IService<ChatHistory> {
     boolean deleteByAppId(Long appId);
 
     /**
+     * 判断应用是否已有 AI 对话历史（用于区分"创建应用"与"修改应用"）
+     *
+     * @param appId 应用 ID
+     * @return 是否有 AI 历史
+     */
+    boolean hasAiChatMessage(Long appId);
+
+    /**
      * 翻页查询 App 的对话历史
      *
      * @param appId 应用 ID

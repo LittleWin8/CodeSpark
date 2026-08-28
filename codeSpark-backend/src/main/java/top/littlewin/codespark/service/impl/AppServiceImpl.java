@@ -32,6 +32,7 @@ import top.littlewin.codespark.model.entity.App;
 import top.littlewin.codespark.mapper.AppMapper;
 import top.littlewin.codespark.model.entity.User;
 import top.littlewin.codespark.model.enums.ChatHistoryMessageTypeEnum;
+import top.littlewin.codespark.model.enums.ChatStageEnum;
 import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 import top.littlewin.codespark.model.vo.AppVO;
 import top.littlewin.codespark.model.vo.UserVO;
@@ -189,13 +190,18 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         CodeGenTypeEnum codeGenType = CodeGenTypeEnum.getEnumByValue(app.getCodeGenType());
         ThrowUtils.throwIf(codeGenType == null, ErrorCode.SYSTEM_ERROR, ErrorMessage.INVALID_CODE_GEN_TYPE);
 
-        // 5. 保存用户消息
+        // 5. 判断对话阶段：已有 AI 历史 → 修改应用；否则 → 创建应用（VUE 模式据此切换系统提示词）
+        ChatStageEnum chatStage = chatHistoryService.hasAiChatMessage(appId)
+                ? ChatStageEnum.MODIFY
+                : ChatStageEnum.CREATE;
+
+        // 6. 保存用户消息
         chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
 
-        // 6. 调用 AI 生成代码
-        Flux<StreamMessage> contentStream =  aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenType, appId);
+        // 7. 调用 AI 生成代码
+        Flux<StreamMessage> contentStream =  aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenType, appId, chatStage);
 
-        // 7. 渲染展示文本 + 保存 AI 响应结果
+        // 8. 渲染展示文本 + 保存 AI 响应结果
         return streamMessageHandler.handle(contentStream, appId, loginUser);
     }
 

@@ -11,6 +11,7 @@ import {
   DownOutlined,
   LoadingOutlined,
   PaperClipOutlined,
+  SelectOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons-vue'
 import { deployApp, downloadAppCode, getAppVoById } from '@/api/appController'
@@ -21,6 +22,12 @@ import { useLoginUserStore } from '@/stores/loginUser'
 import { getErrorMessage } from '@/utils/errorMessage'
 import { getPreviewUrl } from '@/utils/url'
 import { connectChatSse } from '@/utils/sse'
+import {
+  buildElementPrompt,
+  createVisualEditBridge,
+  formatElementLabel,
+  type SelectedElementInfo,
+} from '@/utils/visualEdit'
 import type { ChatMessage, MessageBlock, TextBlock } from '@/types/chat'
 
 // 生成模式展示工具
@@ -91,6 +98,59 @@ const userMessageAvatar = computed(
 )
 
 const previewUrl = computed(() => getPreviewUrl(app.value?.codeGenType, app.value?.id))
+
+// ---- 可视化编辑模式 ----
+// 编辑模式下在预览 iframe 中点选元素，选中信息回显在输入框上方，并随消息一起发送给后端；
+// iframe 注入与 postMessage 通信的复杂逻辑收敛在 utils/visualEdit.ts 中
+const previewIframeRef = ref<HTMLIFrameElement>()
+const editMode = ref(false)
+const selectedElement = ref<SelectedElementInfo | null>(null)
+
+const visualEditBridge = createVisualEditBridge({
+  getIframe: () => previewIframeRef.value,
+  onSelect: (info) => {
+    selectedElement.value = info
+  },
+})
+
+/** 有可用预览时才允许进入可视化编辑 */
+const canVisualEdit = computed(
+  () => Boolean(showPreview.value && previewUrl.value && previewReady.value && !generating.value),
+)
+
+/** 进入 / 退出可视化编辑模式 */
+const handleToggleEditMode = () => {
+  if (!editMode.value && !canVisualEdit.value) {
+    message.warning(t('appChat.visualEditNoPreview'))
+    return
+  }
+  editMode.value = !editMode.value
+  visualEditBridge.setEnabled(editMode.value)
+  if (!editMode.value) {
+    selectedElement.value = null
+  }
+}
+
+/** 移除已选中的元素（保留编辑模式，可继续点选其他元素） */
+const clearSelectedElement = () => {
+  selectedElement.value = null
+  visualEditBridge.clearSelection()
+}
+
+/** 退出编辑模式并清除选中元素（发送消息后、离开页面时调用） */
+const exitEditMode = () => {
+  if (!editMode.value && !selectedElement.value) {
+    return
+  }
+  editMode.value = false
+  selectedElement.value = null
+  visualEditBridge.setEnabled(false)
+}
+
+/** iframe 每次加载完成后注入元素选择行为（编辑模式开关由桥接器自动同步） */
+const handleIframeLoad = () => {
+  visualEditBridge.attach()
+}
 
 // VUE 工程预览：后端在生成完成后异步构建（npm install + build），
 // 需轮询预览地址直到可访问再展示 iframe
@@ -163,7 +223,9 @@ const scrollToBottom = async (force = false) => {
 
 /**
  * 提取真实生成的文件列表（与后端落盘行为对齐）：
- * - VUE_PROJECT：来自工具事件（FileWriteTool 实际写入的相对路径，渲染为卡片）
+ * - VUE_PROJECT：来自工具事件（FileWriteTool 实际写入的相对路径，渲染为卡片；
+ *   仅统计 writeFile / modifyFile 这类产出或修改文件的工具，readDir/readFile 是读取操作不产出文件；
+ *   无 name 的历史块按原逻辑兜底计入）
  * - MULTI_FILE：后端 CodeFileSaver 固定保存 index.html / style.css / script.js
  *   （按代码围栏判定；CSS/JS 内容为空时后端不会落盘，此处保守地只在有对应围栏时列出）
  * - HTML：后端固定保存 index.html
@@ -172,7 +234,9 @@ const extractFiles = (msg: ChatMessage): string[] => {
   const files: string[] = []
   for (const block of msg.blocks ?? []) {
     if (block.type === 'tool' && block.path) {
-      files.push(block.path)
+      if (!block.name || block.name === 'writeFile' || block.name === 'modifyFile') {
+        files.push(block.path)
+      }
     }
   }
   const text = msgText(msg)
@@ -198,27 +262,37 @@ const msgText = (msg: ChatMessage): string =>
 
 /**
  * 解析历史消息文本为渲染块
- * 历史持久化格式：正文 + `[工具调用] 写入文件 <path>\n```<lang>\n<content>\n```` 文本块
+ * 历史持久化格式：正文 + 工具调用文本块：
+ * - 写文件：`[工具调用] (writeFile|写入文件) <path>\n```<lang>\n<content>\n````（兼容新旧两种写法）
+ * - 其他工具：`[工具调用] <toolName> <path>`
  */
 const parseMessageBlocks = (text: string): MessageBlock[] => {
   if (!text) {
     return [{ type: 'text', text: '' }]
   }
   const blocks: MessageBlock[] = []
-  const toolBlockRe = /\[工具调用\] 写入文件\s+([^\s]+)\n```(\w*)\n([\s\S]*?)```/g
+  const toolBlockRe =
+    /\[工具调用\]\s+(?:(?:写入文件|writeFile)\s+([^\s]+)\n```(\w*)\n([\s\S]*?)```|(\w+)\s+([^\s]+))/g
   let lastIndex = 0
   let match: RegExpExecArray | null
   while ((match = toolBlockRe.exec(text)) !== null) {
     if (match.index > lastIndex) {
       blocks.push({ type: 'text', text: text.slice(lastIndex, match.index) })
     }
-    blocks.push({
-      type: 'tool',
-      path: match[1],
-      lang: match[2] || '',
-      content: match[3] || '',
-      writing: false,
-    })
+    if (match[1] !== undefined) {
+      // 写入文件（带代码围栏）：可展开查看完整内容
+      blocks.push({
+        type: 'tool',
+        name: 'writeFile',
+        path: match[1],
+        lang: match[2] || '',
+        content: match[3] || '',
+        writing: false,
+      })
+    } else {
+      // 其他工具：仅记录工具名与路径
+      blocks.push({ type: 'tool', name: match[4], path: match[5], writing: false })
+    }
     lastIndex = match.index + match[0].length
   }
   const tail = text.slice(lastIndex)
@@ -246,9 +320,13 @@ const closeSse = () => {
 }
 
 const sendMessage = async (text: string) => {
-  const messageText = text.trim()
+  let messageText = text.trim()
   if (!messageText || !app.value?.id || generating.value || !canChat.value) {
     return
+  }
+  // 可视化编辑：将用户选中的元素信息附加到提示词中，随消息一起发送给后端
+  if (selectedElement.value) {
+    messageText += buildElementPrompt(selectedElement.value)
   }
 
   closeSse()
@@ -278,6 +356,8 @@ const sendMessage = async (text: string) => {
   }
   messages.value.push(userMsg, aiMsg)
   inputMessage.value = ''
+  // 发送后清除选中元素并退出编辑模式
+  exitEditMode()
   await scrollToBottom(true)
 
   const aiIndex = messages.value.length - 1
@@ -350,13 +430,20 @@ const sendMessage = async (text: string) => {
         return
       }
       const blocks = (current.blocks ??= [])
-      // 连续重复的写入请求（同一路径）不重复建卡
+      // 连续重复的同一工具请求（同工具 + 同路径）不重复建卡
       const last = blocks[blocks.length - 1]
-      if (last && last.type === 'tool' && last.writing && last.path === payload.path) {
+      if (
+        last &&
+        last.type === 'tool' &&
+        last.writing &&
+        last.path === payload.path &&
+        last.name === payload.name
+      ) {
         return
       }
       blocks.push({
         type: 'tool',
+        name: payload.name,
         path: payload.path,
         writing: true,
         writingStart: Date.now(),
@@ -370,17 +457,26 @@ const sendMessage = async (text: string) => {
         return
       }
       const blocks = (current.blocks ??= [])
-      // 找到最后一个同路径的"写入中"卡片；没有则新建（tool_request 可能因时序太快未被感知到）
+      // 找到最后一个同工具同路径的"执行中"卡片；没有则新建（tool_request 可能因时序太快未被感知到）
       let card = [...blocks]
         .reverse()
-        .find((b) => b.type === 'tool' && b.writing && b.path === payload.path)
+        .find(
+          (b) =>
+            b.type === 'tool' && b.writing && b.path === payload.path && b.name === payload.name,
+        )
       if (!card || card.type !== 'tool') {
-        card = { type: 'tool', path: payload.path, writing: true, writingStart: Date.now() }
+        card = {
+          type: 'tool',
+          name: payload.name,
+          path: payload.path,
+          writing: true,
+          writingStart: Date.now(),
+        }
         blocks.push(card)
       }
       card.lang = payload.lang
       card.content = payload.content
-      // 保证"正在写入"状态有最小可见时长（文件写入通常只需几毫秒，一闪而过用户感知不到）
+      // 保证"正在执行"状态有最小可见时长（文件操作通常只需几毫秒，一闪而过用户感知不到）
       const wait = Math.max(0, MIN_WRITING_MS - (Date.now() - (card.writingStart ?? Date.now())))
       setTimeout(() => {
         if (card && card.type === 'tool' && card.writing) {
@@ -418,15 +514,16 @@ const sendMessage = async (text: string) => {
       if (current) {
         current.planningNext = false
       }
+      // VUE 构建是异步的（后端已清空旧 dist）：先进入骨架屏等待，构建完成后自动挂载新预览，
+      // 避免旧产物/404 页面闪现，也无需用户手动刷新
+      if (app.value?.codeGenType === CodeGenTypeEnum.VUE_PROJECT) {
+        pollVuePreviewReady() // 内部先将 previewReady 置 false，进入构建等待态
+      }
       showPreview.value = true
       previewKey.value += 1
       scrollToBottom()
       // 生成完成后再同步一次应用信息，确保名称等字段是最新的
       syncApp()
-      // VUE 构建是异步的，轮询预览地址直到可访问
-      if (app.value?.codeGenType === CodeGenTypeEnum.VUE_PROJECT) {
-        pollVuePreviewReady()
-      }
     },
     onError: () => {
       // 冲刷未落盘的思考分片（失败时也保留已收到的思考内容）
@@ -779,6 +876,7 @@ const initChat = async () => {
   messages.value = []
   hasMoreHistory.value = false
   showPreview.value = false
+  exitEditMode()
   await fetchApp()
   if (!app.value?.id) {
     return
@@ -853,6 +951,7 @@ onBeforeUnmount(() => {
   stopNamePolling()
   stopVuePreviewPolling()
   stopThinkingTimer()
+  visualEditBridge.destroy()
 })
 </script>
 
@@ -881,7 +980,7 @@ onBeforeUnmount(() => {
             {{ codeGenTypeLabel(app?.codeGenType) }}
           </a-tag>
           <a-button v-if="canChat" @click="router.push(`/app/edit/${appId}`)">
-            {{ t('common.edit') }}
+            {{ t('appEdit.detail') }}
           </a-button>
           <a-button :loading="downloading" :disabled="!canChat || generating" @click="handleDownload">
             <template #icon><DownloadOutlined /></template>
@@ -933,6 +1032,24 @@ onBeforeUnmount(() => {
           </a-button>
 
           <div v-if="canChat" class="chat-input">
+            <!-- 可视化编辑：展示当前选中的元素信息，可手动移除 -->
+            <a-alert
+              v-if="selectedElement"
+              class="chat-input__element-alert"
+              type="info"
+              closable
+              @close="clearSelectedElement"
+            >
+              <template #message>
+                {{ t('appChat.selectedElement') }}：{{ formatElementLabel(selectedElement) }}
+              </template>
+              <template #description>
+                {{ selectedElement.selector
+                }}<template v-if="selectedElement.textContent">
+                  · "{{ selectedElement.textContent }}"</template
+                >
+              </template>
+            </a-alert>
             <a-textarea
               v-model:value="inputMessage"
               :placeholder="t('appChat.inputPlaceholder')"
@@ -952,21 +1069,40 @@ onBeforeUnmount(() => {
                   {{ t('common.optimize') }}
                 </a-button>
               </a-space>
-              <a-button type="primary" shape="circle" :loading="generating" @click="handleSend">
-                <template #icon><ArrowUpOutlined /></template>
-              </a-button>
+              <a-space>
+                <a-tooltip :title="editMode ? t('appChat.visualEditExit') : t('appChat.visualEdit')">
+                  <a-button
+                    shape="circle"
+                    :type="editMode ? 'primary' : 'default'"
+                    :disabled="generating"
+                    @click="handleToggleEditMode"
+                  >
+                    <template #icon><SelectOutlined /></template>
+                  </a-button>
+                </a-tooltip>
+                <a-button type="primary" shape="circle" :loading="generating" @click="handleSend">
+                  <template #icon><ArrowUpOutlined /></template>
+                </a-button>
+              </a-space>
             </div>
           </div>
         </section>
 
         <section class="preview-panel">
+          <!-- 可视化编辑模式提示：位于预览区顶部的提示条（右对齐），在 iframe 之外，不遮挡网页内容 -->
+          <div v-if="editMode" class="preview-edit-tip">
+            <SelectOutlined class="preview-edit-tip__icon" />
+            <span>{{ t('appChat.visualEditTip') }}</span>
+          </div>
           <div class="preview-frame">
             <iframe
               v-if="showPreview && previewUrl && previewReady"
+              ref="previewIframeRef"
               :key="previewKey"
               class="preview-iframe"
               :src="previewUrl"
               :title="t('appChat.previewTitle')"
+              @load="handleIframeLoad"
             />
             <div v-else class="preview-empty">
               <!-- 生成中 / 构建中：骨架屏加载动画，缓解等待期的单调感 -->
@@ -1128,6 +1264,16 @@ onBeforeUnmount(() => {
   padding: 12px;
 }
 
+/* 可视化编辑：选中元素提示条 */
+.chat-input__element-alert {
+  margin-bottom: 8px;
+  border-radius: 8px;
+}
+
+.chat-input__element-alert :deep(.ant-alert-description) {
+  word-break: break-all;
+}
+
 .chat-input :deep(textarea) {
   resize: none;
   padding: 0;
@@ -1144,10 +1290,46 @@ onBeforeUnmount(() => {
   min-width: 0;
   padding: 16px;
   background: #eef1f4;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 可视化编辑模式提示：预览区顶部的提示条（右对齐），作为独立一行排在 iframe 上方，
+   不遮挡网页内容；深色底 + 白字保证任意背景下的可读性 */
+.preview-edit-tip {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  color: #fff;
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  animation: preview-tip-in 0.25s ease;
+}
+
+.preview-edit-tip__icon {
+  color: #69b1ff;
+}
+
+@keyframes preview-tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .preview-frame {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   background: #fff;
   border-radius: 16px;
   overflow: hidden;

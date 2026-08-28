@@ -7,14 +7,16 @@ export interface TextBlock {
   text: string
 }
 
-/** 文件写入卡片：由工具事件驱动（writing = 正在写入 / 已写入） */
+/** 文件写入卡片：由工具事件驱动（writing = 正在执行 / 已完成） */
 export interface ToolBlock {
   type: 'tool'
+  /** 工具名：writeFile / readFile / modifyFile / deleteFile / readDir（历史块可能缺省，按 writeFile 兜底） */
+  name?: string
   path: string
   lang?: string
   content?: string
   writing: boolean
-  /** 进入"正在写入"态的时间戳（毫秒），用于保证写入态最短可见时长 */
+  /** 进入"正在执行"态的时间戳（毫秒），用于保证执行态最短可见时长 */
   writingStart?: number
   expanded?: boolean
 }

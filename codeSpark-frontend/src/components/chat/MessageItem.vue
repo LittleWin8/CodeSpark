@@ -2,11 +2,16 @@
 /* eslint-disable vue/no-mutating-props -- msg 是父子共享的可变状态对象：父组件（AppChatPage）的流式
    回调（onThinking/onMessage/onToolExecuted）直接修改其字段（thinking/content/blocks/planningNext…），
    子组件仅负责折叠/展开、工具卡片展开等展示交互的原地修改，属同一共享状态容器，非单向 props 场景 */
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   CheckCircleFilled,
+  DeleteOutlined,
   DownOutlined,
+  EditOutlined,
+  FileAddOutlined,
+  FileTextOutlined,
+  FolderOpenOutlined,
   LoadingOutlined,
   SettingOutlined,
   ThunderboltOutlined,
@@ -27,6 +32,33 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+
+// ---- 工具卡片展示元信息 ----
+// 每个工具的名称标签 + 执行中 / 完成状态文案；无 name（历史兼容）时按 writeFile 兜底
+const TOOL_META: Record<
+  string,
+  { label: string; writing: string; done: string }
+> = {
+  writeFile: { label: 'tool.writeFile', writing: 'tool.writing', done: 'tool.wrote' },
+  modifyFile: { label: 'tool.modifyFile', writing: 'tool.modifying', done: 'tool.modified' },
+  readFile: { label: 'tool.readFile', writing: 'tool.reading', done: 'tool.read' },
+  readDir: { label: 'tool.readDir', writing: 'tool.readingDir', done: 'tool.readDirDone' },
+  deleteFile: { label: 'tool.deleteFile', writing: 'tool.deleting', done: 'tool.deleted' },
+}
+const DEFAULT_TOOL_META = TOOL_META.writeFile
+
+const toolMeta = (name?: string) => (name ? TOOL_META[name] : undefined) ?? DEFAULT_TOOL_META
+
+/** 每个工具对应的图标 */
+const TOOL_ICONS: Record<string, Component> = {
+  writeFile: FileAddOutlined,
+  modifyFile: EditOutlined,
+  readFile: FileTextOutlined,
+  readDir: FolderOpenOutlined,
+  deleteFile: DeleteOutlined,
+}
+
+const toolIcon = (name?: string): Component => (name ? TOOL_ICONS[name] : undefined) ?? FileAddOutlined
 
 /** 思考耗时（秒）：推理结束时冻结（thinkingElapsed），进行中按时间戳实时计算 */
 const thinkingSeconds = (msg: ChatMessage) =>
@@ -214,9 +246,13 @@ watch(
                 <div class="tool-card__head">
                   <LoadingOutlined v-if="block.writing" spin class="tool-card__icon tool-card__icon--writing" />
                   <CheckCircleFilled v-else class="tool-card__icon tool-card__icon--done" />
+                  <span class="tool-card__name">
+                    <component :is="toolIcon(block.name)" class="tool-card__name-icon" />
+                    {{ t(toolMeta(block.name).label) }}
+                  </span>
                   <span class="tool-card__path">{{ block.path }}</span>
                   <span class="tool-card__status" :class="block.writing ? 'is-writing' : 'is-done'">
-                    {{ block.writing ? t('appChat.writingFile') : t('appChat.wroteFile') }}
+                    {{ block.writing ? t(toolMeta(block.name).writing) : t(toolMeta(block.name).done) }}
                   </span>
                   <a-button
                     v-if="!block.writing && block.content"
@@ -497,6 +533,25 @@ watch(
 
 .tool-card__icon--done {
   color: #52c41a;
+}
+
+/* 工具名标签：如"写入文件 / 修改文件 / 读取目录" */
+.tool-card__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #eef1f4;
+  color: #57606a;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.tool-card__name-icon {
+  font-size: 12px;
 }
 
 .tool-card__path {

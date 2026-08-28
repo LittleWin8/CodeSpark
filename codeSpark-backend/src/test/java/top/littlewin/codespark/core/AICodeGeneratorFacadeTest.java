@@ -8,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import top.littlewin.codespark.ai.model.message.AiResponseMessage;
 import top.littlewin.codespark.ai.model.message.StreamMessage;
+import top.littlewin.codespark.model.enums.ChatStageEnum;
 import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 
 import java.util.List;
@@ -25,7 +26,7 @@ class AICodeGeneratorFacadeTest {
 
     @Test
     void generateAndSaveCodeStream() {
-        var codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream("生成一个作品集展示页，越短越好",CodeGenTypeEnum.HTML,1L);
+        var codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream("生成一个作品集展示页，越短越好",CodeGenTypeEnum.HTML,1L, ChatStageEnum.CREATE);
         List<StreamMessage> result= codeStream.collectList().block();
         Assertions.assertNotNull(result);
         // 只累积正文（ai_response），断言生成内容非空
@@ -40,7 +41,7 @@ class AICodeGeneratorFacadeTest {
     void generateVueProjectCodeStream() {
         var codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream(
                 "简单的任务记录网站，总代码量不超过 200 行",
-                CodeGenTypeEnum.VUE_PROJECT, 1L);
+                CodeGenTypeEnum.VUE_PROJECT, 1L, ChatStageEnum.CREATE);
         // 阻塞等待所有数据收集完成
         List<StreamMessage> result = codeStream.collectList().block();
         // 验证结果

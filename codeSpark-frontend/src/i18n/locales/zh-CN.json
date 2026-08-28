@@ -229,7 +229,29 @@
     "vueBuilding": "VUE 工程构建中，构建完成后自动预览",
     "download": "下载代码",
     "downloadSuccess": "下载成功",
-    "downloadFailed": "下载失败"
+    "downloadFailed": "下载失败",
+    "visualEdit": "可视化编辑",
+    "visualEditExit": "退出可视化编辑",
+    "visualEditNoPreview": "生成完成后才能进入可视化编辑",
+    "visualEditTip": "可视化编辑中：点击预览页面中的元素进行选中",
+    "selectedElement": "已选元素"
+  },
+  "tool": {
+    "writeFile": "写入文件",
+    "modifyFile": "修改文件",
+    "readFile": "读取文件",
+    "readDir": "读取目录",
+    "deleteFile": "删除文件",
+    "writing": "写入中",
+    "wrote": "已写入",
+    "modifying": "修改中",
+    "modified": "已修改",
+    "reading": "读取中",
+    "read": "已读取",
+    "readingDir": "读取目录中",
+    "readDirDone": "已读取目录",
+    "deleting": "删除中",
+    "deleted": "已删除"
   },
   "appEdit": {
     "title": "编辑应用信息",

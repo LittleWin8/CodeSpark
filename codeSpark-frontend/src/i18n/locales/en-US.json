@@ -229,7 +229,29 @@
     "vueBuilding": "Vue project is building, preview will appear when ready",
     "download": "Download Code",
     "downloadSuccess": "Downloaded successfully",
-    "downloadFailed": "Download failed"
+    "downloadFailed": "Download failed",
+    "visualEdit": "Visual Edit",
+    "visualEditExit": "Exit Visual Edit",
+    "visualEditNoPreview": "Visual editing is available after the preview is generated",
+    "visualEditTip": "Visual editing: click an element in the preview to select it",
+    "selectedElement": "Selected element"
+  },
+  "tool": {
+    "writeFile": "Write File",
+    "modifyFile": "Modify File",
+    "readFile": "Read File",
+    "readDir": "Read Directory",
+    "deleteFile": "Delete File",
+    "writing": "Writing",
+    "wrote": "Written",
+    "modifying": "Modifying",
+    "modified": "Modified",
+    "reading": "Reading",
+    "read": "Read",
+    "readingDir": "Reading directory",
+    "readDirDone": "Directory read",
+    "deleting": "Deleting",
+    "deleted": "Deleted"
   },
   "appEdit": {
     "title": "Edit App",

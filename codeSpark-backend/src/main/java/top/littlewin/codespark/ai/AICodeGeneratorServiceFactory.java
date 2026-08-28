@@ -11,7 +11,7 @@ import dev.langchain4j.service.AiServices;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import top.littlewin.codespark.ai.tools.FileWriteTool;
+import top.littlewin.codespark.ai.tools.*;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
 import top.littlewin.codespark.exception.ErrorMessage;
@@ -45,6 +45,9 @@ public class AICodeGeneratorServiceFactory {
 
     @Resource
     private ChatHistoryService chatHistoryService;
+
+    @Resource
+    private ToolManager toolManager;
 
     /**
      * AI 服务实例缓存
@@ -83,14 +86,15 @@ public class AICodeGeneratorServiceFactory {
     private AICodeGeneratorService createAiCodeGeneratorService(long appId, CodeGenTypeEnum codeGenType) {
         log.info("为 appId: {} 创建 AI 服务实例, 类型: {}", appId, codeGenType.getValue());
         return switch (codeGenType) {
-            // Vue 工程：deepseek-v4-flash + 文件写入工具 + 对话记忆
+            // Vue 工程：deepseek-v4-flash + 文件操作工具 + 对话记忆
             case VUE_PROJECT -> {
                 MessageWindowChatMemory chatMemory = buildChatMemory(appId);
                 yield AiServices.builder(AICodeGeneratorService.class)
                         .chatModel(openAiChatModel)
                         .streamingChatModel(streamingChatModel)
                         .chatMemoryProvider(memoryId -> chatMemory)
-                        .tools(new FileWriteTool())
+                        // 工具统一由 ToolManager 管理：新增工具只需继承 BaseTool 并标注为 Spring Bean
+                        .tools((Object[]) toolManager.getAllTools())
                         .hallucinatedToolNameStrategy(toolExecutionRequest ->
                                 ToolExecutionResultMessage.from(toolExecutionRequest,
                                         "Error: there is no tool called " + toolExecutionRequest.name()))

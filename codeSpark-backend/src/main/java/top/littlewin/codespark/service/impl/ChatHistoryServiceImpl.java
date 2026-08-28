@@ -70,6 +70,17 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
     }
 
     @Override
+    public boolean hasAiChatMessage(Long appId) {
+        if (appId == null || appId <= 0) {
+            return false;
+        }
+        QueryWrapper queryWrapper = QueryWrapper.create()
+                .eq(ChatHistory::getAppId, appId)
+                .eq(ChatHistory::getMessageType, ChatHistoryMessageTypeEnum.AI.getValue());
+        return this.count(queryWrapper) > 0;
+    }
+
+    @Override
     public Page<ChatHistory> listAppChatHistoryByPage(Long appId, int pageSize,
                                                       LocalDateTime lastCreateTime,
                                                       User loginUser) {
