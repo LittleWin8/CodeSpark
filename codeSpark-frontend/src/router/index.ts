@@ -9,7 +9,7 @@ import ChatHistoryManagePage from '../pages/admin/ChatHistoryManagePage.vue'
 import AppChatPage from '../pages/app/AppChatPage.vue'
 import AppEditPage from '../pages/app/AppEditPage.vue'
 import NoAuthPage from '../pages/NoAuthPage.vue'
-import ACCESS_ENUM from '@/access/accessEnum.ts'
+import ACCESS_ENUM from '@/access/accessEnum'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),

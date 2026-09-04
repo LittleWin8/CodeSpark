@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import top.littlewin.codespark.constant.AppConstant;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -38,7 +39,7 @@ public class FileReadTool extends BaseTool {
             if (!Files.exists(path) || !Files.isRegularFile(path)) {
                 return "错误：文件不存在或不是文件 - " + relativeFilePath;
             }
-            return Files.readString(path);
+            return Files.readString(path, StandardCharsets.UTF_8);
         } catch (IOException e) {
             String errorMessage = "读取文件失败: " + relativeFilePath + ", 错误: " + e.getMessage();
             log.error(errorMessage, e);

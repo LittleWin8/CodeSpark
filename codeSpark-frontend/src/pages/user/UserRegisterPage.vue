@@ -48,7 +48,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { userRegister } from '@/api/userController.ts'
+import { userRegister } from '@/api/userController'
 import { message } from 'ant-design-vue'
 import type { Rule } from 'ant-design-vue/es/form'
 import { reactive } from 'vue'

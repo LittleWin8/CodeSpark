@@ -15,7 +15,7 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6380}
+      port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:123456}
       ttl: 3600
 
@@ -61,8 +61,10 @@ aliyun:
 springdoc:
   group-configs:
     - group: 'default'
-      paths-to-match: '/**'
-      packages-to-scan: top.littlewin.codespark.controller
+      paths-to-match:
+        - '/**'
+      packages-to-scan:
+        - top.littlewin.codespark.controller
 # knife4j
 knife4j:
   enable: true

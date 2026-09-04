@@ -29,10 +29,10 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { userLogin } from '@/api/userController.ts'
+import { userLogin } from '@/api/userController'
 import { message } from 'ant-design-vue'
 import { reactive } from 'vue'
-import { useLoginUserStore } from '@/stores/loginUser.ts'
+import { useLoginUserStore } from '@/stores/loginUser'
 import { getErrorMessage } from '@/utils/errorMessage'
 
 const { t } = useI18n()

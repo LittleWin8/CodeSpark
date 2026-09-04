@@ -73,10 +73,10 @@ import { getErrorMessage } from '@/utils/errorMessage'
 import { extractOssKeyFromUrl, resolveFileUrl } from '@/utils/storage'
 import LanguageSwitcher from './LanguageSwitcher.vue'
 import { message } from 'ant-design-vue'
-import { userLogout } from '@/api/userController.ts'
-import { useLoginUserStore } from '@/stores/loginUser.ts'
-import checkAccess from '@/access/checkAccess.ts'
-import ACCESS_ENUM from '@/access/accessEnum.ts'
+import { userLogout } from '@/api/userController'
+import { useLoginUserStore } from '@/stores/loginUser'
+import checkAccess from '@/access/checkAccess'
+import ACCESS_ENUM from '@/access/accessEnum'
 
 const loginUserStore = useLoginUserStore()
 const { t } = useI18n()

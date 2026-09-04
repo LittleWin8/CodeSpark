@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import top.littlewin.codespark.constant.AppConstant;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -43,7 +44,7 @@ public class FileModifyTool extends BaseTool {
             if (!Files.exists(path) || !Files.isRegularFile(path)) {
                 return "错误：文件不存在或不是文件 - " + relativeFilePath;
             }
-            String originalContent = Files.readString(path);
+            String originalContent = Files.readString(path, StandardCharsets.UTF_8);
             if (!originalContent.contains(oldContent)) {
                 return "警告：文件中未找到要替换的内容，文件未修改 - " + relativeFilePath;
             }
@@ -51,7 +52,7 @@ public class FileModifyTool extends BaseTool {
             if (originalContent.equals(modifiedContent)) {
                 return "信息：替换后文件内容未发生变化 - " + relativeFilePath;
             }
-            Files.writeString(path, modifiedContent, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.writeString(path, modifiedContent, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             log.info("成功修改文件: {}", path.toAbsolutePath());
             return "文件修改成功: " + relativeFilePath;
         } catch (IOException e) {
