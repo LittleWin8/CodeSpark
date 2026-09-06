@@ -1,6 +1,7 @@
 package top.littlewin.codespark.exception;
 
 import cn.hutool.json.JSONUtil;
+import dev.langchain4j.guardrail.InputGuardrailException;
 import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -37,6 +38,17 @@ public class GlobalExceptionHandler {
         return ResultUtils.error(e.getCode(), e.getMessage());
     }
 
+    @ExceptionHandler(InputGuardrailException.class)
+    public BaseResponse<?> inputGuardrailExceptionHandler(InputGuardrailException e) {
+        // 输入护轨拒绝是预期内行为，不打全栈，避免刷屏
+        log.warn("输入护轨拦截请求: {}", e.getMessage());
+        String message = guardrailMessage(e.getMessage());
+        if (handleSseError(ErrorCode.PARAMS_ERROR.getCode(), message)) {
+            return null;
+        }
+        return ResultUtils.error(ErrorCode.PARAMS_ERROR, message);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public BaseResponse<?> runtimeExceptionHandler(RuntimeException e) {
         log.error("RuntimeException", e);
@@ -44,6 +56,21 @@ public class GlobalExceptionHandler {
             return null;
         }
         return ResultUtils.error(ErrorCode.SYSTEM_ERROR, "系统错误");
+    }
+
+    /**
+     * 剥离 langchain4j 拼在护轨文案前的框架前缀。
+     * <p>
+     * 框架抛出的消息形如 "The guardrail X failed with this message: <护轨 fatal 文案>"，
+     * 只取 "failed with this message: " 之后的部分透传给前端；不匹配时原样返回。
+     */
+    private String guardrailMessage(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return "";
+        }
+        String marker = "failed with this message: ";
+        int index = raw.lastIndexOf(marker);
+        return index >= 0 ? raw.substring(index + marker.length()) : raw;
     }
 
     /**

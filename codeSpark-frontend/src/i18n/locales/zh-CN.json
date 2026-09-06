@@ -206,6 +206,8 @@
     "copySuccess": "已复制链接",
     "inputPlaceholder": "描述越详细，页面越具体，可以一步一步完善生成效果",
     "sendFailed": "发送失败",
+    "connectFailed": "连接服务器失败，请检查网络后重试",
+    "generateInterrupted": "生成过程中连接中断，已保留部分内容，可重新发送继续",
     "generating": "正在生成...",
     "previewEmpty": "生成完成后将在此预览网站效果",
     "previewTitle": "网站预览",

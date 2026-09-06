@@ -206,6 +206,8 @@
     "copySuccess": "Link copied",
     "inputPlaceholder": "The more detailed the description, the better the result",
     "sendFailed": "Failed to send",
+    "connectFailed": "Failed to connect to the server, please check your network and retry",
+    "generateInterrupted": "Generation was interrupted. Partial content is kept, you can resend to continue",
     "generating": "Generating...",
     "previewEmpty": "Preview will appear here after generation",
     "previewTitle": "Preview",

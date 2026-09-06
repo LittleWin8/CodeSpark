@@ -240,7 +240,7 @@ watch(
                   <span v-if="msg.done" class="msg-rendered" v-html="renderedHtml[bi] ?? block.text"></span>
                   <span v-else class="message-stream">{{ block.text }}</span>
                 </template>
-                <template v-else>{{ bi === 0 ? t('appChat.generating') : '' }}</template>
+                <template v-else>{{ bi === 0 && !msg.done ? t('appChat.generating') : '' }}</template>
               </div>
               <div v-else class="tool-card">
                 <div class="tool-card__head">

@@ -263,6 +263,40 @@ const msgText = (msg: ChatMessage): string =>
     .join('') ?? msg.content
 
 /**
+ * AI 消息失败收尾（连接失败 / business-error 共用）：错误文案写进首个文本块
+ * （气泡渲染用的是 blocks，只写 content 占位符消不掉），冻结思考耗时并收起面板，
+ * 未完成的工具卡片全部置完成，避免"正在生成..."占位与转圈卡片残留。
+ * 已有部分正文时予以保留，不覆盖。
+ */
+const finishAiMessageWithError = (aiIndex: number, errText: string) => {
+  const current = messages.value[aiIndex]
+  if (!current) {
+    return
+  }
+  current.planningNext = false
+  current.done = true
+  current.thinkingDone = true
+  current.thinkingElapsed = current.thinkingElapsed ?? thinkingSeconds(current)
+  current.thinkingExpanded = false
+  for (const block of current.blocks ?? []) {
+    if (block.type === 'tool' && block.writing) {
+      block.writing = false
+    }
+  }
+  const textBlocks = (current.blocks ?? []).filter(
+    (block): block is TextBlock => block.type === 'text',
+  )
+  if (textBlocks.length === 0) {
+    current.blocks = [{ type: 'text', text: errText }]
+  } else if (!textBlocks.some((block) => block.text)) {
+    // 全是空文本块（零分片失败）：首块写入错误文案，顶掉"正在生成..."占位
+    textBlocks[0].text = errText
+  }
+  current.content = msgText(current)
+  current.files = extractFiles(current)
+}
+
+/**
  * 解析历史消息文本为渲染块
  * 历史持久化格式：正文 + 工具调用文本块：
  * - 写文件：`[工具调用] (writeFile|写入文件) <path>\n```<lang>\n<content>\n````（兼容新旧两种写法）
@@ -540,14 +574,7 @@ const sendMessage = async (text: string) => {
       stopThinkingTimer()
       closeSse()
       const errText = getBusinessErrorMessage(payload?.code, payload?.message)
-      const current = messages.value[aiIndex]
-      if (current) {
-        current.planningNext = false
-        if (!current.content) {
-          current.content = errText
-          current.done = true
-        }
-      }
+      finishAiMessageWithError(aiIndex, errText)
       message.error(errText)
     },
     onError: () => {
@@ -558,15 +585,18 @@ const sendMessage = async (text: string) => {
       flushThinking(false)
       generating.value = false
       stopThinkingTimer()
+      // 按已收到多少细分原因：有过思考/正文/工具卡片说明中途断开，无任何回包则是根本没连上
       const current = messages.value[aiIndex]
-      if (current) {
-        current.planningNext = false
-        if (!current.content) {
-          current.content = t('appChat.sendFailed')
-          current.done = true
-        }
-      }
-      message.error(t('appChat.sendFailed'))
+      const hasPartial = !!(
+        current &&
+        (current.thinking ||
+          (current.blocks ?? []).some((block) =>
+            block.type === 'text' ? !!block.text : true,
+          ))
+      )
+      const errText = t(hasPartial ? 'appChat.generateInterrupted' : 'appChat.connectFailed')
+      finishAiMessageWithError(aiIndex, errText)
+      message.error(errText)
     }
   })
 }

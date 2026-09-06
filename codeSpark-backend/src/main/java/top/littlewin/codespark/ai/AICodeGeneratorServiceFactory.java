@@ -11,6 +11,7 @@ import dev.langchain4j.service.AiServices;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import top.littlewin.codespark.ai.guardrail.PromptSafetyInputGuardrail;
 import top.littlewin.codespark.ai.tools.*;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
@@ -49,6 +50,9 @@ public class AICodeGeneratorServiceFactory {
     @Resource
     private ToolManager toolManager;
 
+    @Resource
+    private PromptSafetyInputGuardrail promptSafetyInputGuardrail;
+
     /**
      * AI 服务实例缓存
      * 缓存策略：
@@ -60,9 +64,9 @@ public class AICodeGeneratorServiceFactory {
             .maximumSize(1000)
             .expireAfterWrite(Duration.ofMinutes(30))
             .expireAfterAccess(Duration.ofMinutes(10))
-            .removalListener((key, value, cause) -> {
-                log.debug("AI 服务实例被移除，key:{}，原因: {}", key, cause);
-            })
+            .removalListener((key, value, cause) ->
+                log.debug("AI 服务实例被移除，key:{}，原因: {}", key, cause)
+            )
             .build();
 
     /**
@@ -97,7 +101,10 @@ public class AICodeGeneratorServiceFactory {
                         .tools((Object[]) toolManager.getAllTools())
                         .hallucinatedToolNameStrategy(toolExecutionRequest ->
                                 ToolExecutionResultMessage.from(toolExecutionRequest,
-                                        "Error: there is no tool called " + toolExecutionRequest.name()))
+                                        "Error: there is no tool called " + toolExecutionRequest.name())
+                        )
+                        .maxToolCallingRoundTrips(30)
+                        .inputGuardrails(promptSafetyInputGuardrail)
                         .build();
             }
             // HTML / 多文件：deepseek-v4-flash + 对话记忆，无工具
@@ -105,8 +112,8 @@ public class AICodeGeneratorServiceFactory {
                     .chatModel(openAiChatModel)
                     .streamingChatModel(streamingChatModel)
                     .chatMemory(buildChatMemory(appId))
+                    .inputGuardrails(promptSafetyInputGuardrail)
                     .build();
-            default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, ErrorMessage.UNSUPPORTED_CODE_GEN_TYPE);
         };
     }
 
