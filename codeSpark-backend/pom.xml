@@ -34,6 +34,8 @@
         需覆盖 Spring Boot 默认管理的 6.0.0，否则运行时报 NoSuchMethodError: UnifiedJedis.pipelined()
         -->
         <jedis.version>7.2.1</jedis.version>
+        <!-- CVE-2025-48924：commons-lang3 需 >= 3.18.0，覆盖 Spring Boot 默认管理的 3.17.0 -->
+        <commons-lang3.version>3.18.0</commons-lang3.version>
     </properties>
     <dependencies>
         <dependency>
@@ -56,12 +58,19 @@
         <dependency>
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
-            <version>5.8.38</version>
+            <!-- CVE-2025-56769：QLExpressEngine 表达式注入，需 >= 5.8.40 -->
+            <version>5.8.40</version>
         </dependency>
         <dependency>
             <groupId>com.github.xiaoymin</groupId>
             <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
             <version>4.4.0</version>
+        </dependency>
+        <!-- Redisson -->
+        <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson</artifactId>
+            <version>3.50.0</version>
         </dependency>
         <!-- Selenium 网页截图依赖 -->
         <dependency>

@@ -235,7 +235,8 @@
     "visualEditExit": "退出可视化编辑",
     "visualEditNoPreview": "生成完成后才能进入可视化编辑",
     "visualEditTip": "可视化编辑中：点击预览页面中的元素进行选中",
-    "selectedElement": "已选元素"
+    "selectedElement": "已选元素",
+    "leaveInterruptsGen": "生成过程中请勿离开页面，退出将中断生成"
   },
   "tool": {
     "writeFile": "写入文件",

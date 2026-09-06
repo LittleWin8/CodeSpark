@@ -84,8 +84,7 @@ const errorMessageMap: Record<string, string> = {
 /**
  * 根据后端返回的错误码 / message 获取本地化错误消息
  */
-export function getErrorMessage(code?: number, message?: string): string {
-  if (message) {
+export function getErrorMessage(code?: number, message?: string): string {  if (message) {
     const mappedKey = errorMessageMap[message]
     if (mappedKey) {
       return t(mappedKey)
@@ -94,6 +93,28 @@ export function getErrorMessage(code?: number, message?: string): string {
     if (te(message)) {
       return t(message)
     }
+  }
+  if (code !== undefined && errorCodeMap[code]) {
+    return t(errorCodeMap[code])
+  }
+  return t('error.default')
+}
+
+/**
+ * SSE business-error 事件的文案：优先按稳定 key 映射 i18n；
+ * 映射不到、但后端给了直显文案（如限流注解里的中文）时原样展示，避免吞掉有效信息；
+ * 都没有才兜底默认错误。
+ */
+export function getBusinessErrorMessage(code?: number, message?: string): string {
+  if (message) {
+    const mappedKey = errorMessageMap[message]
+    if (mappedKey) {
+      return t(mappedKey)
+    }
+    if (te(message)) {
+      return t(message)
+    }
+    return message
   }
   if (code !== undefined && errorCodeMap[code]) {
     return t(errorCodeMap[code])

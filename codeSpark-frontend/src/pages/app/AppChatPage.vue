@@ -13,13 +13,14 @@ import {
   PaperClipOutlined,
   SelectOutlined,
   ThunderboltOutlined,
+  WarningOutlined,
 } from '@ant-design/icons-vue'
 import { deployApp, downloadAppCode, getAppVoById } from '@/api/appController'
 import { listAppChatHistory } from '@/api/chatHistoryController'
 import MessageItem from '@/components/chat/MessageItem.vue'
 import { CodeGenTypeEnum, useCodeGenType } from '@/constants/codeGenType'
 import { useLoginUserStore } from '@/stores/loginUser'
-import { getErrorMessage } from '@/utils/errorMessage'
+import { getErrorMessage, getBusinessErrorMessage } from '@/utils/errorMessage'
 import { getPreviewUrl } from '@/utils/url'
 import { connectBuildSse, connectChatSse } from '@/utils/sse'
 import {
@@ -181,6 +182,12 @@ const startBuildWatch = () => {
       previewReady.value = true
       closeBuildSse()
       message.error(payload?.message || t('appChat.buildFailed'))
+    },
+    onBusinessError: (payload) => {
+      // 订阅时刻即被拒（如无权限），流未开始：直接关闭，避免自动重连空转
+      previewReady.value = true
+      closeBuildSse()
+      message.error(getBusinessErrorMessage(payload?.code, payload?.message))
     },
   })
 }
@@ -380,6 +387,9 @@ const sendMessage = async (text: string) => {
     }
   }
 
+  // business-error 到达后连接会关闭，不再需要通用的连接失败提示；标记位防重
+  let businessErrorReceived = false
+
   eventSource = connectChatSse(app.value.id, messageText, {
     onMessage: (chunk) => {
       const current = messages.value[aiIndex]
@@ -522,7 +532,28 @@ const sendMessage = async (text: string) => {
       // 生成完成后再同步一次应用信息，确保名称等字段是最新的
       syncApp()
     },
+    onBusinessError: (payload) => {
+      // 流开始前即被拒（如限流）：收尾并关闭，不走成功链路；后续的连接关闭错误不再重复提示
+      businessErrorReceived = true
+      flushThinking(false)
+      generating.value = false
+      stopThinkingTimer()
+      closeSse()
+      const errText = getBusinessErrorMessage(payload?.code, payload?.message)
+      const current = messages.value[aiIndex]
+      if (current) {
+        current.planningNext = false
+        if (!current.content) {
+          current.content = errText
+          current.done = true
+        }
+      }
+      message.error(errText)
+    },
     onError: () => {
+      if (businessErrorReceived) {
+        return
+      }
       // 冲刷未落盘的思考分片（失败时也保留已收到的思考内容）
       flushThinking(false)
       generating.value = false
@@ -536,7 +567,7 @@ const sendMessage = async (text: string) => {
         }
       }
       message.error(t('appChat.sendFailed'))
-    },
+    }
   })
 }
 
@@ -1087,9 +1118,11 @@ onBeforeUnmount(() => {
 
         <section class="preview-panel">
           <!-- 可视化编辑模式提示：位于预览区顶部的提示条（右对齐），在 iframe 之外，不遮挡网页内容 -->
-          <div v-if="editMode" class="preview-edit-tip">
-            <SelectOutlined class="preview-edit-tip__icon" />
-            <span>{{ t('appChat.visualEditTip') }}</span>
+          <!-- 顶部提示条（二选一）：生成中提示勿离开（会中断生成），可视化编辑时提示点选 -->
+          <div v-if="generating || editMode" class="preview-edit-tip">
+            <WarningOutlined v-if="generating" class="preview-edit-tip__icon" />
+            <SelectOutlined v-else class="preview-edit-tip__icon" />
+            <span>{{ generating ? t('appChat.leaveInterruptsGen') : t('appChat.visualEditTip') }}</span>
           </div>
           <div class="preview-frame">
             <iframe

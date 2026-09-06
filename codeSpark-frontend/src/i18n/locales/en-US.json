@@ -235,7 +235,8 @@
     "visualEditExit": "Exit Visual Edit",
     "visualEditNoPreview": "Visual editing is available after the preview is generated",
     "visualEditTip": "Visual editing: click an element in the preview to select it",
-    "selectedElement": "Selected element"
+    "selectedElement": "Selected element",
+    "leaveInterruptsGen": "Do not leave this page while generating, otherwise the generation will be interrupted"
   },
   "tool": {
     "writeFile": "Write File",

@@ -20,6 +20,8 @@ export type SseHandlers = {
   onToolRequest?: (payload: ToolRequestPayload) => void
   /** 工具执行完成（文件已写入）：event: tool_executed，携带路径与文件内容 */
   onToolExecuted?: (payload: ToolExecutedPayload) => void
+  /** 业务错误：后端 GlobalExceptionHandler 对 SSE 请求以 business-error 事件透出（流未开始） */
+  onBusinessError?: (payload: SseBusinessErrorPayload) => void
   onDone?: () => void
   onError?: (error: Event) => void
 }
@@ -39,10 +41,19 @@ export type BuildEventPayload = {
   timestamp?: string
 }
 
+/** SSE 业务错误事件载荷（后端 GlobalExceptionHandler.handleSseError 构造） */
+export type SseBusinessErrorPayload = {
+  error?: boolean
+  code?: number
+  message?: string
+}
+
 export type BuildSseHandlers = {
   onBuilding?: (payload: BuildEventPayload) => void
   onSuccess?: (payload: BuildEventPayload) => void
   onFailed?: (payload: BuildEventPayload) => void
+  /** 业务错误：订阅时刻即被拒（如无权限），流未开始 */
+  onBusinessError?: (payload: SseBusinessErrorPayload) => void
   onError?: (error: Event) => void
 }
 
@@ -81,6 +92,17 @@ export function connectBuildSse(
   eventSource.addEventListener('building', onNamedEvent('building'))
   eventSource.addEventListener('success', onNamedEvent('success'))
   eventSource.addEventListener('failed', onNamedEvent('failed'))
+  eventSource.addEventListener('business-error', (event: Event) => {
+    const raw = (event as MessageEvent).data
+    if (!raw) {
+      return
+    }
+    try {
+      handlers.onBusinessError?.(JSON.parse(raw) as SseBusinessErrorPayload)
+    } catch {
+      // 非 JSON 时忽略，交由后续的连接关闭错误统一处理
+    }
+  })
 
   // 不主动 close：网络抖动时让 EventSource 自动重连（后端 replay latest 会在重连后立即补发当前状态）
   eventSource.onerror = (error) => {
@@ -159,6 +181,18 @@ export function connectChatSse(
   eventSource.addEventListener('done', () => {
     eventSource.close()
     handlers.onDone?.()
+  })
+
+  eventSource.addEventListener('business-error', (event) => {
+    const raw = (event as MessageEvent).data
+    if (!raw) {
+      return
+    }
+    try {
+      handlers.onBusinessError?.(JSON.parse(raw) as SseBusinessErrorPayload)
+    } catch {
+      // 非 JSON 时忽略，交由后续的连接关闭错误统一处理
+    }
   })
 
   eventSource.onerror = (error) => {

@@ -16,6 +16,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.annotation.AuthCheck;
+import top.littlewin.codespark.annotation.RateLimit;
 import top.littlewin.codespark.common.BaseResponse;
 import top.littlewin.codespark.common.DeleteRequest;
 import top.littlewin.codespark.common.ResultUtils;
@@ -31,6 +32,7 @@ import top.littlewin.codespark.exception.ThrowUtils;
 import top.littlewin.codespark.model.dto.app.*;
 import top.littlewin.codespark.model.entity.App;
 import top.littlewin.codespark.model.entity.User;
+import top.littlewin.codespark.model.enums.RateLimitType;
 import top.littlewin.codespark.model.vo.AppVO;
 import top.littlewin.codespark.service.AppService;
 import top.littlewin.codespark.service.ProjectDownloadService;
@@ -74,6 +76,7 @@ public class AppController {
      * @return AI 响应信息流
      */
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @RateLimit(limitType = RateLimitType.USER, rate = 5, rateInterval = 60, message = "AI 对话请求过于频繁，请稍后再试")
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
                                       @RequestParam String message,
                                       HttpServletRequest request){
