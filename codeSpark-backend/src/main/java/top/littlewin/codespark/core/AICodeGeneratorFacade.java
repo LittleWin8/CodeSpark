@@ -2,7 +2,6 @@ package top.littlewin.codespark.core;
 
 import jakarta.annotation.Resource;
 
-import cn.hutool.core.io.FileUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -14,11 +13,13 @@ import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.core.builder.VueProjectBulider;
 import top.littlewin.codespark.core.parser.CodeParserExecutor;
 import top.littlewin.codespark.core.saver.CodeFileSaverExecutor;
+import top.littlewin.codespark.core.stream.BuildEventPublisher;
 import top.littlewin.codespark.core.stream.TokenStreamMessageEmitter;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
 import top.littlewin.codespark.exception.ErrorMessage;
 import top.littlewin.codespark.exception.ThrowUtils;
+import top.littlewin.codespark.model.enums.BuildStatusEnum;
 import top.littlewin.codespark.model.enums.ChatStageEnum;
 import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 
@@ -40,6 +41,9 @@ public class AICodeGeneratorFacade {
 
     @Resource
     private VueProjectBulider vueProjectBulider;
+
+    @Resource
+    private BuildEventPublisher buildEventPublisher;
 
 
     /**
@@ -99,25 +103,30 @@ public class AICodeGeneratorFacade {
     }
 
     /**
-     * VUE 模式：落盘由文件写入工具实时完成，流完成后只需异步构建（npm install + build），产出 dist 供部署
+     * VUE 模式：落盘由文件写入工具实时完成，流完成后只需异步构建（npm install + build），产出 dist 供部署。
      *
-     * 构建前同步清空旧 dist：保证 SSE done 到达前端时，预览地址（dist/index.html）处于 404 状态，
-     * 前端骨架屏等待，构建完成后重新挂载 iframe 展示新产物，实现修改后自动刷新预览（无需手动刷新）。
+     * 构建状态通过 BuildEventPublisher 推送（BUILDING → SUCCESS/FAILED），前端订阅
+     * /app/{appId}/build/stream 实时感知，无需轮询。dist 是否重建由 VueProjectBulider 自行判断
+     * （已是最新则跳过，需要重建则先清空旧 dist）。
+     *
+     * @param eventStream 对话流
+     * @param appId 应用 ID
+     * @return
      */
     private Flux<StreamMessage> attachVueBuild(Flux<StreamMessage> eventStream, Long appId) {
         return eventStream.doOnComplete(() -> {
+            // 1. 构建输出目录
             String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + "vue_" + appId;
-            // 清理旧 dist，避免构建期间预览命中旧产物（doOnComplete 先于 done 事件执行，无竞态）
-            try {
-                File distDir = new File(projectPath, "dist");
-                if (distDir.exists()) {
-                    FileUtil.del(distDir);
-                    log.info("清理旧 dist 完成: {}", distDir.getAbsolutePath());
-                }
-            } catch (Exception e) {
-                log.warn("清理旧 dist 失败: {}", projectPath, e);
-            }
-            vueProjectBulider.buildProjectAsync(projectPath);
+
+            // 2. 推送 BUILDING，前端进入"构建中"等待态
+            buildEventPublisher.publish(appId, BuildStatusEnum.BUILDING, null);
+
+            // 3. 异步构建 VUE 项目，构建结束使用回调函数推送终态（成功/失败），前端据此刷新预览或提示失败
+            vueProjectBulider.buildProjectAsync(projectPath, result -> {
+                buildEventPublisher.publish(appId,
+                        result.isSuccess() ? BuildStatusEnum.SUCCESS : BuildStatusEnum.FAILED,
+                        result.getMessage());
+            });
         });
     }
 

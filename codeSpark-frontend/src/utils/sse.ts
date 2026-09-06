@@ -30,6 +30,66 @@ export type SseHandlers = {
  * 推理内容：event: thinking, data: {"d":"..."}
  * 工具事件：event: tool_request / tool_executed, data: {"d":{"path":...}}
  */
+export type BuildStatus = 'building' | 'success' | 'failed'
+
+export type BuildEventPayload = {
+  appId?: number
+  status?: BuildStatus
+  message?: string
+  timestamp?: string
+}
+
+export type BuildSseHandlers = {
+  onBuilding?: (payload: BuildEventPayload) => void
+  onSuccess?: (payload: BuildEventPayload) => void
+  onFailed?: (payload: BuildEventPayload) => void
+  onError?: (error: Event) => void
+}
+
+/**
+ * 订阅应用构建状态流（VUE 工程异步构建）
+ * 数据格式：event: building / success / failed, data: {"appId":...,"status":...,"message":...}
+ * 终态（success / failed）后端会自动结束流；收到终态后前端应主动 close，避免 EventSource 自动重连。
+ */
+export function connectBuildSse(
+  appId: number | string,
+  handlers: BuildSseHandlers,
+): EventSource {
+  const url = `/api/app/${appId}/build/stream`
+  const eventSource = new EventSource(url, { withCredentials: true })
+
+  const onNamedEvent = (name: BuildStatus) => (event: Event) => {
+    const raw = (event as MessageEvent).data
+    if (!raw) {
+      return
+    }
+    let payload: BuildEventPayload
+    try {
+      payload = JSON.parse(raw) as BuildEventPayload
+    } catch {
+      return
+    }
+    if (name === 'building') {
+      handlers.onBuilding?.(payload)
+    } else if (name === 'success') {
+      handlers.onSuccess?.(payload)
+    } else {
+      handlers.onFailed?.(payload)
+    }
+  }
+
+  eventSource.addEventListener('building', onNamedEvent('building'))
+  eventSource.addEventListener('success', onNamedEvent('success'))
+  eventSource.addEventListener('failed', onNamedEvent('failed'))
+
+  // 不主动 close：网络抖动时让 EventSource 自动重连（后端 replay latest 会在重连后立即补发当前状态）
+  eventSource.onerror = (error) => {
+    handlers.onError?.(error)
+  }
+
+  return eventSource
+}
+
 export function connectChatSse(
   appId: number | string,
   message: string,

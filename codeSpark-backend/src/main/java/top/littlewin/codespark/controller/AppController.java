@@ -7,6 +7,8 @@ import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +21,8 @@ import top.littlewin.codespark.common.DeleteRequest;
 import top.littlewin.codespark.common.ResultUtils;
 import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.constant.UserConstant;
+import top.littlewin.codespark.core.stream.BuildEvent;
+import top.littlewin.codespark.core.stream.BuildEventPublisher;
 import top.littlewin.codespark.core.stream.StreamSseMapper;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
@@ -35,7 +39,6 @@ import top.littlewin.codespark.service.UserService;
 import java.io.File;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * 应用表 控制层。
@@ -55,10 +58,21 @@ public class AppController {
     @Resource
     private StreamSseMapper streamSseMapper;
 
+    @Resource
+    private BuildEventPublisher buildEventPublisher;
+
 
     @Resource
     private ProjectDownloadService projectDownloadService;
 
+    /**
+     * 对话生成应用
+     *
+     * @param appId 应用 ID
+     * @param message 用户提示词
+     * @param request 请求参数
+     * @return AI 响应信息流
+     */
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
                                       @RequestParam String message,
@@ -73,9 +87,9 @@ public class AppController {
 
         // 3. 强类型消息流 → SSE 命名事件（thinking / tool_request / tool_executed / message / done）
         Flux<StreamMessage> contentFlux =  appService.chatToGenCode(appId, message, loginUser);
+        // mapNotNull：允许 mapper 返回 null（无法识别路径的工具事件会被静默丢弃），避免 Flux.map 抛 NPE
         return contentFlux
-                .map(streamSseMapper::toServerSentEvent)
-                .filter(Objects::nonNull)
+                .mapNotNull(streamSseMapper::toServerSentEvent)
                 .concatWith(Mono.just(
                         // 发送结束标志
                         ServerSentEvent.<String>builder()
@@ -85,6 +99,13 @@ public class AppController {
                 ));
     }
 
+    /**
+     * 部署应用
+     *
+     * @param appDeployRequest 部署请求
+     * @param request 请求
+     * @return
+     */
     @PostMapping("/deploy")
     public BaseResponse<String> deployApp(@RequestBody AppDeployRequest appDeployRequest, HttpServletRequest request){
         ThrowUtils.throwIf(appDeployRequest == null, ErrorCode.PARAMS_ERROR);
@@ -97,7 +118,6 @@ public class AppController {
         String deployUrl = appService.deployApp(appId, loginUser);
         return ResultUtils.success(deployUrl);
     }
-
 
     /**
      * 创建应用
@@ -124,6 +144,7 @@ public class AppController {
      * @return 删除结果
      */
     @PostMapping("/delete")
+    @CacheEvict(value = "good_app_page", allEntries = true)
     public BaseResponse<Boolean> deleteApp(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -150,6 +171,7 @@ public class AppController {
      * @return 更新结果
      */
     @PostMapping("/update")
+    @CacheEvict(value = "good_app_page", allEntries = true)
     public BaseResponse<Boolean> updateApp(@RequestBody AppUpdateRequest appUpdateRequest, HttpServletRequest request) {
 
         // 1. 参数校验
@@ -231,6 +253,11 @@ public class AppController {
      * @return 精选应用列表
      */
     @PostMapping("/good/list/page/vo")
+    @Cacheable(
+            value = "good_app_page",
+            key = "T(top.littlewin.codespark.utils.CacheKeyUtils).generateCacheKey(#appQueryRequest)",
+            condition = "#appQueryRequest.pageNum <= 12"
+    )
     public BaseResponse<Page<AppVO>> listGoodAppVOByPage(@RequestBody AppQueryRequest appQueryRequest) {
         ThrowUtils.throwIf(appQueryRequest == null, ErrorCode.PARAMS_ERROR);
 
@@ -254,6 +281,37 @@ public class AppController {
     }
 
     /**
+     * 订阅应用构建状态流（VUE 工程异步构建的状态推送）
+     *
+     * 事件名与 BuildStatusEnum.value 对应：building / success / failed；
+     * 终态（success / failed）推送后后端结束该流。仅应用创建者本人可订阅。
+     *
+     * @param appId   应用 ID
+     * @param request 请求
+     * @return 构建状态事件流
+     */
+    @GetMapping(value = "/{appId}/build/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<BuildEvent>> getAppBuildStream(@PathVariable Long appId,
+                                                               HttpServletRequest request) {
+        // 1. 参数校验
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_APP_ID);
+
+        // 2. 获取应用
+        App app = appService.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, ErrorMessage.APP_NOT_FOUND);
+
+        // 3. 获取当前登陆用户
+        User loginUser = userService.getLoginUser(request);
+        ThrowUtils.throwIf(!app.getUserId().equals(loginUser.getId()), ErrorCode.NO_AUTH_ERROR);
+
+        // 4. 返回构建状态事件流
+        return buildEventPublisher.subscribe(appId)
+                .map(buildEvent -> ServerSentEvent.<BuildEvent>builder(buildEvent)
+                        .event(buildEvent.getStatus().getValue())
+                        .build());
+    }
+
+    /**
      * 管理员删除应用
      *
      * @param deleteRequest 删除请求
@@ -261,6 +319,7 @@ public class AppController {
      */
     @PostMapping("/admin/delete")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @CacheEvict(value = "good_app_page", allEntries = true)
     public BaseResponse<Boolean> deleteAppByAdmin(@RequestBody DeleteRequest deleteRequest) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -282,6 +341,7 @@ public class AppController {
      */
     @PostMapping("/admin/update")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @CacheEvict(value = "good_app_page", allEntries = true)
     public BaseResponse<Boolean> updateAppByAdmin(@RequestBody AppAdminUpdateRequest appAdminUpdateRequest) {
 
         // 1. 参数校验

@@ -21,7 +21,7 @@ import { CodeGenTypeEnum, useCodeGenType } from '@/constants/codeGenType'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { getErrorMessage } from '@/utils/errorMessage'
 import { getPreviewUrl } from '@/utils/url'
-import { connectChatSse } from '@/utils/sse'
+import { connectBuildSse, connectChatSse } from '@/utils/sse'
 import {
   buildElementPrompt,
   createVisualEditBridge,
@@ -153,41 +153,36 @@ const handleIframeLoad = () => {
 }
 
 // VUE 工程预览：后端在生成完成后异步构建（npm install + build），
-// 需轮询预览地址直到可访问再展示 iframe
+// 前端订阅构建状态 SSE（building / success / failed），收到终态后刷新预览，无需轮询
 const previewReady = ref(true)
-let previewPollTimer: ReturnType<typeof setInterval> | null = null
-const VUE_PREVIEW_POLL_INTERVAL = 2000
-const VUE_PREVIEW_POLL_MAX = 90 // 最长约 3 分钟
+let buildSse: EventSource | null = null
 
-const stopVuePreviewPolling = () => {
-  if (previewPollTimer) {
-    clearInterval(previewPollTimer)
-    previewPollTimer = null
+const closeBuildSse = () => {
+  if (buildSse) {
+    buildSse.close()
+    buildSse = null
   }
 }
 
-const pollVuePreviewReady = () => {
-  const url = previewUrl.value
-  if (!url || app.value?.codeGenType !== CodeGenTypeEnum.VUE_PROJECT) {
-    previewReady.value = true
+const startBuildWatch = () => {
+  if (!app.value?.id) {
     return
   }
+  closeBuildSse()
+  // 进入"构建中"等待态，构建完成后自动挂载新预览
   previewReady.value = false
-  let count = 0
-  previewPollTimer = setInterval(async () => {
-    count++
-    let ok = false
-    try {
-      const res = await fetch(url, { method: 'GET', credentials: 'include' })
-      ok = res.ok
-    } catch {
-      ok = false
-    }
-    if (ok || count >= VUE_PREVIEW_POLL_MAX) {
+  buildSse = connectBuildSse(app.value.id, {
+    onSuccess: () => {
       previewReady.value = true
-      stopVuePreviewPolling()
-    }
-  }, VUE_PREVIEW_POLL_INTERVAL)
+      previewKey.value += 1
+      closeBuildSse()
+    },
+    onFailed: (payload) => {
+      previewReady.value = true
+      closeBuildSse()
+      message.error(payload?.message || t('appChat.buildFailed'))
+    },
+  })
 }
 
 /** 距底部该阈值（px）内视为"在底部"，自动滚动跟随；用户上滑超过阈值则暂停跟随 */
@@ -514,13 +509,15 @@ const sendMessage = async (text: string) => {
       if (current) {
         current.planningNext = false
       }
-      // VUE 构建是异步的（后端已清空旧 dist）：先进入骨架屏等待，构建完成后自动挂载新预览，
+      // VUE 构建是异步的：订阅构建状态 SSE，构建完成后自动挂载新预览，
       // 避免旧产物/404 页面闪现，也无需用户手动刷新
       if (app.value?.codeGenType === CodeGenTypeEnum.VUE_PROJECT) {
-        pollVuePreviewReady() // 内部先将 previewReady 置 false，进入构建等待态
+        startBuildWatch() // 内部先将 previewReady 置 false，进入构建等待态
+      } else {
+        // HTML/MULTI：无构建，直接刷新预览
+        previewKey.value += 1
       }
       showPreview.value = true
-      previewKey.value += 1
       scrollToBottom()
       // 生成完成后再同步一次应用信息，确保名称等字段是最新的
       syncApp()
@@ -871,7 +868,7 @@ const initChat = async () => {
   }
   closeSse()
   stopNamePolling()
-  stopVuePreviewPolling()
+  closeBuildSse()
   previewReady.value = true
   messages.value = []
   hasMoreHistory.value = false
@@ -949,7 +946,7 @@ watch(
 onBeforeUnmount(() => {
   closeSse()
   stopNamePolling()
-  stopVuePreviewPolling()
+  closeBuildSse()
   stopThinkingTimer()
   visualEditBridge.destroy()
 })

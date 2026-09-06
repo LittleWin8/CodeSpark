@@ -22,6 +22,15 @@
       <!-- 右侧：语言切换 + 用户操作 -->
       <a-col>
         <a-space :size="16">
+          <a-button
+            class="github-btn"
+            href="https://github.com/LittleWin8/CodeSpark"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <GithubOutlined />
+            GitHub
+          </a-button>
           <LanguageSwitcher />
           <div class="user-login-status">
             <div v-if="loginUserStore.loginUser.id">
@@ -64,6 +73,7 @@ import { useI18n } from 'vue-i18n'
 import type { MenuProps } from 'ant-design-vue'
 import {
   AppstoreOutlined,
+  GithubOutlined,
   HomeOutlined,
   LogoutOutlined,
   MessageOutlined,
@@ -255,5 +265,11 @@ const handleMenuClick: MenuProps['onClick'] = (e) => {
   background: linear-gradient(135deg, #1f8f7a 0%, #4ab8a4 100%);
   border: none;
   border-radius: 8px;
+}
+
+.github-btn:hover,
+.github-btn:focus-visible {
+  color: #1f8f7a;
+  border-color: #1f8f7a;
 }
 </style>

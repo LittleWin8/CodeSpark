@@ -10,6 +10,16 @@ CodeSpark AI 零代码应用生成平台。
 └── codeSpark-frontend/   # Vue 3 前端
 ```
 
+## 环境要求
+
+后端通过 langchain4j-community-redis 将对话记忆持久化到 Redis，依赖 Redis 服务端的 **RedisJSON** 模块（`JSON.GET` / `JSON.SET` 命令）。普通 Redis（各发行版 apt 包、官方 `redis` docker 镜像等）默认不包含该模块，运行时会出现：
+
+```
+redis.clients.jedis.exceptions.JedisDataException: ERR unknown command 'JSON.GET'
+```
+
+因此需要提供内置 RedisJSON 的 Redis（如 Redis Stack）或额外加载 rejson 模块的实例，而非裸 Redis。
+
 ## 本地开发
 
 ### 后端

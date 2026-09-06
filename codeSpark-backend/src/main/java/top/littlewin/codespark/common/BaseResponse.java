@@ -1,6 +1,7 @@
 package top.littlewin.codespark.common;
 
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import top.littlewin.codespark.exception.ErrorCode;
 
 import java.io.Serializable;
@@ -11,6 +12,7 @@ import java.io.Serializable;
  * @param <T>
  */
 @Data
+@NoArgsConstructor
 public class BaseResponse<T> implements Serializable {
 
     private int code;

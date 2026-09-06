@@ -20,6 +20,7 @@ import top.littlewin.codespark.ai.AppNamingService;
 import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.core.AICodeGeneratorFacade;
+import top.littlewin.codespark.core.builder.BuildResult;
 import top.littlewin.codespark.core.builder.VueProjectBulider;
 import top.littlewin.codespark.core.stream.StreamMessageHandler;
 import top.littlewin.codespark.exception.BusinessException;
@@ -240,8 +241,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         if (codeGenTypeEnum == CodeGenTypeEnum.VUE_PROJECT){
 
             // Vue 项目构建
-            boolean buildSuccess =vueProjectBulider.buildProject(sourceDirPath);
-            ThrowUtils.throwIf(!buildSuccess, ErrorCode.SYSTEM_ERROR, ErrorMessage.VUE_BUILD_FAILED);
+            BuildResult buildResult = vueProjectBulider.buildProject(sourceDirPath);
+            ThrowUtils.throwIf(!buildResult.isSuccess(), ErrorCode.SYSTEM_ERROR,
+                    ErrorMessage.VUE_BUILD_FAILED + ": " + buildResult.getMessage());
 
             // 检查 dist目录是否存在
             File distDir = new File(sourceDirPath, "dist");

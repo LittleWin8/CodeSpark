@@ -227,6 +227,7 @@
     "expand": "Expand",
     "collapse": "Collapse",
     "vueBuilding": "Vue project is building, preview will appear when ready",
+    "buildFailed": "Application build failed, please retry",
     "download": "Download Code",
     "downloadSuccess": "Downloaded successfully",
     "downloadFailed": "Download failed",

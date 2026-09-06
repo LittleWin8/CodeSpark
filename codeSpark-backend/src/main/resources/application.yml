@@ -18,6 +18,7 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:123456}
       ttl: 3600
+      database: 0
 
 server:
   port: 8080
@@ -91,4 +92,4 @@ langchain4j:
       # 解析 delta.reasoning_content → TokenStream.onPartialThinking 事件，用于前端流式展示模型推理过程
       return-thinking: true
       log-requests: true
-      log-responses: false
+      log-responses: true
