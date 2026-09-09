@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("local")
-class AICodeGeneratorFacadeTest {
+class AiModelMetricsControllerCodeGeneratorFacadeTest {
 
 
     @Resource

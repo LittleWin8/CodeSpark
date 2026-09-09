@@ -367,7 +367,6 @@ const sendMessage = async (text: string) => {
 
   closeSse()
   generating.value = true
-  showPreview.value = false
 
   const userMsg: ChatMessage = {
     id: `user-${Date.now()}`,

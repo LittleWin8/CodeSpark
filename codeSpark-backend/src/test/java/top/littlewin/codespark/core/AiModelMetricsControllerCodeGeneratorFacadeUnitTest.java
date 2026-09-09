@@ -31,7 +31,7 @@ import static org.mockito.Mockito.when;
  * AICodeGeneratorFacade 单元测试（生成物动作：VUE 流完成后推 BUILDING 并触发异步构建，
  * 构建回调推 SUCCESS/FAILED 终态，前端订阅构建流刷新预览或提示失败）
  * <p>
- * 与 @SpringBootTest 的 {@link AICodeGeneratorFacadeTest} 互补：此处不启动 Spring 容器，
+ * 与 @SpringBootTest 的 {@link AiModelMetricsControllerCodeGeneratorFacadeTest} 互补：此处不启动 Spring 容器，
  * 避免真实调用 AI、执行 npm 安装/构建。
  */
 class AICodeGeneratorFacadeUnitTest {

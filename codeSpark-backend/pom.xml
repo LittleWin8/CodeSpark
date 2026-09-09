@@ -127,6 +127,15 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- 可观测性基础设施 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
         <!-- langchain4j-->
         <dependency>
             <groupId>dev.langchain4j</groupId>
@@ -143,7 +152,6 @@
             <artifactId>langchain4j-reactor</artifactId>
             <version>1.18.0-beta28</version>
         </dependency>
-
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-community-redis-spring-boot-starter</artifactId>

@@ -1,0 +1,27 @@
+# CodeSpark 项目专属 Prometheus 配置
+# 说明：监控进程通常运行在开发机/独立机器上，通过 metrics_path 抓取后端的 /api/actuator/prometheus
+# 后端地址：本机调试用 host.docker.internal:8080；部署后改成服务器 IP（如 1.2.3.4:8080）
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+storage:
+  tsdb:
+    retention:
+      time: 7d
+      size: 1GB
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'codespark-backend'
+    metrics_path: '/api/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '(.*):\d+'
+        target_label: 'instance'
+        replacement: '$1'

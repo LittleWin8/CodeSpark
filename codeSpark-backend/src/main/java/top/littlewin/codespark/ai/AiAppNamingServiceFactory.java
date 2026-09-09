@@ -15,14 +15,14 @@ import org.springframework.context.annotation.Configuration;
  */
 @Slf4j
 @Configuration
-public class AppNamingServiceFactory {
+public class AiAppNamingServiceFactory {
 
     @Resource(name = "lightChatModel")
     private ChatModel chatModel;
 
     @Bean
-    public AppNamingService appNamingService() {
-        return AiServices.builder(AppNamingService.class)
+    public AiAppNamingService appNamingService() {
+        return AiServices.builder(AiAppNamingService.class)
                 .chatModel(chatModel)
                 .build();
     }

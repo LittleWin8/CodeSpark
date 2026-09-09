@@ -2,6 +2,7 @@ package top.littlewin.codespark.service;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
+import org.springframework.scheduling.annotation.Async;
 import reactor.core.publisher.Flux;
 import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.model.dto.app.AppAddRequest;
@@ -34,7 +35,7 @@ public interface AppService extends IService<App> {
      * @param appId       应用 ID
      * @param userMessage 用户提示词
      */
-    void updateAppNameAsync(Long appId, String userMessage);
+    void updateAppNameAsync(Long appId, String userMessage, Long userId, String userAccount);
 
     /**
      * 获取应用封装类

@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import reactor.core.publisher.Flux;
 import top.littlewin.codespark.ai.AiCodeGenTypeRoutingService;
-import top.littlewin.codespark.ai.AppNamingService;
+import top.littlewin.codespark.ai.AiAppNamingService;
 import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.core.AICodeGeneratorFacade;
@@ -37,6 +37,8 @@ import top.littlewin.codespark.model.enums.ChatStageEnum;
 import top.littlewin.codespark.model.enums.CodeGenTypeEnum;
 import top.littlewin.codespark.model.vo.AppVO;
 import top.littlewin.codespark.model.vo.UserVO;
+import top.littlewin.codespark.monitor.MonitorContext;
+import top.littlewin.codespark.monitor.MonitorContextHolder;
 import top.littlewin.codespark.service.AppService;
 import org.springframework.stereotype.Service;
 import top.littlewin.codespark.service.ChatHistoryService;
@@ -104,46 +106,55 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
 
     /** AI 应用命名：轻量模型（deepseek-chat），独立服务 */
     @Resource
-    private AppNamingService appNamingService;
+    private AiAppNamingService aiAppNamingService;
 
     @Override
     public Long createApp(AppAddRequest appAddRequest, User loginUser) {
 
-        // 参数校验
+        // 1. 参数校验
         ThrowUtils.throwIf(appAddRequest == null, ErrorCode.PARAMS_ERROR);
         String initPrompt = appAddRequest.getInitPrompt();
         ThrowUtils.throwIf(StrUtil.isBlank(initPrompt), ErrorCode.PARAMS_ERROR, ErrorMessage.EMPTY_INIT_PROMPT);
 
-        // 构造入库对象
+        // 2. 构造入库对象
         App app = new App();
         BeanUtil.copyProperties(appAddRequest, app);
         app.setUserId(loginUser.getId());
 
-        // 先使用截取名称快速落库，避免等待 AI 生成名称阻塞创建请求
+        // 3. 先使用截取名称快速落库，避免等待 AI 生成名称阻塞创建请求
         app.setAppName(this.truncateName(initPrompt));
 
-        // 由 AI 判断任务难度来选择不同的生成类型（轻量模型）；
+        // 4. 由 AI 判断任务难度来选择不同的生成类型（轻量模型）；
         // 路由偶发解析失败时降级为 MULTI_FILE，避免创建流程被 AI 不稳定拖垮
         CodeGenTypeEnum codeGenType;
         try {
+            MonitorContextHolder.setContext(MonitorContext.builder()
+                    .userId(loginUser.getId().toString())
+                    .appId("routing")
+                    .userAccount(loginUser.getUserAccount())
+                    .build()
+            );
             codeGenType = aiCodeGenTypeRoutingService.routeCodeGenType(initPrompt);
         } catch (Exception e) {
             log.warn("AI 类型路由失败，降级为 MULTI_FILE: {}", e.getMessage());
             codeGenType = CodeGenTypeEnum.MULTI_FILE;
+        } finally {
+            MonitorContextHolder.clearContext();
         }
-        // 路由结果必须是有效的生成类型（html / multi_file / vue）
+
+        // 5. 路由结果必须是有效的生成类型（html / multi_file / vue）
         ThrowUtils.throwIf(codeGenType == null,
                 ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_CODE_GEN_TYPE);
         app.setCodeGenType(codeGenType.getValue());
 
-        // 插入数据库
+        // 6. 插入数据库
         boolean result = this.save(app);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
 
-        // 开启 AI 命名开关时，异步生成应用名称并更新（不阻塞响应，名称生成后前端刷新可见）；
+        // 7. 开启 AI 命名开关时，异步生成应用名称并更新（不阻塞响应，名称生成后前端刷新可见）；
         // 关闭时保持提示词截取名（后续用户可在编辑中手动改名）
         if (appNameAiEnabled) {
-            self.updateAppNameAsync(app.getId(), initPrompt);
+            self.updateAppNameAsync(app.getId(), initPrompt, loginUser.getId(), loginUser.getUserAccount());
         } else {
             log.info("AI 应用命名已关闭（codespark.ai.app-name.enabled=false），应用名使用提示词截取: appId={}", app.getId());
         }
@@ -156,13 +167,19 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
      */
     @Async
     @Override
-    public void updateAppNameAsync(Long appId, String userMessage) {
+    public void updateAppNameAsync(Long appId, String userMessage, Long userId, String userAccount) {
         // 开关防御：关闭时直接跳过，避免覆盖用户已手动修改的应用名
         if (!appNameAiEnabled) {
             log.info("AI 应用命名已关闭，跳过异步更新名称: appId={}", appId);
             return;
         }
+
         try {
+            MonitorContextHolder.setContext(MonitorContext.builder()
+                    .userId(userId.toString())
+                    .appId("naming")
+                    .userAccount(userAccount)
+                    .build());
             String name = this.generateAppName(userMessage);
             App updateApp = new App();
             updateApp.setId(appId);
@@ -171,6 +188,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
             log.info("异步更新应用名称成功: appId={}, appName={}", appId, name);
         } catch (Exception e) {
             log.error("异步更新应用名称失败: appId={}", appId, e);
+        } finally {
+            MonitorContextHolder.clearContext();
         }
     }
 
@@ -199,11 +218,24 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 6. 保存用户消息
         chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
 
-        // 7. 调用 AI 生成代码
+        // 7. 设置监控上下文（用户ID、应用ID 和用户账号；userAccount 注册即必填，用于 Grafana 排行展示）
+        MonitorContextHolder.setContext(
+                MonitorContext.builder()
+                        .userId(loginUser.getId().toString())
+                        .appId(appId.toString())
+                        .userAccount(loginUser.getUserAccount())
+                        .build()
+        );
+
+        // 8. 调用 AI 生成代码
         Flux<StreamMessage> contentStream =  aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenType, appId, chatStage);
 
-        // 8. 渲染展示文本 + 保存 AI 响应结果
-        return streamMessageHandler.handle(contentStream, appId, loginUser);
+        // 9. 渲染展示文本 + 保存 AI 响应结果
+        return streamMessageHandler.handle(contentStream, appId, loginUser)
+                .doFinally(signalType -> {
+                    // 10. 流结束时清理监控上下文
+                    MonitorContextHolder.clearContext();
+                });
     }
 
     @Override
@@ -451,7 +483,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         }
         try {
 
-            String name = appNamingService.generateAppName(userMessage);
+            String name = aiAppNamingService.generateAppName(userMessage);
             if (StrUtil.isNotBlank(name)) {
                 // 去掉首尾空白与可能的引号包裹
                 name = name.trim().replace("\"", "").replace("'", "");

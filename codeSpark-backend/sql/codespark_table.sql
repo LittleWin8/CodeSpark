@@ -177,5 +177,3 @@ CREATE TRIGGER trigger_chat_history_update_time
     ON chat_history
     FOR EACH ROW
     EXECUTE PROCEDURE update_chat_history_update_time();
-
-
