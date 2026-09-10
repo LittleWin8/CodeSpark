@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 public class MyBatisCodeGenerator {
 
     // 需要生成的表名
-    private static final String[] TABLE_NAMES = {"chat_history"};
+    private static final String[] TABLE_NAMES = {"user_token_usage", "user_quota_usage"};
 
     // 匹配 ${KEY:default} 占位符
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^:}]+)(?::([^}]*))?\\}");

@@ -39,12 +39,8 @@ import top.littlewin.codespark.model.vo.AppVO;
 import top.littlewin.codespark.model.vo.UserVO;
 import top.littlewin.codespark.monitor.MonitorContext;
 import top.littlewin.codespark.monitor.MonitorContextHolder;
-import top.littlewin.codespark.service.AppService;
+import top.littlewin.codespark.service.*;
 import org.springframework.stereotype.Service;
-import top.littlewin.codespark.service.ChatHistoryService;
-import top.littlewin.codespark.service.FileService;
-import top.littlewin.codespark.service.ScreenshotService;
-import top.littlewin.codespark.service.UserService;
 
 import java.io.File;
 import java.time.LocalDateTime;
@@ -85,6 +81,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
 
     @Resource
     private FileService fileService;
+
+    @Resource
+    private UserQuotaUsageService userQuotaUsageService;
 
     /** 自注入代理：createApp 内部调用 @Async 方法时，需通过代理走异步线程池 */
     @Lazy
@@ -206,19 +205,22 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 3.权限校验，仅本人可以和 AI 对话
         ThrowUtils.throwIf(!app.getUserId().equals(loginUser.getId()), ErrorCode.NO_AUTH_ERROR);
 
-        // 4. 应用代码类型
+        // 4 校验月额度
+        userQuotaUsageService.checkQuota(loginUser.getId());
+
+        // 5. 应用代码类型
         CodeGenTypeEnum codeGenType = CodeGenTypeEnum.getEnumByValue(app.getCodeGenType());
         ThrowUtils.throwIf(codeGenType == null, ErrorCode.SYSTEM_ERROR, ErrorMessage.INVALID_CODE_GEN_TYPE);
 
-        // 5. 判断对话阶段：已有 AI 历史 → 修改应用；否则 → 创建应用（VUE 模式据此切换系统提示词）
+        // 6. 判断对话阶段：已有 AI 历史 → 修改应用；否则 → 创建应用（VUE 模式据此切换系统提示词）
         ChatStageEnum chatStage = chatHistoryService.hasAiChatMessage(appId)
                 ? ChatStageEnum.MODIFY
                 : ChatStageEnum.CREATE;
 
-        // 6. 保存用户消息
+        // 7. 保存用户消息
         chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
 
-        // 7. 设置监控上下文（用户ID、应用ID 和用户账号；userAccount 注册即必填，用于 Grafana 排行展示）
+        // 8. 设置监控上下文（用户ID、应用ID 和用户账号；userAccount 注册即必填，用于 Grafana 排行展示）
         MonitorContextHolder.setContext(
                 MonitorContext.builder()
                         .userId(loginUser.getId().toString())
@@ -227,10 +229,10 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                         .build()
         );
 
-        // 8. 调用 AI 生成代码
+        // 9. 调用 AI 生成代码
         Flux<StreamMessage> contentStream =  aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenType, appId, chatStage);
 
-        // 9. 渲染展示文本 + 保存 AI 响应结果
+        // 10. 渲染展示文本 + 保存 AI 响应结果
         return streamMessageHandler.handle(contentStream, appId, loginUser)
                 .doFinally(signalType -> {
                     // 10. 流结束时清理监控上下文

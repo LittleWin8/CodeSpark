@@ -177,3 +177,65 @@ CREATE TRIGGER trigger_chat_history_update_time
     ON chat_history
     FOR EACH ROW
     EXECUTE PROCEDURE update_chat_history_update_time();
+
+-- 4. 用户 Token 消耗账本（统计，永不重置）
+CREATE TABLE IF NOT EXISTS user_token_usage
+(
+    "id"           BIGSERIAL PRIMARY KEY,
+    "userId"       BIGINT      NOT NULL,
+    "modelName"    VARCHAR(64) NOT NULL,
+    "month"        INT         NOT NULL,
+    "inputTokens"  BIGINT      NOT NULL DEFAULT 0,
+    "outputTokens" BIGINT      NOT NULL DEFAULT 0,
+    "totalTokens"  BIGINT      NOT NULL DEFAULT 0,
+    "createTime"   TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updateTime"   TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_user_model_month UNIQUE ("userId", "modelName", "month")
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_token_usage_month ON user_token_usage ("month");
+COMMENT ON TABLE user_token_usage IS '用户 Token 消耗账本（按用户/模型/月份累计，永不重置）';
+
+CREATE OR REPLACE FUNCTION update_user_token_usage_update_time()
+    RETURNS TRIGGER AS $$
+BEGIN
+    NEW."updateTime" = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_user_token_usage_update_time ON user_token_usage;
+CREATE TRIGGER trigger_user_token_usage_update_time
+    BEFORE UPDATE ON user_token_usage
+    FOR EACH ROW EXECUTE PROCEDURE update_user_token_usage_update_time();
+
+-- 5. 用户月额度计数器（计费，可重置）
+CREATE TABLE IF NOT EXISTS user_quota_usage
+(
+    "id"         BIGSERIAL PRIMARY KEY,
+    "userId"     BIGINT   NOT NULL,
+    "month"      INT      NOT NULL,
+    "usedTokens" BIGINT   NOT NULL DEFAULT 0,
+    "resetTime"  TIMESTAMP,
+    "createTime" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updateTime" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_user_month UNIQUE ("userId", "month")
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_quota_usage_month_used ON user_quota_usage ("month", "usedTokens" DESC);
+
+COMMENT ON TABLE user_quota_usage IS '用户月额度计数器（仅计费模型消耗，管理员可重置）';
+
+
+CREATE OR REPLACE FUNCTION update_user_quota_usage_update_time()
+    RETURNS TRIGGER AS $$
+BEGIN
+    NEW."updateTime" = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_user_quota_usage_update_time ON user_quota_usage;
+CREATE TRIGGER trigger_user_quota_usage_update_time
+    BEFORE UPDATE ON user_quota_usage
+    FOR EACH ROW EXECUTE PROCEDURE update_user_quota_usage_update_time();

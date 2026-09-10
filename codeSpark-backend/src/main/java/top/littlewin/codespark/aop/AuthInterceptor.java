@@ -58,8 +58,9 @@ public class AuthInterceptor {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
 
-        // 6. 用户没有管理员权限，拒绝
-        if (UserRoleEnum.ADMIN.equals(mustRole) && !UserRoleEnum.ADMIN.equals(loginUser.getUserRole())){
+        // 6. 用户没有所需角色权限，拒绝（比较 value，不能用枚举 equals 字符串）
+        if (UserRoleEnum.ADMIN.getValue().equals(mustRole)
+                && !UserRoleEnum.ADMIN.getValue().equals(loginUser.getUserRole())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
 

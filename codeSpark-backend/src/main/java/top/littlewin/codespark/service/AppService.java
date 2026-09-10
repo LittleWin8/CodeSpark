@@ -2,7 +2,6 @@ package top.littlewin.codespark.service;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
-import org.springframework.scheduling.annotation.Async;
 import reactor.core.publisher.Flux;
 import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.model.dto.app.AppAddRequest;

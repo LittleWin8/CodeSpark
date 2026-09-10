@@ -90,7 +90,8 @@
     "downloadFilenameEmpty": "下载文件名不能为空",
     "projectDirNotFound": "项目目录不存在",
     "projectPathNotDir": "指定路径不是目录",
-    "projectDownloadFailed": "项目打包下载失败"
+    "projectDownloadFailed": "项目打包下载失败",
+    "quotaExceeded": "本月额度已用完，请下月再试"
   },
   "nav": {
     "home": "首页",

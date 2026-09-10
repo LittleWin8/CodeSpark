@@ -88,7 +88,10 @@ public enum ErrorMessage {
     DOWNLOAD_FILENAME_EMPTY, // 下载文件名不能为空
     PROJECT_DIR_NOT_FOUND, // 项目目录不存在
     PROJECT_PATH_NOT_DIR, // 指定路径不是目录
-    PROJECT_DOWNLOAD_FAILED; // 项目打包下载失败
+    PROJECT_DOWNLOAD_FAILED, // 项目打包下载失败
+
+    // ---------- 用户额度 ----------
+    QUOTA_EXCEEDED; // 本月额度已用完，请下月再试
 
     /**
      * @return 稳定英文 key（即枚举名）

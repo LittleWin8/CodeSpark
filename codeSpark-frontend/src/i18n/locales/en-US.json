@@ -90,7 +90,8 @@
     "downloadFilenameEmpty": "Download filename cannot be empty",
     "projectDirNotFound": "Project directory not found",
     "projectPathNotDir": "Specified path is not a directory",
-    "projectDownloadFailed": "Failed to package and download project"
+    "projectDownloadFailed": "Failed to package and download project",
+    "quotaExceeded": "Monthly quota exhausted, please try again next month"
   },
   "nav": {
     "home": "Home",

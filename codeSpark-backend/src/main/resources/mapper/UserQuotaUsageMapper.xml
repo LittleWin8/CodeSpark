@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="top.littlewin.codespark.mapper.UserQuotaUsageMapper">
+
+    <update id="incrUsedTokens">
+        UPDATE user_quota_usage
+        SET "usedTokens" = "usedTokens" + #{tokens}
+        WHERE "userId" = #{userId}
+          AND "month" = #{month}
+    </update>
+
+    <update id="resetAllQuota">
+        UPDATE user_quota_usage
+        SET "usedTokens" = 0,
+            "resetTime" = CURRENT_TIMESTAMP
+        WHERE "month" = #{month}
+    </update>
+
+</mapper>

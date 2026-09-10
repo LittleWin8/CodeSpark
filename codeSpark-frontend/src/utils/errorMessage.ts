@@ -78,6 +78,7 @@ const errorMessageMap: Record<string, string> = {
   PROJECT_DIR_NOT_FOUND: 'error.projectDirNotFound',
   PROJECT_PATH_NOT_DIR: 'error.projectPathNotDir',
   PROJECT_DOWNLOAD_FAILED: 'error.projectDownloadFailed',
+  QUOTA_EXCEEDED: 'error.quotaExceeded',
   ok: 'error.default',
 }
 

@@ -8,6 +8,9 @@ import dev.langchain4j.model.output.TokenUsage;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import top.littlewin.codespark.config.QuotaProperties;
+import top.littlewin.codespark.service.UserQuotaUsageService;
+import top.littlewin.codespark.service.UserTokenUsageService;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -28,6 +31,15 @@ public class AiModelMonitorListener implements ChatModelListener {
 
     @Resource
     private AiModelMetricsCollector aiModelMetricsCollector;
+
+    @Resource
+    private UserQuotaUsageService userQuotaUsageService;
+
+    @Resource
+    private UserTokenUsageService userTokenUsageService;
+
+    @Resource
+    private QuotaProperties quotaProperties;
 
     @Override
     public void onRequest(ChatModelRequestContext requestContext) {
@@ -108,13 +120,40 @@ public class AiModelMonitorListener implements ChatModelListener {
     /**
      * 记录 Token 消耗量
      */
-    private void recordTokenUsage(ChatModelResponseContext responseContext, String userId, String userAccount,
+    private void recordTokenUsage(ChatModelResponseContext responseContext,
+                                  String userId, String userAccount,
                                   String appId, String modelName) {
         TokenUsage tokenUsage = responseContext.chatResponse().metadata().tokenUsage();
         if (tokenUsage != null) {
             aiModelMetricsCollector.recordTokenUsage(userId, userAccount, appId, modelName, "input", tokenUsage.inputTokenCount());
             aiModelMetricsCollector.recordTokenUsage(userId, userAccount, appId, modelName, "output", tokenUsage.outputTokenCount());
             aiModelMetricsCollector.recordTokenUsage(userId, userAccount, appId, modelName, "total", tokenUsage.totalTokenCount());
+
+            //  记录总消耗
+            Long uid = parseLongSafely(userId);
+            userTokenUsageService.recordUsage(uid, modelName, tokenUsage.inputTokenCount(), tokenUsage.outputTokenCount(), tokenUsage.totalTokenCount());
+
+            // 扣额度
+            String requestModel = responseContext.chatRequest().modelName();
+            if (quotaProperties.isEnabled() && quotaProperties.getCountedModels().contains(requestModel)){
+                userQuotaUsageService.recordQuota(uid, tokenUsage.totalTokenCount());
+            }
+        }
+    }
+
+    /**
+     * 安全的将字符串转换从 Long 类型
+     * @param str 从监控上下文传入的 userId
+     * @return Long 类型的 userId
+     */
+    public static Long parseLongSafely(String str) {
+        if (str == null || str.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(str.trim());
+        } catch (NumberFormatException e) {
+            return null; // 或记录日志后返回默认值
         }
     }
 }
