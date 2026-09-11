@@ -40,6 +40,7 @@ import top.littlewin.codespark.model.vo.UserVO;
 import top.littlewin.codespark.monitor.MonitorContext;
 import top.littlewin.codespark.monitor.MonitorContextHolder;
 import top.littlewin.codespark.service.*;
+import top.littlewin.codespark.screenshot.ScreenshotTaskPublisher;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -77,7 +78,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     private VueProjectBulider vueProjectBulider;
 
     @Resource
-    private ScreenshotService screenshotService;
+    private ScreenshotTaskPublisher screenshotTaskPublisher;
 
     @Resource
     private FileService fileService;
@@ -317,26 +318,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
 
     @Override
     public void generateAppScreenshotAsync(Long appId, String appUrl) {
-        // 使用虚拟线程异步执行，不阻塞 SSE 响应流；任何失败只记日志，不影响主流程
-        Thread.startVirtualThread(() -> {
-            try {
-                // 调用截图服务生成截图并保存（优先 OSS，失败本地回退），返回稳定标识或本地 URL
-                String screenshotUrl = screenshotService.generateAndUploadScreenshot(appUrl, appId);
-                if (StrUtil.isBlank(screenshotUrl)) {
-                    log.error("应用封面截图上传结果为空，跳过更新: appId={}, appUrl={}", appId, appUrl);
-                    return;
-                }
-                // 更新应用封面字段
-                App updateApp = new App();
-                updateApp.setId(appId);
-                updateApp.setCover(screenshotUrl);
-                boolean updated = this.updateById(updateApp);
-                ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, ErrorMessage.UPDATE_COVER_FAILED);
-                log.info("应用封面截图更新成功: appId={}, url={}", appId, screenshotUrl);
-            } catch (Exception e) {
-                log.error("应用封面截图失败: appId={}, appUrl={}", appId, appUrl, e);
-            }
-        });
+        // 投递到截图队列，由独立 worker（各持一个浏览器）依次消费；队列满直接丢弃，不阻塞部署主流程
+        screenshotTaskPublisher.publish(appId, appUrl);
     }
 
     @Override

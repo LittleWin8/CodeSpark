@@ -51,6 +51,12 @@ codespark:
     enabled: true
     monthly-tokens: 200000             # 默认上限，-1 = 不限
     counted-models: [ deepseek-v4-flash ]  # 计入额度的模型
+  screenshot:
+    workers: 2                        # 截图 worker 数（并发 Chrome 上限）
+    queue-capacity: 100               # 任务队列容量，满则丢弃并记日志
+    retry-times: 1                    # 单个任务失败重试次数
+    page-load-timeout-seconds: 30
+
 
 # 阿里云 OSS 对象存储（V2 SDK）
 aliyun:
