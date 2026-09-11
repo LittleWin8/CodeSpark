@@ -12,9 +12,11 @@ import {
 } from '@ant-design/icons-vue'
 import type { UploadRequestOption } from 'ant-design-vue/es/vc-upload/interface'
 import { updateMyUser } from '@/api/userController'
+import { getTotalTokens } from '@/api/userTokenUsageController'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { getErrorMessage } from '@/utils/errorMessage'
 import { formatDateTime } from '@/utils/time'
+import { formatTokens } from '@/utils/formatTokens'
 import { uploadAvatar } from '@/utils/upload'
 import { resolveFileUrl } from '@/utils/storage'
 
@@ -23,6 +25,9 @@ const loginUserStore = useLoginUserStore()
 
 const saving = ref(false)
 const avatarUploading = ref(false)
+
+// 累计 Token 消耗（个人中心展示用）
+const totalTokens = ref<number>()
 
 const formState = reactive({
   userName: '',
@@ -39,6 +44,14 @@ onMounted(() => {
   formState.userAvatar = loginUserStore.loginUser.userAvatar || ''
   formState.userAvatarKey = loginUserStore.loginUser.userAvatarKey || ''
   formState.userProfile = loginUserStore.loginUser.userProfile || ''
+  // 累计 Token 消耗（失败静默，展示 '-'）
+  getTotalTokens()
+    .then((res) => {
+      if (res.data.code === 0 && res.data.data !== null && res.data.data !== undefined) {
+        totalTokens.value = Number(res.data.data)
+      }
+    })
+    .catch(() => {})
 })
 
 // 角色展示
@@ -169,6 +182,10 @@ const handleSubmit = async () => {
           <div class="vip-item">
             <span class="item-label">{{ t('profile.memberNumber') }}</span>
             <span class="item-value">{{ loginUserStore.loginUser.vipNumber || '-' }}</span>
+          </div>
+          <div class="vip-item">
+            <span class="item-label">{{ t('profile.totalTokens') }}</span>
+            <span class="item-value mono-cell">{{ formatTokens(totalTokens) }}</span>
           </div>
         </a-card>
       </div>

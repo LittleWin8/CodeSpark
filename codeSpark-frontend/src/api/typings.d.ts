@@ -1,4 +1,13 @@
 declare namespace API {
+  type AdminQuotaUsageVO = {
+    userId?: number
+    userAccount?: string
+    usedTokens?: number
+    totalTokens?: number
+    monthlyLimit?: number
+    remainingTokens?: number
+  }
+
   type AppAddRequest = {
     initPrompt?: string
     codeGenType?: string
@@ -76,6 +85,12 @@ declare namespace API {
     message?: string
   }
 
+  type BaseResponsePageAdminQuotaUsageVO = {
+    code?: number
+    data?: PageAdminQuotaUsageVO
+    message?: string
+  }
+
   type BaseResponsePageAppVO = {
     code?: number
     data?: PageAppVO
@@ -91,6 +106,12 @@ declare namespace API {
   type BaseResponsePageUserVO = {
     code?: number
     data?: PageUserVO
+    message?: string
+  }
+
+  type BaseResponseQuotaInfoVO = {
+    code?: number
+    data?: QuotaInfoVO
     message?: string
   }
 
@@ -149,6 +170,10 @@ declare namespace API {
     appId: number
   }
 
+  type getAppBuildStreamParams = {
+    appId: number
+  }
+
   type getAppVOByIdByAdminParams = {
     id: number
   }
@@ -195,6 +220,15 @@ declare namespace API {
     shareCode?: string
   }
 
+  type PageAdminQuotaUsageVO = {
+    records?: AdminQuotaUsageVO[]
+    pageNumber?: number
+    pageSize?: number
+    totalPage?: number
+    totalRow?: number
+    optimizeCountQuery?: boolean
+  }
+
   type PageAppVO = {
     records?: AppVO[]
     pageNumber?: number
@@ -222,9 +256,30 @@ declare namespace API {
     optimizeCountQuery?: boolean
   }
 
+  type QuotaInfoVO = {
+    enabled?: boolean
+    unlimited?: boolean
+    monthlyLimit?: number
+    usedTokens?: number
+    remainingTokens?: number
+  }
+
+  type QuotaUsageQueryRequest = {
+    pageNum?: number
+    pageSize?: number
+    sortField?: string
+    sortOrder?: string
+  }
+
+  type ResetQuotaRequest = {
+    userId?: number
+  }
+
   type resolveParams = {
     storageKey: string
   }
+
+  type ServerSentEventBuildEvent = true
 
   type ServerSentEventString = true
 

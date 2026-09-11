@@ -20,6 +20,7 @@ import { listAppChatHistory } from '@/api/chatHistoryController'
 import MessageItem from '@/components/chat/MessageItem.vue'
 import { CodeGenTypeEnum, useCodeGenType } from '@/constants/codeGenType'
 import { useLoginUserStore } from '@/stores/loginUser'
+import { useQuotaStore } from '@/stores/quota'
 import { getErrorMessage, getBusinessErrorMessage } from '@/utils/errorMessage'
 import { getPreviewUrl } from '@/utils/url'
 import { connectBuildSse, connectChatSse } from '@/utils/sse'
@@ -38,6 +39,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
+const quotaStore = useQuotaStore()
 
 const app = ref<API.AppVO>()
 const loading = ref(true)
@@ -423,30 +425,58 @@ const sendMessage = async (text: string) => {
   // business-error 到达后连接会关闭，不再需要通用的连接失败提示；标记位防重
   let businessErrorReceived = false
 
+  // ---- 正文分片节流 ----
+  // 正文 chunk 同样极密，逐 chunk 做「全量重拼 content + 全文正则扫文件 + 重渲染 + 强制布局滚动」
+  // 会让主线程饱和，滚动时浏览器来不及绘制，表现为"只显示窗口一段、上下滚动空白"。
+  // 这里把 chunk 累积到本地缓冲，按固定间隔批量 flush 一次，并增量维护 content，避免 O(n²)。
+  const contentBuffer: string[] = []
+  let contentFlushTimer: ReturnType<typeof setTimeout> | null = null
+
+  const flushContent = (scroll: boolean) => {
+    if (contentFlushTimer) {
+      clearTimeout(contentFlushTimer)
+      contentFlushTimer = null
+    }
+    const current = messages.value[aiIndex]
+    if (!current || contentBuffer.length === 0) {
+      return
+    }
+    const appended = contentBuffer.join('')
+    contentBuffer.length = 0
+    // 追加到最后一个文本块（上一个是工具卡片则新建文本块，保持顺序）
+    const blocks = (current.blocks ??= [])
+    const last = blocks[blocks.length - 1]
+    if (!last || last.type !== 'text') {
+      blocks.push({ type: 'text', text: appended })
+    } else {
+      last.text += appended
+    }
+    // 增量维护 content，避免每次全量 filter + join
+    current.content = (current.content ?? '') + appended
+    // 第一条正文到达 = 推理结束：冻结思考耗时，自动收起思考面板
+    if (!current.thinkingDone) {
+      current.thinkingElapsed = thinkingSeconds(current)
+    }
+    current.thinkingDone = true
+    current.thinkingExpanded = false
+    current.planningNext = false
+    if (scroll) {
+      scrollToBottom()
+    }
+  }
+
   eventSource = connectChatSse(app.value.id, messageText, {
     onMessage: (chunk) => {
       const current = messages.value[aiIndex]
       if (!current) {
         return
       }
-      // 正文追加到最后一个文本块（若上一个是工具卡片则新建文本块，保持顺序）
-      const blocks = (current.blocks ??= [])
-      const last = blocks[blocks.length - 1]
-      if (!last || last.type !== 'text') {
-        blocks.push({ type: 'text', text: chunk })
-      } else {
-        last.text += chunk
+      // 正文分片先进缓冲，按固定间隔批量 flush（见 flushContent 注释），
+      // 避免逐 chunk 重拼文本/扫全文正则/触发整段重渲染
+      contentBuffer.push(chunk)
+      if (!contentFlushTimer) {
+        contentFlushTimer = setTimeout(() => flushContent(true), 100)
       }
-      current.content = msgText(current)
-      // 第一条正文到达 = 推理结束：冻结思考耗时，自动收起思考面板
-      if (!current.thinkingDone) {
-        current.thinkingElapsed = thinkingSeconds(current)
-      }
-      current.thinkingDone = true
-      current.thinkingExpanded = false
-      current.planningNext = false
-      current.files = extractFiles(current)
-      scrollToBottom()
     },
     onThinking: (chunk) => {
       const current = messages.value[aiIndex]
@@ -467,6 +497,8 @@ const sendMessage = async (text: string) => {
       if (!current || !payload.path) {
         return
       }
+      // 先落盘缓冲的正文，保证文本块排在工具卡片之前（否则顺序会倒置）
+      flushContent(false)
       const blocks = (current.blocks ??= [])
       // 连续重复的同一工具请求（同工具 + 同路径）不重复建卡
       const last = blocks[blocks.length - 1]
@@ -494,6 +526,8 @@ const sendMessage = async (text: string) => {
       if (!current || !payload.path) {
         return
       }
+      // 先落盘缓冲的正文，避免文本块与工具卡片顺序倒置
+      flushContent(false)
       const blocks = (current.blocks ??= [])
       // 找到最后一个同工具同路径的"执行中"卡片；没有则新建（tool_request 可能因时序太快未被感知到）
       let card = [...blocks]
@@ -527,8 +561,9 @@ const sendMessage = async (text: string) => {
       scrollToBottom()
     },
     onDone: () => {
-      // 先把尚未落盘的思考分片合并进消息，避免尾部内容丢失
+      // 先把尚未落盘的思考分片与正文分片合并进消息，避免尾部内容丢失
       flushThinking(false)
+      flushContent(false)
       const current = messages.value[aiIndex]
       if (current) {
         current.done = true
@@ -564,11 +599,15 @@ const sendMessage = async (text: string) => {
       scrollToBottom()
       // 生成完成后再同步一次应用信息，确保名称等字段是最新的
       syncApp()
+      // 生成会消耗额度：立即刷新一次，延迟再补一次（额度在响应结束时异步落库，防止竞态取到旧值）
+      quotaStore.fetchQuota()
+      setTimeout(() => quotaStore.fetchQuota(), 1200)
     },
     onBusinessError: (payload) => {
       // 流开始前即被拒（如限流）：收尾并关闭，不走成功链路；后续的连接关闭错误不再重复提示
       businessErrorReceived = true
       flushThinking(false)
+      flushContent(false)
       generating.value = false
       stopThinkingTimer()
       closeSse()
@@ -580,8 +619,9 @@ const sendMessage = async (text: string) => {
       if (businessErrorReceived) {
         return
       }
-      // 冲刷未落盘的思考分片（失败时也保留已收到的思考内容）
+      // 冲刷未落盘的思考与正文分片（失败时也保留已收到的内容）
       flushThinking(false)
+      flushContent(false)
       generating.value = false
       stopThinkingTimer()
       // 按已收到多少细分原因：有过思考/正文/工具卡片说明中途断开，无任何回包则是根本没连上

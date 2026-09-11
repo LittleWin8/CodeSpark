@@ -99,7 +99,8 @@
     "blog": "Blog",
     "userManage": "User Management",
     "appManage": "App Management",
-    "chatHistoryManage": "Chat Management"
+    "chatHistoryManage": "Chat Management",
+    "quotaManage": "Quota Management"
   },
   "home": {
     "title": "Home",
@@ -363,6 +364,34 @@
     "shareCode": "Invite Code",
     "copy": "Copy",
     "copySuccess": "Copied",
-    "copyFailed": "Copy failed"
+    "copyFailed": "Copy failed",
+    "totalTokens": "Total Tokens Used"
+  },
+  "quota": {
+    "cardTitle": "Monthly Quota",
+    "used": "Used",
+    "remaining": "Remaining",
+    "resetNote": "Quota resets on the 1st of each month",
+    "loading": "Loading quota..."
+  },
+  "adminQuota": {
+    "pageTitle": "User Quota Usage",
+    "id": "id",
+    "account": "Account",
+    "usedTokens": "Used This Month",
+    "remaining": "Remaining",
+    "totalTokens": "Total Tokens",
+    "action": "Action",
+    "reset": "Reset",
+    "resetConfirm": "Reset this user's monthly quota?",
+    "resetAll": "Reset All",
+    "resetAllTitle": "Reset monthly quota for all users",
+    "resetAllConfirm": "This will clear the used quota of ALL users for this month and cannot be undone. Continue?",
+    "resetSuccess": "Reset successfully",
+    "resetFailed": "Reset failed: ",
+    "totalItems": "{total} users in total",
+    "unlimited": "Unlimited",
+    "fetchFailed": "Failed to load quota data: ",
+    "resetAllInputHint": "This will clear the used quota of ALL users for this month and cannot be undone. Type {keyword} to confirm."
   }
 }

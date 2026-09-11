@@ -6,6 +6,7 @@ import UserProfilePage from '../pages/user/UserProfilePage.vue'
 import UserManagePage from '../pages/admin/UserManagePage.vue'
 import AppManagePage from '../pages/admin/AppManagePage.vue'
 import ChatHistoryManagePage from '../pages/admin/ChatHistoryManagePage.vue'
+import QuotaManagePage from '../pages/admin/QuotaManagePage.vue'
 import AppChatPage from '../pages/app/AppChatPage.vue'
 import AppEditPage from '../pages/app/AppEditPage.vue'
 import NoAuthPage from '../pages/NoAuthPage.vue'
@@ -80,6 +81,15 @@ const router = createRouter({
       path: '/admin/chatHistoryManage',
       name: '对话管理',
       component: ChatHistoryManagePage,
+      meta: {
+        access: ACCESS_ENUM.ADMIN,
+        wideContent: true,
+      },
+    },
+    {
+      path: '/admin/quotaManage',
+      name: '配额管理',
+      component: QuotaManagePage,
       meta: {
         access: ACCESS_ENUM.ADMIN,
         wideContent: true,

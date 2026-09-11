@@ -1,6 +1,20 @@
 /* eslint-disable */
 import request from '@/request'
 
+/** 此处后端没有提供注释 GET /app/${param0}/build/stream */
+export async function getAppBuildStream(
+  // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
+  params: API.getAppBuildStreamParams,
+  options?: { [key: string]: any }
+) {
+  const { appId: param0, ...queryParams } = params
+  return request<API.ServerSentEventBuildEvent[]>(`/app/${param0}/build/stream`, {
+    method: 'GET',
+    params: { ...queryParams },
+    ...(options || {}),
+  })
+}
+
 /** 此处后端没有提供注释 POST /app/add */
 export async function addApp(body: API.AppAddRequest, options?: { [key: string]: any }) {
   return request<API.BaseResponseLong>('/app/add', {

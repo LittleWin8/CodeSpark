@@ -32,6 +32,7 @@
             GitHub
           </a-button>
           <LanguageSwitcher />
+          <QuotaRing />
           <div class="user-login-status">
             <div v-if="loginUserStore.loginUser.id">
               <a-dropdown>
@@ -78,19 +79,36 @@ import {
   LogoutOutlined,
   MessageOutlined,
   UserOutlined,
+  WalletOutlined,
 } from '@ant-design/icons-vue'
 import { getErrorMessage } from '@/utils/errorMessage'
 import { extractOssKeyFromUrl, resolveFileUrl } from '@/utils/storage'
 import LanguageSwitcher from './LanguageSwitcher.vue'
+import QuotaRing from './QuotaRing.vue'
 import { message } from 'ant-design-vue'
 import { userLogout } from '@/api/userController'
 import { useLoginUserStore } from '@/stores/loginUser'
+import { useQuotaStore } from '@/stores/quota'
 import checkAccess from '@/access/checkAccess'
 import ACCESS_ENUM from '@/access/accessEnum'
 
 const loginUserStore = useLoginUserStore()
+const quotaStore = useQuotaStore()
 const { t } = useI18n()
 const router = useRouter()
+
+// 登录态驱动额度拉取：登录后自动拉一次（刷新页面也能恢复数据），登出清空
+watch(
+  () => loginUserStore.loginUser.id,
+  (id) => {
+    if (id) {
+      quotaStore.fetchQuota()
+    } else {
+      quotaStore.clear()
+    }
+  },
+  { immediate: true },
+)
 
 // 头像展示值：跟随登录用户信息，预签名 URL 过期时原地换新票
 const avatarSrc = ref(loginUserStore.loginUser.userAvatar || '')
@@ -176,6 +194,13 @@ const originItems = computed<MenuItem[]>(() => [
     icon: () => h(MessageOutlined),
     label: t('nav.chatHistoryManage'),
     title: t('nav.chatHistoryManage'),
+    access: ACCESS_ENUM.ADMIN,
+  },
+  {
+    key: '/admin/quotaManage',
+    icon: () => h(WalletOutlined),
+    label: t('nav.quotaManage'),
+    title: t('nav.quotaManage'),
     access: ACCESS_ENUM.ADMIN,
   },
 ])

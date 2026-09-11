@@ -99,7 +99,8 @@
     "blog": "个人博客",
     "userManage": "用户管理",
     "appManage": "应用管理",
-    "chatHistoryManage": "对话管理"
+    "chatHistoryManage": "对话管理",
+    "quotaManage": "配额管理"
   },
   "home": {
     "title": "主页",
@@ -363,6 +364,34 @@
     "shareCode": "分享码",
     "copy": "复制",
     "copySuccess": "复制成功",
-    "copyFailed": "复制失败"
+    "copyFailed": "复制失败",
+    "totalTokens": "累计消耗 Token"
+  },
+  "quota": {
+    "cardTitle": "本月额度",
+    "used": "已用",
+    "remaining": "剩余",
+    "resetNote": "额度于每月 1 日重置",
+    "loading": "额度加载中…"
+  },
+  "adminQuota": {
+    "pageTitle": "用户额度消耗",
+    "id": "id",
+    "account": "账号",
+    "usedTokens": "本月已用",
+    "remaining": "剩余额度",
+    "totalTokens": "历史总消耗",
+    "action": "操作",
+    "reset": "重置",
+    "resetConfirm": "确认重置该用户本月额度？",
+    "resetAll": "全部重置",
+    "resetAllTitle": "重置所有用户当月额度",
+    "resetAllConfirm": "将清零所有用户本月已用额度，该操作不可撤销，确认继续？",
+    "resetSuccess": "重置成功",
+    "resetFailed": "重置失败",
+    "totalItems": "共 {total} 个用户",
+    "unlimited": "不限",
+    "fetchFailed": "获取额度数据失败：",
+    "resetAllInputHint": "此操作将清零所有用户本月已用额度，且不可撤销。请输入 {keyword} 以确认。"
   }
 }

@@ -27,6 +27,16 @@ public class AdminQuotaUsageVO implements Serializable {
      */
     private Long totalTokens;
 
+    /**
+     * 该用户当月额度上限（未来会员等级会变化）
+     */
+    private Long monthlyLimit;
+
+    /**
+     * 该用户剩余额度（-1 表示不限）
+     */
+    private Long remainingTokens;
+
     @Serial
     private static final long serialVersionUID = 1L;
 }
