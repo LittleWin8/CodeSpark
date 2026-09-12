@@ -91,7 +91,9 @@
     "projectDirNotFound": "Project directory not found",
     "projectPathNotDir": "Specified path is not a directory",
     "projectDownloadFailed": "Failed to package and download project",
-    "quotaExceeded": "Monthly quota exhausted, please try again next month"
+    "quotaExceeded": "Monthly quota exhausted, please try again next month",
+    "outputTruncated": "Output was truncated, please split your request and retry",
+    "generationTooManySteps": "Too many generation steps, please break the request into smaller parts"
   },
   "nav": {
     "home": "Home",
@@ -124,11 +126,25 @@
     "noMyApps": "No apps yet. Start by entering a prompt.",
     "noFeaturedApps": "No featured apps yet",
     "official": "CodeSpark Official",
-    "suggestPopEcommerce": "Pop-art e-commerce page",
-    "suggestEnterprise": "Corporate website",
-    "suggestAdmin": "E-commerce admin",
-    "suggestCommunity": "Dark-theme community",
-    "previewBy": "by {name}"
+    "previewBy": "by {name}",
+    "examples": {
+      "landing-page": {
+        "label": "Aurora Coffee",
+        "prompt": "Build a multi-file website for a boutique coffee brand: brand story, featured coffee menu, store atmosphere and contact sections with nav and footer; warm minimal style in natural earth tones; separated HTML, CSS and JS; mobile responsive."
+      },
+      "pomodoro-timer": {
+        "label": "Focus Timer",
+        "prompt": "Build a Pomodoro focus app: 25-minute focus and 5-minute break countdown, start/pause/reset controls, a checkable task list saved locally, and a daily completed count; clean and fresh UI."
+      },
+      "personal-blog": {
+        "label": "Inkdrop Blog",
+        "prompt": "Build a personal blog called \"Inkdrop\": post list, article detail, tag filter and an about page; clean and restrained style with generous whitespace, comfortable for long reading."
+      },
+      "data-dashboard": {
+        "label": "3D Data Globe",
+        "prompt": "Build a \"3D Data Globe\" visualization as a single HTML file using vanilla JavaScript and Canvas 2D with a hand-written pseudo-3D projection; drag to rotate with inertia, wheel to zoom, pulsing city markers with bezier arcs, live-looking metric cards, dark starfield background, mobile responsive."
+      }
+    }
   },
   "about": {
     "title": "About",

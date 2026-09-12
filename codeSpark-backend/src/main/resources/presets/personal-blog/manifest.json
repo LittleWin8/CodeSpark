@@ -1,0 +1,70 @@
+{
+  "id": "personal-blog",
+  "version": 1,
+  "enabled": true,
+  "codeGenType": "vue",
+  "label": {
+    "zh-CN": "墨屿个人博客",
+    "en-US": "Inkdrop Blog"
+  },
+  "initPrompt": {
+    "zh-CN": "帮我做一个名为「墨屿」的个人博客：包含首页文章列表、文章详情、标签筛选和关于作者板块；风格干净克制、留白充足、适合长时间阅读。",
+    "en-US": "Build a personal blog called \"Inkdrop\": post list, article detail, tag filter and an about page; clean and restrained style with generous whitespace, comfortable for long reading."
+  },
+  "variants": [
+    {
+      "id": "v1",
+      "dir": "variants/v1",
+      "narrative": "variants/v1/narrative.md",
+      "files": [
+        "variants/v1/vite.config.js",
+        "variants/v1/package.json",
+        "variants/v1/index.html",
+        "variants/v1/src/main.js",
+        "variants/v1/src/App.vue",
+        "variants/v1/src/components/AppFooter.vue",
+        "variants/v1/src/components/TagFilter.vue",
+        "variants/v1/src/components/NavBar.vue",
+        "variants/v1/src/components/ArticleCard.vue",
+        "variants/v1/src/router/index.js",
+        "variants/v1/src/pages/Home.vue",
+        "variants/v1/src/pages/NotFound.vue",
+        "variants/v1/src/pages/About.vue",
+        "variants/v1/src/pages/ArticleDetail.vue",
+        "variants/v1/src/pages/Archive.vue",
+        "variants/v1/src/styles/main.css",
+        "variants/v1/src/utils/articles.js"
+      ]
+    }
+  ],
+  "paramPools": {
+    "names": {
+      "zh-CN": [
+        "墨屿"
+      ],
+      "en-US": [
+        "Inkdrop"
+      ]
+    },
+    "sampleData": [
+      {
+        "id": "seed-a",
+        "values": {
+          "imgSeed": "ink"
+        }
+      },
+      {
+        "id": "seed-b",
+        "values": {
+          "imgSeed": "quill"
+        }
+      },
+      {
+        "id": "seed-c",
+        "values": {
+          "imgSeed": "paper"
+        }
+      }
+    ]
+  }
+}

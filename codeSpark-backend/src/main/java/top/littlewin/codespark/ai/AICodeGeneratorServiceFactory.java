@@ -103,7 +103,7 @@ public class AICodeGeneratorServiceFactory {
                                 ToolExecutionResultMessage.from(toolExecutionRequest,
                                         "Error: there is no tool called " + toolExecutionRequest.name())
                         )
-                        .maxToolCallingRoundTrips(30)
+                        .maxToolCallingRoundTrips(50)
                         .inputGuardrails(promptSafetyInputGuardrail)
                         .build();
             }

@@ -25,14 +25,19 @@ const loginUserStore = useLoginUserStore()
 const prompt = ref('')
 const creating = ref(false)
 
-const suggestKeys = [
-  'suggestPopEcommerce',
-  'suggestEnterprise',
-  'suggestAdmin',
-  'suggestCommunity',
-] as const
+// 预置示例应用：点击后填入完整提示词并携带 presetId（后端校验提示词未改动才走预置，否则真实 AI）
+const EXAMPLE_IDS = ['landing-page', 'pomodoro-timer', 'personal-blog', 'data-dashboard'] as const
 
-const suggestions = computed(() => suggestKeys.map((key) => t(`home.${key}`)))
+const examples = computed(() =>
+  EXAMPLE_IDS.map((id) => ({
+    id,
+    label: t(`home.examples.${id}.label`),
+    prompt: t(`home.examples.${id}.prompt`),
+  })),
+)
+
+// 当前选中的预置示例；用户手动编辑提示词后清空，避免误触发预置
+const selectedPresetId = ref<string | undefined>(undefined)
 
 const isLoggedIn = computed(() => {
   const role = loginUserStore.loginUser.userRole
@@ -94,8 +99,13 @@ const onFeaturedPageChange = (page: number) => {
   fetchFeaturedApps()
 }
 
-const applySuggestion = (text: string) => {
-  prompt.value = text
+const applyExample = (example: { id: string; prompt: string }) => {
+  prompt.value = example.prompt
+  selectedPresetId.value = example.id
+}
+
+const clearPreset = () => {
+  selectedPresetId.value = undefined
 }
 
 const handleUpload = () => {
@@ -127,7 +137,7 @@ const createApp = async () => {
 
   creating.value = true
   try {
-    const res = await addApp({ initPrompt })
+    const res = await addApp({ initPrompt, presetId: selectedPresetId.value })
     if (res.data.code === 0 && res.data.data) {
       // 对话页会根据「自己的 app 且没有对话历史」自动发送初始消息；
       // 携带 from=home：对话页返回时直接回首页
@@ -244,6 +254,7 @@ onUnmounted(() => {
             :placeholder="t('home.promptPlaceholder')"
             :auto-size="{ minRows: 4, maxRows: 8 }"
             :bordered="false"
+            @input="clearPreset"
             @pressEnter.exact.prevent="createApp"
           />
           <div class="prompt-box__toolbar">
@@ -271,13 +282,13 @@ onUnmounted(() => {
 
         <div class="suggestions">
           <button
-            v-for="item in suggestions"
-            :key="item"
+            v-for="example in examples"
+            :key="example.id"
             type="button"
             class="suggestion-tag"
-            @click="applySuggestion(item)"
+            @click="applyExample(example)"
           >
-            {{ item }}
+            {{ example.label }}
           </button>
         </div>
       </div>

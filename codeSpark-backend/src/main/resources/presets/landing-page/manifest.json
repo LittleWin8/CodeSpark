@@ -1,0 +1,135 @@
+{
+  "id": "landing-page",
+  "version": 1,
+  "enabled": true,
+  "codeGenType": "multi_file",
+  "label": {
+    "zh-CN": "雾岛咖啡官网",
+    "en-US": "Aurora Coffee"
+  },
+  "initPrompt": {
+    "zh-CN": "帮我做一个精品咖啡馆的多文件官网：包含品牌故事、特色咖啡菜单、门店环境、联系我们等板块，配有导航与页脚；风格温暖简约、主色偏自然大地色系；用 HTML、CSS、JS 分离实现并适配移动端。",
+    "en-US": "Build a multi-file website for a boutique coffee brand: brand story, featured coffee menu, store atmosphere and contact sections with nav and footer; warm minimal style in natural earth tones; separated HTML, CSS and JS; mobile responsive."
+  },
+  "variants": [
+    {
+      "id": "v1",
+      "dir": "variants/v1",
+      "narrative": "variants/v1/narrative.md",
+      "files": [
+        "variants/v1/index.html",
+        "variants/v1/style.css",
+        "variants/v1/script.js"
+      ]
+    },
+    {
+      "id": "v2",
+      "dir": "variants/v2",
+      "narrative": "variants/v2/narrative.md",
+      "files": [
+        "variants/v2/index.html",
+        "variants/v2/style.css",
+        "variants/v2/script.js"
+      ]
+    },
+    {
+      "id": "v3",
+      "dir": "variants/v3",
+      "narrative": "variants/v3/narrative.md",
+      "files": [
+        "variants/v3/index.html",
+        "variants/v3/style.css",
+        "variants/v3/script.js"
+      ]
+    }
+  ],
+  "paramPools": {
+    "palettes": [
+      {
+        "id": "forest",
+        "values": {
+          "primary": "#1f8f7a",
+          "primaryDark": "#157a67",
+          "bg": "#f6fbf9",
+          "ink": "#1d2a26"
+        }
+      },
+      {
+        "id": "ember",
+        "values": {
+          "primary": "#c96f3b",
+          "primaryDark": "#a85729",
+          "bg": "#fdf8f3",
+          "ink": "#2b211a"
+        }
+      },
+      {
+        "id": "indigo",
+        "values": {
+          "primary": "#4a5bd6",
+          "primaryDark": "#3a48b0",
+          "bg": "#f6f7fe",
+          "ink": "#1e2235"
+        }
+      }
+    ],
+    "names": {
+      "zh-CN": [
+        "雾岛",
+        "星野",
+        "山岚",
+        "初见"
+      ],
+      "en-US": [
+        "Aurora",
+        "Bloom",
+        "Mono",
+        "Halo"
+      ]
+    },
+    "texts": {
+      "zh-CN": {
+        "navFeature": "特色",
+        "navAbout": "关于",
+        "navContact": "联系我们",
+        "ctaText": "立即预约"
+      },
+      "en-US": {
+        "navFeature": "Features",
+        "navAbout": "About",
+        "navContact": "Contact",
+        "ctaText": "Book now"
+      }
+    },
+    "sampleData": [
+      {
+        "id": "aurora",
+        "values": {
+          "appNameEn": "AURORA COFFEE",
+          "imgSeed": "aurora"
+        }
+      },
+      {
+        "id": "lumen",
+        "values": {
+          "appNameEn": "LUMEN COFFEE",
+          "imgSeed": "lumen"
+        }
+      },
+      {
+        "id": "ember",
+        "values": {
+          "appNameEn": "EMBER COFFEE",
+          "imgSeed": "ember"
+        }
+      },
+      {
+        "id": "mist",
+        "values": {
+          "appNameEn": "MISTY COFFEE",
+          "imgSeed": "mist"
+        }
+      }
+    ]
+  }
+}

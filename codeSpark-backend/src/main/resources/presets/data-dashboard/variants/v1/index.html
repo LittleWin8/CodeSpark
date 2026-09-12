@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>{{appName}} · 全球数据可视化大屏</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(circle at 28% 18%, #0c2036 0%, #061020 42%, #01050c 100%);
+    color: #dff2ff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #scene {
+    position: fixed; inset: 0; display: block; width: 100%; height: 100%;
+    touch-action: none; cursor: grab;
+  }
+  #scene:active { cursor: grabbing; }
+  .hud-title {
+    position: fixed; left: 34px; top: 30px; z-index: 5;
+    max-width: min(44ch, 40vw); pointer-events: none;
+  }
+  .tag { display: flex; align-items: center; gap: 8px; font-size: 11px;
+    letter-spacing: 0.18em; color: #5fd7ff; opacity: 0.85; }
+  .tag .dot { width: 6px; height: 6px; border-radius: 50%; background: #4fe6ff;
+    box-shadow: 0 0 10px #4fe6ff; animation: blink 1.8s ease-in-out infinite; }
+  @keyframes blink {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .25; transform: scale(.75); }
+  }
+  .hud-title h1 {
+    font-size: 30px; font-weight: 600; letter-spacing: .06em; margin: 10px 0 8px;
+    background: linear-gradient(90deg, #fff 0%, #8ce9ff 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hud-title p { font-size: 13px; line-height: 1.65; color: #8fb4cc; }
+  .stats {
+    position: fixed; right: 28px; top: 50%; transform: translateY(-50%);
+    width: 188px; display: flex; flex-direction: column; gap: 12px; z-index: 5;
+  }
+  .card {
+    padding: 10px 12px; border-radius: 10px;
+    border: 1px solid rgba(78,190,255,.18);
+    background: linear-gradient(160deg, rgba(16,44,68,.74), rgba(8,20,34,.54));
+    box-shadow: 0 10px 26px -16px rgba(0,180,255,.75),
+                inset 0 1px 0 rgba(120,220,255,.08);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  .card-label { font-size: 11px; letter-spacing: .12em; color: #6fa7c4; }
+  .card-value {
+    margin-top: 4px; font-size: 20px; font-weight: 600; color: #9fe9ff;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 14px rgba(60,200,255,.45);
+  }
+  .card-value .unit { font-size: 11px; font-weight: 400; margin-left: 3px; color: #5f93b0; }
+  .card-bar { height: 2px; margin-top: 8px; border-radius: 2px;
+    background: rgba(90,180,240,.14); overflow: hidden; }
+  .card-bar i { display: block; height: 100%; border-radius: 2px;
+    background: linear-gradient(90deg, #1e79c8, #67f0ff); transition: width .8s ease; }
+  @keyframes tick {
+    0% { color: #fff; text-shadow: 0 0 22px rgba(140,245,255,.95); }
+    100% {}
+  }
+  .tick { animation: tick .9s ease-out; }
+  .hint {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+    z-index: 5; font-size: 11.5px; letter-spacing: .14em; color: #4d7d99;
+    white-space: nowrap; pointer-events: none;
+  }
+  @media (max-width: 760px) {
+    .hud-title { left: 16px; top: 16px; max-width: 76vw; }
+    .hud-title h1 { font-size: 22px; margin: 7px 0 6px; }
+    .hud-title p { font-size: 11.5px; }
+    .tag { font-size: 10px; letter-spacing: .14em; }
+    .stats {
+      left: 12px; right: 12px; bottom: 12px; top: auto; width: auto;
+      transform: none; flex-direction: row; flex-wrap: wrap; gap: 8px;
+    }
+    .card { flex: 1 1 calc(50% - 4px); padding: 8px 10px; border-radius: 8px; }
+    .card-value { font-size: 16px; }
+    .card-bar { display: none; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+  <canvas id="scene"></canvas>
+
+  <header class="hud-title">
+    <div class="tag"><span class="dot"></span>GLOBAL NETWORK STATUS</div>
+    <h1>3D 数据地球</h1>
+    <p>实时汇聚全球节点的数据流动，每一次连接都在球面上留下轨迹。</p>
+  </header>
+
+  <section class="stats" aria-label="实时指标">
+    <div class="card">
+      <div class="card-label">在线节点</div>
+      <div class="card-value" id="m-nodes">12,840</div>
+      <div class="card-bar"><i id="b-nodes" style="width:58%"></i></div>
+    </div>
+    <div class="card">
+      <div class="card-label">数据传输量</div>
+      <div class="card-value" id="m-traffic">8.42<span class="unit">TB/s</span></div>
+      <div class="card-bar"><i id="b-traffic" style="width:44%"></i></div>
+    </div>
+    <div class="card">
+      <div class="card-label">覆盖城市</div>
+      <div class="card-value" id="m-cities">318</div>
+      <div class="card-bar"><i id="b-cities" style="width:36%"></i></div>
+    </div>
+    <div class="card">
+      <div class="card-label">实时请求</div>
+      <div class="card-value" id="m-req">96,240</div>
+      <div class="card-bar"><i id="b-req" style="width:72%"></i></div>
+    </div>
+  </section>
+
+  <div class="hint">拖拽旋转 · 滚轮 / 双指缩放</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var TAU = Math.PI * 2, PI = Math.PI;
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function llToVec(lat, lon) {
+    var la = lat * PI / 180, lo = lon * PI / 180, cy = Math.cos(la);
+    return { x: cy * Math.cos(lo), y: Math.sin(la), z: -cy * Math.sin(lo) };
+  }
+
+  var canvas = document.getElementById('scene');
+  var ctx = canvas.getContext('2d');
+  var W = 0, H = 0, DPR = 1, CX = 0, CY = 0;
+  var baseR = 220, R = 220;
+
+  var LIGHT = (function () {
+    var v = { x: -0.42, y: 0.52, z: 0.75 };
+    var l = Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
+    return { x: v.x/l, y: v.y/l, z: v.z/l };
+  })();
+
+  var BASE_SPIN = 0.085;
+  var rotY = -0.7, rotX = 0.28;
+  var spinY = BASE_SPIN, spinX = 0;
+  var zoom = 1, targetZoom = 1;
+  var dragging = false;
+
+  /* =========================================================
+   *  世界陆地轮廓
+   * ========================================================= */
+  var LAND = [
+    /* ---------- 北美 ---------- */
+    [[-168,65],[-166,62],[-163,60],[-160,58],[-156,57],[-152,58],[-148,60],[-144,60],
+     [-140,59],[-136,58],[-133,55],[-130,53],[-127,50],[-124,48],[-124,44],[-124,41],
+     [-122,37],[-119,34],[-118,33],[-117,32],[-115,30],[-112,28],[-110,24],[-108,23],
+     [-106,22],[-105,20],[-102,18],[-99,16],[-96,16],[-94,16],[-92,15],[-90,15],[-88,16],
+     [-87,18],[-87,21],[-90,21],[-92,19],[-94,18],[-96,20],[-97,23],[-97,26],[-95,28],
+     [-94,29],[-91,29],[-89,29],[-87,30],[-85,30],[-83,29],[-82,27],[-81,25],[-80,25],
+     [-80,27],[-81,30],[-80,32],[-78,34],[-76,35],[-74,39],[-72,41],[-70,42],[-68,44],
+     [-66,45],[-64,46],[-62,46],[-60,47],[-58,48],[-56,51],[-57,54],[-60,55],[-64,58],
+     [-68,59],[-72,60],[-78,62],[-82,63],[-88,64],[-92,65],[-96,68],[-102,69],[-108,69],
+     [-115,69],[-122,70],[-128,70],[-134,70],[-140,70],[-146,70],[-152,71],[-158,71],
+     [-164,70],[-168,68]],
+    /* ---------- 南美 ---------- */
+    [[-81,8],[-79,9],[-77,9],[-75,11],[-72,12],[-70,12],[-68,11],[-66,11],[-63,11],[-61,10],
+     [-58,8],[-55,6],[-52,5],[-50,2],[-50,0],[-48,-1],[-45,-2],[-42,-3],[-40,-4],[-38,-5],
+     [-35,-6],[-36,-8],[-38,-11],[-39,-14],[-40,-17],[-41,-19],[-43,-22],[-45,-23],[-48,-25],
+     [-50,-27],[-52,-29],[-54,-31],[-56,-32],[-57,-34],[-58,-35],[-60,-37],[-61,-39],[-62,-40],
+     [-63,-42],[-64,-43],[-65,-45],[-66,-47],[-67,-49],[-68,-52],[-69,-54],[-71,-54],[-73,-53],
+     [-74,-52],[-75,-52],[-74,-49],[-73,-46],[-73,-43],[-73,-40],[-72,-37],[-71,-34],[-71,-31],
+     [-71,-28],[-71,-25],[-70,-23],[-70,-20],[-71,-18],[-72,-17],[-74,-15],[-76,-14],[-78,-11],
+     [-79,-8],[-80,-5],[-81,-2],[-80,1],[-79,4],[-78,7]],
+    /* ---------- 非洲 ---------- */
+    [[-17,15],[-17,17],[-16,20],[-16,22],[-14,24],[-12,26],[-10,28],[-9,30],[-7,32],[-5,34],
+     [-3,35],[0,36],[3,37],[7,37],[10,37],[12,38],[15,37],[18,35],[20,33],[23,32],[25,32],
+     [28,31],[30,31],[33,31],[33,29],[35,28],[36,26],[37,24],[38,22],[39,19],[39,17],[40,15],
+     [41,14],[43,13],[44,12],[46,11],[48,12],[50,12],[51,12],[51,10],[50,8],[48,5],[46,4],
+     [44,2],[42,1],[41,-1],[41,-3],[40,-5],[40,-8],[40,-11],[40,-13],[40,-16],[39,-18],[37,-19],
+     [35,-21],[35,-23],[34,-25],[33,-26],[32,-28],[31,-30],[29,-31],[27,-33],[25,-34],[23,-34],
+     [21,-35],[19,-35],[17,-32],[16,-30],[15,-28],[13,-25],[12,-22],[12,-18],[12,-15],[12,-11],
+     [11,-7],[10,-3],[9,0],[9,3],[7,4],[5,5],[3,5],[1,6],[-1,5],[-3,5],[-5,5],[-7,4],[-9,5],
+     [-11,6],[-13,8],[-14,10],[-16,12]],
+    /* =========================================================
+     *  欧亚大陆（顺时针）
+     *  西段 → 北极 → 白令 → 堪察加 → 鄂霍次克 → 朝鲜半岛 →
+     *  渤海 → 山东 → 中国沿海 →
+     *  中南半岛（越南东岸↓ → 湄公河三角洲 → 马来半岛↓↑ → 缅甸）→
+     *  孟加拉湾 → 印度半岛（东岸↓ 南端 西岸↑）→
+     *  阿拉伯海 → 波斯湾内凹 → 阿拉伯半岛（南岸西行 → 红海东岸↑）→
+     *  黎凡特 → 地中海北岸 → 伊比利亚
+     * ========================================================= */
+    [[-9,37],[-9,39],[-9,42],[-9,43],[-6,43],[-2,43],[-1,44],[-2,45],[-1,46],
+     [-2,47],[-4,48],[-2,49],[0,49],[2,50],[4,52],[6,53],[8,53],[9,54],[9,55],
+     [8,56],[10,57],[11,58],[11,59],[9,59],[7,58],[5,59],[5,61],[7,62],
+     [9,63],[11,64],[13,66],[15,68],[18,69],[21,70],[24,71],[27,71],[30,71],[33,70],
+     [36,69],[40,68],[44,68],[48,69],[52,69],[55,69],[58,70],[62,71],[66,72],
+     [70,72],[74,73],[78,73],[82,74],[86,74],[90,76],[94,76],[98,77],[102,77],
+     [106,77],[110,76],[114,74],[118,73],[122,73],[126,73],[130,72],[134,72],
+     [138,72],[142,71],[146,70],[150,70],[155,70],[160,69],[165,68],[169,67],
+     [172,66],[176,65],[179,66],
+     [178,64],[176,63],[174,62],[172,61],[170,60],[168,61],[166,62],[165,60],
+     [163,58],[162,56],[161,54],[159,52],[157,51],[155,53],[154,56],[153,58],
+     [152,59],[150,59],[148,59],[146,59],[144,58],[142,56],[142,54],
+     [141,53],[140,52],[140,50],[139,48],[138,46],[137,45],[135,44],[133,43],
+     [131,43],[130,42],[129,42],[128,42],[127,42],
+     /* 朝鲜半岛：东岸南下 → 南端 → 西岸北上 */
+     [128,41],[129,40],[129,39],[129,38],[129,36],[129.1,35.2],[129.1,34.6],
+     [128.6,34.4],[127.8,34.4],[127,34.5],[126.4,34.8],
+     [126.5,36],[126.6,37],[126,38],[125.5,39],[124.8,39.5],[124.4,40.1],
+     /* 辽东半岛 */
+     [123.5,39.8],[122.5,39.5],[121.6,38.9],[121.2,38.8],[121.6,39.3],
+     [122,39.8],[122,40.2],
+     /* 渤海北岸 → 天津 */
+     [121,40.5],[120,40.2],[119,40],[118.5,39.5],[118,39],[118,38.5],
+     /* 山东半岛 */
+     [118.2,38],[119,37.8],[120,37.5],[121,37.5],[122,37],[121,36.5],
+     [120,36],[119.5,35.2],[119,34.5],[120,34],
+     [121,32],[122,31],
+     /* 东南沿海 → 雷州 */
+     [122,30],[121.5,29],[121,28],[120.5,27],[120,26],[119.5,25.5],[119,25],
+     [118.5,24.5],[118,24],[117.5,23.5],[117,23],[116.5,22.8],[116,22.7],
+     [115,22.6],[114,22.5],[113.5,22.3],[113,22.3],[112,21.7],[111,21.5],
+     [110,21.3],[109.8,21.3],
+     /* ---------- 中南半岛 ---------- */
+     /* 越南东岸南下 */
+     [108.5,21.5],[107.5,20.5],[106.8,20.3],[106.5,19.5],[106.2,18.5],
+     [107,17.2],[108.2,16.2],[108.8,15.5],[109.2,14.5],[109.3,13.5],
+     [109.2,12.5],[109,11.5],[108,10.8],[107,10.2],[106.2,9.8],[105.5,9.5],
+     [104.8,9.3],
+     /* 湄公河三角洲 → 金瓯角 → 泰国湾北岸 */
+     [104.5,8.6],[104.6,9.5],[104.2,9.8],[103.5,10.5],[103,11.5],[102.5,12.2],
+     [101.5,12.8],[100.8,13.5],[100,13.5],[99.5,12.5],[99.3,11.5],
+     [99.5,10.5],[99.3,9.5],
+     /* 马来半岛东岸南下 → 新加坡 → 西岸北上 */
+     [98.8,8.5],[99.5,7.5],[100.5,6.5],[101.5,5.5],[102.5,4],[103.5,2.5],
+     [104,1.5],[103.3,1.3],[102.5,2.5],[101.5,3.5],[100.5,4.5],[100,5.5],
+     [99,6.5],[98.5,7.5],[98.3,8.5],[98.5,9.5],[98.5,10.5],[98.3,12],
+     [98.5,13.5],[98,15],[97.5,16],
+     /* 伊洛瓦底江口 → 孟加拉湾东岸 */
+     [96.5,16.5],[95.5,16],[95,16.5],[94.5,18],[94,19.5],[93,20.5],
+     [92.5,21.5],[91,22],[89.5,22],
+     /* ---------- 印度半岛 ---------- */
+     /* 孟加拉湾北端 → 东岸南下 */
+     [88,21.5],[87,21.5],[86.5,20.5],[86,20],[85,19.5],[84,19],[83,17.5],
+     [82,16.5],[81,16],[80.5,15.5],[80.2,13.5],[80,12],[79.8,10.5],
+     [79.5,9.5],[78.5,8.8],
+     /* 南端 → 西岸北上 */
+     [77.5,8.1],[77,8.5],[76.5,9.5],[76,10.5],[75.8,11.5],[75.5,12.5],
+     [74.5,14],[74,15],[73.5,16],[73,17.5],[72.8,19],[72.5,20.5],
+     [72.5,21.5],[72,22.5],[70.5,22.8],[69.5,22.5],[68.5,23.5],
+     [67.5,24.3],[66.5,25],[65,25.3],[63,25.2],[61,25.2],
+     /* ---------- 波斯湾内凹 ---------- */
+     [59,25.4],[57.5,25.5],[56.5,26.5],[56,27.5],[55,28.5],[53,29.5],
+     [51,30.2],[49,30.5],[47.8,30.2],
+     /* ---------- 阿拉伯半岛 ---------- */
+     /* 波斯湾南岸 → 霍尔木兹 → 阿曼 */
+     [48.5,29],[49.8,28],[51,26.5],[51.5,25],[53,24.5],[55,24.5],
+     [56.5,25.3],[58,24],[59,22.8],[59.5,22.5],
+     /* 阿曼 → 也门南岸西行 */
+     [59,22],[58.5,21],[57.5,20],[57,19],[55.5,18.5],[54,17],
+     [52.5,16.5],[51,15.5],[49.5,14.8],[47.5,13.8],[45.5,12.8],
+     [44,12.7],[43.5,12.5],
+     /* 红海东岸北上 */
+     [43,13],[43.5,14.5],[42.5,15.5],[42,16.5],[41.5,17.5],[41,18.5],
+     [40,19.5],[39.5,20.5],[39,21],[38.5,22.5],[38,23.5],[37,24],
+     [36.5,25.5],[36,26.5],[35.5,27.5],[35,28.5],[34.5,29.3],[34,30],[34,31],
+     /* 黎凡特 → 中东 → 地中海北岸 */
+     [35,32],[35.5,33],[35.8,34.5],[36,36],[30,41],[26,40],[23,37],
+     [19,40],[13,45],[10,44],[7,44],[3,43],[0,39],[-2,37],[-6,36]],
+    /* ---------- 澳大利亚 ---------- */
+    [[113,-22],[114,-25],[114,-27],[116,-29],[118,-31],[120,-34],[123,-33],[126,-32],[129,-32],
+     [132,-32],[135,-34],[137,-35],[140,-37],[142,-38],[145,-38],[147,-38],[149,-37],[151,-33],
+     [153,-30],[153,-28],[151,-25],[148,-21],[146,-19],[144,-15],[142,-11],[140,-10],[137,-12],
+     [135,-13],[133,-12],[130,-12],[128,-14],[126,-14],[124,-16],[122,-18],[120,-19],[118,-20],
+     [115,-21]],
+    /* 格陵兰 */
+    [[-45,60],[-42,63],[-38,65],[-33,67],[-28,69],[-24,71],[-21,73],[-20,75],[-22,77],[-25,79],
+     [-29,81],[-35,83],[-42,83],[-50,82],[-56,81],[-60,79],[-62,77],[-60,75],[-56,72],[-53,70],
+     [-50,68],[-48,65],[-46,62]],
+    /* 不列颠 */
+    [[-5,50],[-3,50],[-1,51],[0,52],[0,53],[-1,54],[-1,55],[-2,56],[-3,58],[-5,58],[-6,57],
+     [-5,55],[-4,54],[-3,53],[-4,52],[-5,51]],
+    /* 爱尔兰 */
+    [[-10,52],[-8,52],[-6,52],[-6,54],[-8,55],[-10,55],[-10,53]],
+    /* 冰岛 */
+    [[-24,65],[-21,65],[-17,66],[-15,65],[-15,64],[-18,63],[-22,63],[-24,64]],
+    /* 日本：本州 */
+    [[130.5,31],[130.7,32],[131.5,32.8],[132.5,33.5],[134,33.8],[135,34.5],[136,35.4],
+     [136.8,36.3],[137.8,36.8],[138.5,37.2],[139.8,38.2],[140.5,39.2],[141.2,40.5],
+     [141.5,41.5],[141.3,42.8],[140.2,42.5],[139.6,41.5],[138.6,39.8],[137.5,38.2],
+     [136.2,37.2],[135,35.5],[133.5,34.5],[132,33.5],[130.8,32.2]],
+    /* 日本：北海道 */
+    [[140,42.5],[141,42.8],[142.5,43.5],[144.3,44],[145.5,44.8],[144.5,45.3],
+     [143,44.8],[141.8,44],[141,43.2],[140.3,42.8]],
+    /* 日本：九州 */
+    [[129.8,33.5],[131,33.5],[131.5,32.5],[131.2,31.5],[130.5,31],[130.2,30.5],
+     [129.8,31.5],[129.5,32.5]],
+    /* 日本：四国 */
+    [[132,34.2],[133.5,34.2],[134.6,34],[134.2,33.2],[133,33],[132.2,33.5]],
+    /* 马达加斯加 */
+    [[43,-12],[47,-13],[50,-15],[50,-18],[48,-22],[47,-25],[45,-25],[44,-22],[43,-19],[43,-15]],
+    /* 新西兰北岛 */
+    [[173,-34],[175,-36],[177,-37],[178,-38],[177,-40],[175,-41],[174,-40],[173,-38],[172,-36]],
+    /* 新西兰南岛 */
+    [[171,-41],[173,-42],[175,-41],[177,-42],[178,-43],[177,-45],[175,-46],[172,-46],[169,-46],
+     [166,-46],[167,-44],[169,-43]],
+    /* 苏门答腊 */
+    [[95,5],[97,4],[100,1],[103,-2],[106,-6],[104,-6],[102,-4],[100,0],[97,2]],
+    /* 加里曼丹 */
+    [[109,2],[111,3],[114,5],[116,7],[118,6],[119,3],[118,0],[116,-2],[115,-4],[112,-3],
+     [110,-3],[109,-1]],
+    /* 爪哇 */
+    [[105,-6],[108,-7],[111,-7],[114,-8],[114,-9],[111,-8],[108,-8],[105,-7]],
+    /* 苏拉威西 */
+    [[119,1],[121,2],[124,1],[125,1],[125,-2],[124,-5],[121,-6],[120,-4],[120,-2],[119,-1]],
+    /* 新几内亚 */
+    [[131,-1],[134,-2],[138,-3],[141,-3],[144,-4],[147,-6],[150,-7],[149,-9],[146,-9],[143,-9],
+     [140,-9],[137,-8],[135,-6],[133,-5],[131,-3]],
+    /* 菲律宾吕宋 */
+    [[120,18],[122,18],[124,17],[124,15],[122,14],[121,13],[120,14],[119,16]],
+    /* 菲律宾棉兰老 */
+    [[122,9],[124,9],[126,7],[126,5],[124,5],[122,6],[121,8]],
+    /* 斯里兰卡 */
+    [[80,10],[82,9],[82,7],[81,6],[80,7],[80,9]],
+    /* 台湾 */
+    [[121,25],[122,25],[122,24],[121,22],[120,23],[120,24]],
+    /* 海南 */
+    [[109,20],[110,20],[111,20],[110,18],[109,18],[108,19]],
+    /* 库页岛 */
+    [[142,54],[143,52],[143,49],[142,46],[142,48],[141,51],[141,54]],
+    /* 新地岛 */
+    [[52,71],[55,72],[58,74],[62,76],[68,76],[68,74],[62,72],[57,71],[53,70]],
+    /* 古巴 */
+    [[-85,22],[-82,23],[-79,22],[-77,21],[-74,20],[-77,20],[-80,23],[-83,23]],
+    /* 海地 */
+    [[-74,19],[-71,20],[-68,19],[-70,18],[-73,18]],
+    /* 塔斯马尼亚 */
+    [[145,-41],[148,-41],[148,-43],[146,-44],[144,-43],[145,-42]],
+    /* 西西里 */
+    [[12,38],[15,38],[15,37],[12,37]],
+    /* 撒丁岛 */
+    [[8,41],[10,41],[10,39],[8,39]],
+    /* 克里特 */
+    [[24,35],[26,35],[26,34],[24,34]]
+  ];
+
+  /* 内海 / 狭窄海域（在大陆之上用 destination-out 挖空） */
+  var SEAS = [
+    /* 地中海 */
+    [[-5,36],[-2,37],[2,38],[7,38],[12,38],[16,38],[20,39],[23,37],[26,37],[28,37],
+     [31,32],[34,31],[35,32],[34,30],
+     [30,31],[25,32],[20,31],[15,32],[10,34],[5,36],[0,36],[-3,35],[-5,36]],
+    /* 黑海 */
+    [[28,41],[30,42],[32,42],[34,42],[36,41],[38,41],[41,42],[41,43],[40,44],[38,46],[36,46],
+     [34,46],[32,46],[30,46],[29,45],[28,43]],
+    /* 里海 */
+    [[47,37],[49,38],[51,39],[52,41],[53,43],[52,45],[50,46],[48,46],[47,44],[48,42],[47,40],
+     [47,38]],
+    /* 波罗的海 */
+    [[13,55],[16,56],[19,58],[21,60],[22,63],[21,65],[19,64],[18,61],[16,58],[14,56]],
+    /* 渤海 */
+    [[118.2,39.2],[119.5,40.2],[121,40.8],[122,40.5],[121.2,39],[119.5,38.5],[118.2,38.5]],
+    /* 黄海 */
+    [[119.5,34.5],[121,34.5],[123,36],[124.5,38],[124.5,39.5],[123,39],[121.5,37.5],[120.5,35.5]],
+    /* 红海（窄长凹槽） */
+    [[33,29.7],[34,28.3],[35,27],[36,25.5],[37,23.8],[38,22],[39,20.3],[40,18.5],
+     [41,16.8],[42,15],[43.2,13.2],
+     [42.7,13.2],[42,14.8],[41,16.5],[40,18.2],[39,20],[38,21.8],[37,23.5],
+     [36,25.2],[35,26.7],[34,28],[33.2,29.5]],
+    /* 孟加拉湾（印度与缅甸之间） */
+    [[81,16],[83,17],[86,18.5],[88,20],[89.5,21.5],[90.5,22],[92,21.5],[91,20],[89,17.5],[87,16],[85,15],[83,15]]
+  ];
+
+  /* 极地冰盖 */
+  var ICE = [
+    [[-45,60],[-42,63],[-38,65],[-33,67],[-28,69],[-24,71],[-21,73],[-20,75],[-22,77],
+     [-25,79],[-29,81],[-35,83],[-42,83],[-50,82],[-56,81],[-60,79],[-62,77],[-60,75],
+     [-56,72],[-53,70],[-50,68],[-48,65],[-46,62]],
+    [[-180,-70],[-150,-72],[-120,-73],[-90,-72],[-60,-65],[-30,-68],[0,-70],[30,-69],
+     [60,-67],[90,-66],[120,-66],[150,-68],[180,-70],[180,-90],[-180,-90]]
+  ];
+
+  /* 中国国界 */
+  var CHINA = [
+    [122.5,53.5],[123.5,53.3],[124.5,53.0],[125.5,52.7],[126.5,52.4],[127.5,51.8],
+    [128.0,51.4],[128.6,50.5],[129.5,49.5],[130.2,48.8],[131.0,48.5],[131.8,48.2],
+    [132.5,48.0],[133.2,48.2],[133.8,48.4],[134.5,48.5],[135.1,48.5],
+    [134.5,47.5],[133.8,46.5],[133.5,46.0],[132.8,45.4],[132.5,45.0],[131.9,44.7],
+    [131.5,44.5],[131.4,44.0],[131.3,43.5],[130.9,43.2],[130.6,42.9],[130.2,42.6],
+    [129.5,42.4],[128.8,42.0],[127.8,41.8],[126.8,41.7],[126.2,41.2],[125.7,40.8],
+    [124.8,40.5],[124.4,40.1],[123.6,39.9],[122.8,39.7],[122.3,39.4],[121.7,39.0],
+    [121.5,38.7],
+    [122.2,40.2],[121.8,40.6],[121.2,40.8],[120.3,40.4],[119.5,40.0],[118.8,39.6],
+    [118.0,39.2],[117.7,38.4],
+    [118.2,37.9],[119.2,37.2],[120.0,37.5],[120.8,37.8],[121.6,37.6],[122.3,37.4],
+    [122.8,37.2],[121.9,36.8],[121.3,36.6],[120.7,36.2],[120.3,35.9],[119.9,35.5],
+    [119.4,35.0],
+    [119.8,34.6],[120.2,34.3],[120.6,33.6],[120.9,33.1],[121.4,32.3],[121.8,31.5],
+    [122.0,30.9],[122.3,30.1],[121.9,29.5],[121.6,29.0],[121.2,28.6],[121.0,28.3],
+    [120.7,27.7],[120.4,27.2],[120.0,26.8],[119.6,26.5],[119.3,26.0],[119.0,25.4],
+    [118.6,24.9],[118.2,24.5],[117.7,24.1],[117.2,23.7],[116.9,23.3],[116.6,23.0],
+    [116.1,22.9],[115.6,22.7],[115.0,22.6],[114.4,22.5],
+    [113.6,22.2],[113.2,22.1],[112.8,21.9],[112.2,21.7],[111.6,21.5],[111.0,21.2],
+    [110.6,20.9],[110.1,20.3],
+    [109.8,21.4],[109.5,21.6],[109.1,21.6],[108.5,21.6],[107.9,21.6],[107.4,21.6],
+    [106.9,21.8],[106.7,22.0],
+    [106.2,22.4],[105.8,22.8],[105.5,23.1],[105.3,23.3],[104.9,23.0],[104.6,22.8],
+    [104.1,22.7],[103.6,22.6],[103.0,22.4],[102.5,22.3],[102.1,21.8],[101.8,21.2],
+    [101.4,21.2],[101.1,21.2],[100.6,21.4],[100.2,21.5],[99.7,21.8],[99.2,22.1],
+    [99.0,22.7],[98.9,23.2],[98.4,23.6],[97.8,23.9],[97.6,24.2],[97.5,24.4],
+    [97.5,25.3],[98.0,25.6],[98.7,25.9],
+    [98.4,26.5],[98.0,27.0],[98.2,27.6],[98.3,28.2],[97.8,28.3],[97.3,28.3],
+    [96.7,28.7],[96.2,29.0],[95.4,29.1],[94.7,29.1],[94.0,28.9],[93.2,28.6],
+    [92.6,28.2],[92.1,27.7],[91.6,27.9],[91.0,28.0],[90.4,28.1],[89.7,27.8],
+    [89.1,27.5],[88.6,27.7],[88.1,27.9],[88.3,28.2],[88.5,28.5],[88.2,29.0],
+    [87.4,29.1],[86.5,29.2],[85.7,28.7],[85.1,28.3],[84.4,28.8],[83.7,29.0],
+    [83.0,29.2],[82.5,29.9],[82.1,30.3],[81.5,30.4],[81.0,30.4],[80.4,30.5],
+    [80.0,30.5],[79.5,31.0],[79.0,31.2],[78.6,31.3],
+    [78.5,32.5],[78.9,32.8],[79.2,33.0],[78.8,33.3],[78.2,33.6],[78.5,34.0],
+    [78.8,34.4],[78.3,34.9],[77.8,35.5],[77.0,35.7],[76.0,35.8],[75.3,36.4],
+    [74.6,37.0],[74.7,37.8],[74.9,38.5],
+    [74.3,39.0],[73.6,39.4],[73.8,39.6],[73.9,39.8],[73.6,40.2],[73.5,40.5],
+    [74.2,40.8],[74.9,41.0],[75.4,41.8],[75.8,42.5],[76.5,42.9],[78.2,42.9],
+    [80.2,42.9],[81.5,43.6],[82.5,45.0],[82.8,46.0],[83.0,47.0],[84.2,47.5],
+    [85.5,48.0],
+    [86.2,48.5],[87.0,49.0],[87.8,48.8],[88.5,48.5],[89.3,48.1],[90.0,47.8],
+    [90.8,46.8],[91.5,45.8],[92.3,45.4],[93.0,45.0],[94.0,44.5],[95.0,44.0],
+    [95.8,43.5],[96.5,43.0],[97.2,42.7],[98.0,42.5],[99.0,42.6],[100.0,42.7],
+    [101.0,42.5],[102.0,42.2],[103.0,42.0],[104.0,41.8],[105.0,41.9],[106.0,42.0],
+    [107.0,42.3],[108.0,42.5],[109.0,42.5],[110.0,42.5],[110.8,43.2],[111.5,43.7],
+    [112.3,44.3],[113.0,44.8],[114.0,45.2],[115.0,45.5],[116.0,46.1],[117.0,46.6],
+    [117.8,47.2],[118.5,47.8],[118.8,48.4],[119.0,49.0],[119.2,49.6],[119.5,50.2],
+    [119.8,50.8],[120.2,51.5],[120.6,52.2],[121.0,52.8]
+  ];
+
+  var CHINA_ISLANDS = [
+    [[121.0,25.3],[121.6,25.2],[122.0,25.0],[122.1,24.5],[121.9,24.0],[121.3,23.2],
+     [120.9,22.6],[120.4,22.5],[120.1,22.5],[120.2,23.2],[120.5,23.8],[120.7,24.6]],
+    [[108.6,19.3],[109.2,19.5],[110.0,19.6],[110.7,19.7],[111.0,19.7],[110.8,19.2],
+     [110.5,18.6],[110.0,18.4],[109.5,18.2],[109.0,18.5],[108.6,19.0]]
+  ];
+
+  /* =========================================================
+   *  生成等距圆柱投影纹理（2048 × 1024）
+   * ========================================================= */
+  var TEX_W = 2048, TEX_H = 1024;
+  function lonToX(l) { return (l + 180) / 360 * TEX_W; }
+  function latToY(l) { return (90 - l) / 180 * TEX_H; }
+
+  function fillPolys(g, polys) {
+    for (var i = 0; i < polys.length; i++) {
+      var p = polys[i];
+      g.beginPath();
+      for (var j = 0; j < p.length; j++) {
+        var x = lonToX(p[j][0]), y = latToY(p[j][1]);
+        j ? g.lineTo(x, y) : g.moveTo(x, y);
+      }
+      g.closePath(); g.fill();
+    }
+  }
+  function strokePolys(g, polys, color, width) {
+    g.strokeStyle = color; g.lineWidth = width; g.lineJoin = 'round';
+    for (var i = 0; i < polys.length; i++) {
+      var p = polys[i];
+      g.beginPath();
+      for (var j = 0; j < p.length; j++) {
+        var x = lonToX(p[j][0]), y = latToY(p[j][1]);
+        j ? g.lineTo(x, y) : g.moveTo(x, y);
+      }
+      g.closePath(); g.stroke();
+    }
+  }
+
+  function buildTexture() {
+    var tex = document.createElement('canvas');
+    tex.width = TEX_W; tex.height = TEX_H;
+    var g = tex.getContext('2d');
+
+    var og = g.createLinearGradient(0, 0, 0, TEX_H);
+    og.addColorStop(0.00, '#04101d');
+    og.addColorStop(0.30, '#0a2843');
+    og.addColorStop(0.50, '#0e3459');
+    og.addColorStop(0.70, '#0a2843');
+    og.addColorStop(1.00, '#04101d');
+    g.fillStyle = og; g.fillRect(0, 0, TEX_W, TEX_H);
+
+    for (var i = 0; i < 80; i++) {
+      var bx = Math.random()*TEX_W, by = Math.random()*TEX_H;
+      var br = 80 + Math.random()*260;
+      var rg = g.createRadialGradient(bx, by, 0, bx, by, br);
+      rg.addColorStop(0, Math.random() < .5 ? 'rgba(2,10,22,.30)' : 'rgba(40,120,190,.13)');
+      rg.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = rg; g.beginPath(); g.arc(bx, by, br, 0, TAU); g.fill();
+    }
+
+    strokePolys(g, LAND, 'rgba(70,200,235,0.10)', 14);
+
+    var land = document.createElement('canvas');
+    land.width = TEX_W; land.height = TEX_H;
+    var lg = land.getContext('2d');
+    lg.fillStyle = '#1b6152';
+    fillPolys(lg, LAND);
+
+    lg.globalCompositeOperation = 'destination-out';
+    fillPolys(lg, SEAS);
+
+    lg.globalCompositeOperation = 'source-atop';
+    for (i = 0; i < 4200; i++) {
+      var nx = Math.random()*TEX_W, ny = Math.random()*TEX_H;
+      var nr = 2 + Math.random()*30;
+      var na = (0.015 + Math.random()*0.05).toFixed(3);
+      lg.fillStyle = Math.random() < .5
+        ? 'rgba(180,255,240,' + na + ')' : 'rgba(0,25,25,' + na + ')';
+      lg.beginPath(); lg.arc(nx, ny, nr, 0, TAU); lg.fill();
+    }
+
+    lg.globalCompositeOperation = 'source-over';
+    strokePolys(lg, LAND, 'rgba(140,250,230,0.85)', 1.8);
+    strokePolys(lg, SEAS, 'rgba(120,220,240,0.50)', 1.5);
+    g.drawImage(land, 0, 0);
+
+    /* 中国：精细轮廓 + 高亮国界 */
+    var cnPolys = [CHINA].concat(CHINA_ISLANDS);
+
+    (function () {
+      var gl = document.createElement('canvas');
+      gl.width = TEX_W; gl.height = TEX_H;
+      var gg = gl.getContext('2d');
+      gg.shadowColor = 'rgba(90,255,230,0.95)';
+      gg.shadowBlur = 12;
+      strokePolys(gg, cnPolys, 'rgba(120,255,235,0.55)', 5);
+      gg.shadowBlur = 0;
+      strokePolys(gg, cnPolys, 'rgba(120,255,235,0.35)', 2.5);
+      g.drawImage(gl, 0, 0);
+    })();
+
+    var cn = document.createElement('canvas');
+    cn.width = TEX_W; cn.height = TEX_H;
+    var cg = cn.getContext('2d');
+    cg.fillStyle = '#237260';
+    fillPolys(cg, cnPolys);
+    cg.globalCompositeOperation = 'source-atop';
+    for (i = 0; i < 1100; i++) {
+      var cx = Math.random()*TEX_W, cy = Math.random()*TEX_H;
+      var cr = 2 + Math.random()*20;
+      var ca = (0.02 + Math.random()*0.05).toFixed(3);
+      cg.fillStyle = (Math.random() < .55)
+        ? 'rgba(200,255,235,' + ca + ')' : 'rgba(0,40,30,' + ca + ')';
+      cg.beginPath(); cg.arc(cx, cy, cr, 0, TAU); cg.fill();
+    }
+    cg.globalCompositeOperation = 'source-over';
+    strokePolys(cg, cnPolys, 'rgba(170,255,240,0.95)', 2.4);
+    g.drawImage(cn, 0, 0);
+
+    /* 冰盖 */
+    var ice = document.createElement('canvas');
+    ice.width = TEX_W; ice.height = TEX_H;
+    var ig = ice.getContext('2d');
+    ig.fillStyle = '#a9cfdf';
+    fillPolys(ig, ICE);
+    ig.globalCompositeOperation = 'source-atop';
+    for (i = 0; i < 900; i++) {
+      var ix = Math.random()*TEX_W, iy = Math.random()*TEX_H;
+      var ir = 3 + Math.random()*24;
+      ig.fillStyle = 'rgba(255,255,255,' + (0.03 + Math.random()*0.09).toFixed(3) + ')';
+      ig.beginPath(); ig.arc(ix, iy, ir, 0, TAU); ig.fill();
+    }
+    g.drawImage(ice, 0, 0);
+
+    g.fillStyle = '#0d2b44';
+    g.fillRect(0, 0, TEX_W, Math.round(TEX_H * 0.014));
+    g.fillStyle = '#a9cfdf';
+    g.fillRect(0, Math.round(TEX_H * 0.972), TEX_W, TEX_H);
+
+    return tex;
+  }
+
+  var texCanvas = buildTexture();
+  var TEXDATA = texCanvas.getContext('2d').getImageData(0, 0, TEX_W, TEX_H).data;
+
+  /* ---------- 球面像素缓冲 ---------- */
+  var buf = document.createElement('canvas');
+  var bctx = buf.getContext('2d');
+  var bImg = null, bData = null, bSize = 0;
+
+  function ensureBuffer(size) {
+    if (bSize === size && bImg) return;
+    bSize = size;
+    buf.width = size; buf.height = size;
+    bImg = bctx.createImageData(size, size);
+    bData = bImg.data;
+  }
+
+  var bufScale = 1, costEMA = 5;
+  var isMobile = window.innerWidth < 760;
+  var MAXSIZE_CAP = isMobile ? 320 : 520;
+
+  /* ---------- 城市 ---------- */
+  var CITIES = [
+    { n:'北京', lat:39.9, lon:116.4 }, { n:'上海', lat:31.2, lon:121.5 },
+    { n:'广州', lat:23.1, lon:113.3 }, { n:'成都', lat:30.6, lon:104.1 },
+    { n:'东京', lat:35.7, lon:139.7 }, { n:'首尔', lat:37.6, lon:127.0 },
+    { n:'新加坡', lat:1.4, lon:103.8 }, { n:'曼谷', lat:13.8, lon:100.5 },
+    { n:'孟买', lat:19.1, lon:72.9 }, { n:'迪拜', lat:25.2, lon:55.3 },
+    { n:'莫斯科', lat:55.8, lon:37.6 }, { n:'伦敦', lat:51.5, lon:-0.1 },
+    { n:'巴黎', lat:48.9, lon:2.4 }, { n:'柏林', lat:52.5, lon:13.4 },
+    { n:'纽约', lat:40.7, lon:-74.0 }, { n:'旧金山', lat:37.8, lon:-122.4 },
+    { n:'圣保罗', lat:-23.5, lon:-46.6 }, { n:'悉尼', lat:-33.9, lon:151.2 },
+    { n:'开罗', lat:30.0, lon:31.2 }, { n:'约翰内斯堡', lat:-26.2, lon:28.0 }
+  ];
+  for (var ci = 0; ci < CITIES.length; ci++) {
+    CITIES[ci].v = llToVec(CITIES[ci].lat, CITIES[ci].lon);
+    CITIES[ci].ph = Math.random() * TAU;
+    CITIES[ci].rv = null;
+  }
+
+  /* ---------- 经纬网格 ---------- */
+  var GRID = [];
+  (function () {
+    var lat, lon, line;
+    for (lon = -180; lon < 180; lon += 20) {
+      line = [];
+      for (lat = -90; lat <= 90; lat += 3) line.push(llToVec(lat, lon));
+      GRID.push(line);
+    }
+    for (lat = -60; lat <= 60; lat += 20) {
+      line = [];
+      for (lon = -180; lon <= 180; lon += 3) line.push(llToVec(lat, lon));
+      GRID.push(line);
+    }
+  })();
+
+  /* ---------- 飞线 ---------- */
+  var PAIR_IDX = [
+    [0,11],[1,15],[2,6],[3,8],[4,18],[5,13],[7,6],[8,9],[9,10],
+    [12,14],[17,7],[16,8],[19,10],[4,15],[11,12],[0,14]
+  ];
+  var ARCS = PAIR_IDX.map(function (p) {
+    return { a:p[0], b:p[1], p:0, phase:'grow', hold:0, alpha:1,
+             speed: rand(0.22, 0.55), delay: rand(0, 4) };
+  });
+
+  /* ---------- 星空 ---------- */
+  var stars = [];
+  function buildStars() {
+    stars = [];
+    var n = Math.round(clamp(W * H / 9000, 90, 320));
+    for (var i = 0; i < n; i++) {
+      stars.push({ x: Math.random()*W, y: Math.random()*H, r: rand(.5,1.6),
+                   a: rand(.14,.62), ph: Math.random()*TAU, sp: rand(.4,1.8) });
+    }
+  }
+  function drawStars(t) {
+    ctx.fillStyle = '#cfe6ff';
+    for (var i = 0; i < stars.length; i++) {
+      var s = stars[i];
+      ctx.globalAlpha = s.a * (0.6 + 0.4 * Math.sin(t * s.sp + s.ph));
+      ctx.fillRect(s.x, s.y, s.r, s.r);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /* ---------- 光晕精灵 ---------- */
+  var glowSprite = (function () {
+    var c = document.createElement('canvas');
+    c.width = c.height = 64;
+    var g = c.getContext('2d');
+    var grd = g.createRadialGradient(32,32,0,32,32,32);
+    grd.addColorStop(0, 'rgba(190,250,255,.95)');
+    grd.addColorStop(.24, 'rgba(95,218,255,.46)');
+    grd.addColorStop(.58, 'rgba(40,140,255,.13)');
+    grd.addColorStop(1, 'rgba(20,80,180,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
+    return c;
+  })();
+
+  /* ---------- 自适应尺寸 ---------- */
+  function resize() {
+    DPR = clamp(window.devicePixelRatio || 1, 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+
+    isMobile = W < 760;
+    MAXSIZE_CAP = isMobile ? 320 : 520;
+
+    CX = W / 2; CY = H * 0.5;
+    baseR = clamp(Math.min(W * 0.38, H * 0.33), 92, 400);
+    R = baseR * zoom;
+    buildStars();
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', function () { setTimeout(resize, 120); });
+
+  /* ---------- 旋转与投影 ---------- */
+  function rotV(v, cY, sY, cX, sX) {
+    var x1 = v.x * cY + v.z * sY;
+    var z1 = -v.x * sY + v.z * cY;
+    var y2 = v.y * cX - z1 * sX;
+    var z2 = v.y * sX + z1 * cX;
+    return { x:x1, y:y2, z:z2, s: 1 + 0.14 * z2 };
+  }
+  function screenX(rv) { return CX + rv.x * R; }
+  function screenY(rv) { return CY - rv.y * R; }
+
+  /* ---------- 球体：逐像素纹理映射 + 光照 ---------- */
+  function renderGlobe(cY, sY, cX, sX) {
+    var size = Math.round(Math.min(R * DPR * 2, MAXSIZE_CAP * bufScale) / 16) * 16;
+    size = clamp(size, 112, MAXSIZE_CAP);
+    ensureBuffer(size);
+
+    var t0 = performance.now();
+    var half = size * 0.5, inv = 1 / half;
+    var data = bData, tex = TEXDATA, TW = TEX_W, TH = TEX_H;
+    var Lx = LIGHT.x, Ly = LIGHT.y, Lz = LIGHT.z;
+
+    for (var py = 0; py < size; py++) {
+      var ny = (half - py - 0.5) * inv;
+      var ny2 = ny * ny;
+      var rowOff = py * size * 4;
+
+      for (var px = 0; px < size; px++) {
+        var o = rowOff + px * 4;
+        var nx = (px - half + 0.5) * inv;
+        var d2 = nx * nx + ny2;
+
+        if (d2 >= 1) { data[o + 3] = 0; continue; }
+
+        var nz = Math.sqrt(1 - d2);
+
+        var yp =  ny * cX + nz * sX;
+        var zp = -ny * sX + nz * cX;
+        var ox =  nx * cY - zp * sY;
+        var oz =  nx * sY + zp * cY;
+        var oy = yp;
+        if (oy > 1) oy = 1; else if (oy < -1) oy = -1;
+
+        var lat = Math.asin(oy);
+        var lon = Math.atan2(-oz, ox);
+        var tx = ((lon * 0.159154943 + 0.5) * TW) | 0;
+        var ty = ((0.5 - lat * 0.318309886) * TH) | 0;
+        if (tx < 0) tx = 0; else if (tx >= TW) tx = TW - 1;
+        if (ty < 0) ty = 0; else if (ty >= TH) ty = TH - 1;
+        var ti = (ty * TW + tx) * 4;
+
+        var ndl = nx * Lx + ny * Ly + nz * Lz;
+        var sh = 0.22 + 0.90 * (ndl > 0 ? ndl : 0);
+        var rk = 1 - nz;
+        var rim = rk * rk * rk * 0.85;
+
+        data[o]     = tex[ti]     * sh + 26  * rim;
+        data[o + 1] = tex[ti + 1] * sh + 96  * rim;
+        data[o + 2] = tex[ti + 2] * sh + 176 * rim;
+        data[o + 3] = 255;
+      }
+    }
+
+    bctx.putImageData(bImg, 0, 0);
+
+    var cost = performance.now() - t0;
+    costEMA = costEMA * 0.9 + cost * 0.1;
+    if (costEMA > 7.5 && bufScale > 0.42) bufScale -= 0.03;
+    else if (costEMA < 3.6 && bufScale < 1) bufScale += 0.015;
+
+    ctx.drawImage(buf, CX - R, CY - R, R * 2, R * 2);
+  }
+
+  /* ---------- 经纬网格 ---------- */
+  function drawGrid(cY, sY, cX, sX) {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(88,196,255,0.10)';
+    for (var i = 0; i < GRID.length; i++) {
+      var line = GRID[i], started = false;
+      ctx.beginPath();
+      for (var j = 0; j < line.length; j++) {
+        var rv = rotV(line[j], cY, sY, cX, sX);
+        if (rv.z <= 0) { started = false; continue; }
+        var x = screenX(rv), y = screenY(rv);
+        if (!started) { ctx.moveTo(x, y); started = true; }
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  /* ---------- 飞线 ---------- */
+  function updateArcs(dt) {
+    for (var i = 0; i < ARCS.length; i++) {
+      var a = ARCS[i];
+      if (a.delay > 0) { a.delay -= dt; continue; }
+      if (a.phase === 'grow') {
+        a.p += a.speed * dt;
+        if (a.p >= 1) { a.p = 1; a.phase = 'hold'; a.hold = rand(0.7, 1.8); }
+      } else if (a.phase === 'hold') {
+        a.hold -= dt;
+        if (a.hold <= 0) a.phase = 'fade';
+      } else {
+        a.alpha -= dt * 1.3;
+        if (a.alpha <= 0) {
+          a.alpha = 1; a.p = 0; a.phase = 'grow';
+          a.delay = rand(0.2, 2.0); a.speed = rand(0.22, 0.55);
+        }
+      }
+    }
+  }
+
+  function drawArcs() {
+    ctx.lineCap = 'round';
+    ctx.globalCompositeOperation = 'lighter';
+    for (var i = 0; i < ARCS.length; i++) {
+      var arc = ARCS[i];
+      if (arc.delay > 0 || arc.alpha <= 0.01) continue;
+      var A = CITIES[arc.a].rv, B = CITIES[arc.b].rv;
+      if (!A || !B) continue;
+
+      var fade = clamp(Math.min(A.z, B.z) * 3.2, 0, 1) * arc.alpha;
+      if (fade <= 0.015) continue;
+
+      var ax = screenX(A), ay = screenY(A);
+      var bx = screenX(B), by = screenY(B);
+
+      var mx = (ax + bx) / 2, my = (ay + by) / 2;
+      var dx = mx - CX, dy = my - CY;
+      var dl = Math.sqrt(dx*dx + dy*dy);
+      if (dl < 1) { dx = -(by - ay); dy = bx - ax; dl = Math.sqrt(dx*dx + dy*dy) || 1; }
+      var dist = Math.sqrt((bx-ax)*(bx-ax) + (by-ay)*(by-ay));
+      var bulge = dist * 0.36 + 16;
+      var cxp = mx + dx / dl * bulge;
+      var cyp = my + dy / dl * bulge;
+
+      var p = arc.p;
+      var steps = Math.max(2, Math.round(32 * p));
+      ctx.beginPath();
+      for (var k = 0; k <= steps; k++) {
+        var u = (k / steps) * p, iu = 1 - u;
+        var px = iu*iu*ax + 2*iu*u*cxp + u*u*bx;
+        var py = iu*iu*ay + 2*iu*u*cyp + u*u*by;
+        k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      }
+      ctx.strokeStyle = 'rgba(88,218,255,' + (0.42 * fade).toFixed(3) + ')';
+      ctx.lineWidth = 1.1;
+      ctx.stroke();
+
+      var u2 = p, iu2 = 1 - u2;
+      var hx = iu2*iu2*ax + 2*iu2*u2*cxp + u2*u2*bx;
+      var hy = iu2*iu2*ay + 2*iu2*u2*cyp + u2*u2*by;
+      var gs = 15;
+      ctx.globalAlpha = fade * 0.95;
+      ctx.drawImage(glowSprite, hx - gs/2, hy - gs/2, gs, gs);
+      ctx.globalAlpha = 1;
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  /* ---------- 城市光点 ---------- */
+  function drawCities(t) {
+    ctx.globalCompositeOperation = 'lighter';
+    for (var i = 0; i < CITIES.length; i++) {
+      var c = CITIES[i], rv = c.rv;
+      if (!rv || rv.z <= 0.02) continue;
+      var sx = screenX(rv), sy = screenY(rv);
+      var pulse = 0.5 + 0.5 * Math.sin(t * 2.2 + c.ph);
+      var gs = (11 + pulse * 11) * rv.s;
+      ctx.globalAlpha = 0.55 * rv.z * (0.55 + 0.45 * pulse);
+      ctx.drawImage(glowSprite, sx - gs/2, sy - gs/2, gs, gs);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#c8f7ff';
+      ctx.beginPath(); ctx.arc(sx, sy, 1.7 * rv.s, 0, TAU); ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  /* ---------- 旋转更新 ---------- */
+  function updateRotation(dt) {
+    if (dragging) return;
+    rotY += spinY * dt;
+    rotX = clamp(rotX + spinX * dt, -1.35, 1.35);
+    spinY += (BASE_SPIN - spinY) * Math.min(1, dt * 1.6);
+    spinX *= Math.pow(0.055, dt);
+    if (Math.abs(spinX) < 0.002) spinX = 0;
+    if (rotX >= 1.35 && spinX > 0) spinX = 0;
+    if (rotX <= -1.35 && spinX < 0) spinX = 0;
+  }
+
+  /* ---------- 主循环 ---------- */
+  var lastTime = 0;
+
+  function render(t, dt) {
+    zoom += (targetZoom - zoom) * Math.min(1, dt * 9);
+    R = baseR * zoom;
+
+    ctx.clearRect(0, 0, W, H);
+    drawStars(t);
+
+    var cY = Math.cos(rotY), sY = Math.sin(rotY);
+    var cX = Math.cos(rotX), sX = Math.sin(rotX);
+
+    renderGlobe(cY, sY, cX, sX);
+    drawGrid(cY, sY, cX, sX);
+
+    for (var i = 0; i < CITIES.length; i++) {
+      CITIES[i].rv = rotV(CITIES[i].v, cY, sY, cX, sX);
+    }
+    drawArcs();
+    drawCities(t);
+  }
+
+  function loop(now) {
+    var t = now / 1000;
+    var dt = lastTime ? (now - lastTime) / 1000 : 0.016;
+    lastTime = now;
+    dt = Math.min(dt, 0.05);
+
+    updateArcs(dt);
+    updateRotation(dt);
+    render(t, dt);
+
+    requestAnimationFrame(loop);
+  }
+
+  /* ---------- 交互 ---------- */
+  var pointers = new Map();
+  var lastMoveTs = 0, lastPinch = 0;
+
+  canvas.addEventListener('pointerdown', function (e) {
+    canvas.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    lastMoveTs = e.timeStamp / 1000;
+    if (pointers.size === 1) dragging = true;
+    else lastPinch = 0;
+  });
+
+  canvas.addEventListener('pointermove', function (e) {
+    var ptr = pointers.get(e.pointerId);
+    if (!ptr) return;
+    var px = ptr.x, py = ptr.y;
+    ptr.x = e.clientX; ptr.y = e.clientY;
+
+    if (pointers.size === 1 && dragging) {
+      var dx = ptr.x - px, dy = ptr.y - py;
+      var nowTs = e.timeStamp / 1000;
+      var dtMove = Math.max(nowTs - lastMoveTs, 0.008);
+      lastMoveTs = nowTs;
+
+      var dRotY = dx * 0.006, dRotX = dy * 0.006;
+      rotY += dRotY;
+      rotX = clamp(rotX + dRotX, -1.35, 1.35);
+
+      spinY = clamp(dRotY / dtMove, -8, 8);
+      spinX = clamp(dRotX / dtMove, -6, 6);
+      return;
+    }
+
+    if (pointers.size >= 2) {
+      var vals = [];
+      pointers.forEach(function (v) { vals.push(v); });
+      var d = Math.hypot(vals[0].x - vals[1].x, vals[0].y - vals[1].y);
+      if (lastPinch > 4 && d > 4) {
+        targetZoom = clamp(targetZoom * (d / lastPinch), 0.55, 2.6);
+      }
+      lastPinch = d;
+    }
+  });
+
+  function endPointer(e) {
+    pointers.delete(e.pointerId);
+    lastPinch = 0;
+    if (pointers.size === 0) dragging = false;
+    else lastMoveTs = e.timeStamp / 1000;
+  }
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+  canvas.addEventListener('lostpointercapture', endPointer);
+
+  canvas.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    var f = Math.exp(-e.deltaY * 0.0012);
+    targetZoom = clamp(targetZoom * f, 0.55, 2.6);
+  }, { passive: false });
+
+  canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+
+  /* ---------- 指标卡实时跳动 ---------- */
+  var METRICS = [
+    { el: document.getElementById('m-nodes'), bar: document.getElementById('b-nodes'),
+      value: 12840, min: 11000, max: 16400, step: 95, fmt: 'int', unit: '' },
+    { el: document.getElementById('m-traffic'), bar: document.getElementById('b-traffic'),
+      value: 8.42, min: 6.1, max: 12.5, step: 0.22, fmt: 'dec', unit: 'TB/s' },
+    { el: document.getElementById('m-cities'), bar: document.getElementById('b-cities'),
+      value: 318, min: 300, max: 430, step: 2.4, fmt: 'int', unit: '' },
+    { el: document.getElementById('m-req'), bar: document.getElementById('b-req'),
+      value: 96240, min: 86000, max: 132000, step: 1400, fmt: 'int', unit: '' }
+  ];
+
+  function paintMetric(m) {
+    var text = (m.fmt === 'dec')
+      ? m.value.toFixed(2)
+      : Math.round(m.value).toLocaleString('en-US');
+    m.el.innerHTML = text + (m.unit ? '<span class="unit">' + m.unit + '</span>' : '');
+    var ratio = (m.value - m.min) / (m.max - m.min);
+    m.bar.style.width = (28 + ratio * 62).toFixed(1) + '%';
+  }
+  for (var mi = 0; mi < METRICS.length; mi++) paintMetric(METRICS[mi]);
+
+  setInterval(function () {
+    for (var i = 0; i < METRICS.length; i++) {
+      var m = METRICS[i];
+      m.value = clamp(m.value + (Math.random() - 0.48) * 2 * m.step, m.min, m.max);
+      paintMetric(m);
+      m.el.classList.remove('tick');
+      void m.el.offsetWidth;
+      m.el.classList.add('tick');
+    }
+  }, 2000);
+
+  /* ---------- 启动 ---------- */
+  resize();
+  requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>

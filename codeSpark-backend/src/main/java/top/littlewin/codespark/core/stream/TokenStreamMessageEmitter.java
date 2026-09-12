@@ -1,6 +1,11 @@
 package top.littlewin.codespark.core.stream;
 
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.output.FinishReason;
 import dev.langchain4j.service.TokenStream;
+import top.littlewin.codespark.exception.BusinessException;
+import top.littlewin.codespark.exception.ErrorCode;
+import top.littlewin.codespark.exception.ErrorMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -43,13 +48,38 @@ public class TokenStreamMessageEmitter {
                 .onToolExecuted(toolExecution ->
                         sink.next(new ToolExecutedMessage(toolExecution)))
                 // 最终响应：整个生成流程（含所有工具轮次）结束后触发，结束事件流
-                .onCompleteResponse(response -> sink.complete())
+                .onCompleteResponse(response -> {
+                    if (isTruncated(response)) {
+                        // 命中 max-tokens（finish_reason=length）：转成业务错误，让前端明确提示
+                        log.warn("AI 输出被 max-tokens 截断");
+                        sink.error(new BusinessException(ErrorCode.OPERATION_ERROR,
+                                ErrorMessage.OUTPUT_TRUNCATED));
+                    } else {
+                        sink.complete();
+                    }
+                })
                 // 出错时终止流并向订阅方传播异常
                 .onError(error -> {
                     log.error("AI 流式生成失败", error);
-                    sink.error(error);
+                    // 工具调用轮次超限：转成更友好的业务错误
+                    if (error.getMessage() != null
+                            && error.getMessage().contains("tool calling round trips")) {
+                        sink.error(new BusinessException(ErrorCode.OPERATION_ERROR,
+                                ErrorMessage.GENERATION_TOO_MANY_STEPS));
+                    } else {
+                        sink.error(error);
+                    }
                 })
                 // 所有回调注册完毕后，必须调用 start() 才开始消费 TokenStream
                 .start());
+    }
+
+    /**
+     * 判断最终响应是否因 max-tokens 被截断
+     */
+    private boolean isTruncated(ChatResponse response) {
+        return response != null
+                && response.metadata() != null
+                && FinishReason.LENGTH.equals(response.metadata().finishReason());
     }
 }

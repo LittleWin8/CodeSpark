@@ -984,7 +984,11 @@ const initChat = async () => {
   }
   // 只有确认历史加载成功且为空，才自动发送初始消息，避免误发
   if (historyLoaded && isOwner.value && app.value?.initPrompt && messages.value.length === 0) {
-    startNamePolling()
+    // 仅当名称仍是“提示词截取名”（真实生成后 AI 会异步改名）时才轮询；
+    // 预置示例创建时已用名称池定名，名称不会变化，轮询会一直转到超时
+    if (isPlaceholderName(app.value.appName, app.value.initPrompt)) {
+      startNamePolling()
+    }
     await sendMessage(app.value.initPrompt)
   }
 }
@@ -1027,6 +1031,14 @@ const startNamePolling = () => {
       }
     }
   }, NAME_POLL_INTERVAL)
+}
+
+/** 名称是否仍是后端创建时的“提示词截取名”（前 15 字），用于判断是否还需等待 AI 异步命名 */
+const isPlaceholderName = (name?: string, initPrompt?: string) => {
+  if (!name) {
+    return true
+  }
+  return name === (initPrompt ?? '').slice(0, 15)
 }
 
 const stopNamePolling = () => {

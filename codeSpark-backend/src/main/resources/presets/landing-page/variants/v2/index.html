@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{appName}} {{appNameEn}} · 城市里的手作精品咖啡</title>
+<meta name="description" content="{{appName}} · 精选单一产区咖啡豆，小批量新鲜烘焙，为城市里每一段慢下来的时光，冲一杯好咖啡。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ==================== 顶部导航 ==================== -->
+  <header class="site-header" id="siteHeader">
+    <div class="container nav-inner">
+      <a href="#top" class="logo" aria-label="{{appName}} 首页">
+        <span class="logo-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 9h12v5.5A5.5 5.5 0 0 1 10.5 20h-1A5.5 5.5 0 0 1 4 14.5V9Z"/>
+            <path d="M16 10h1.8a3.2 3.2 0 0 1 0 6.4H16"/>
+            <path d="M8 5.5c0-1 .8-1.4.8-2.5M12 5.5c0-1 .8-1.4.8-2.5"/>
+          </svg>
+        </span>
+        <span class="logo-text">{{appName}}<em>{{appNameEn}}</em></span>
+      </a>
+
+      <nav class="nav-links" id="navLinks">
+        <a href="#about">品牌故事</a>
+        <a href="#features">核心特色</a>
+        <a href="#join">加入会员</a>
+      </nav>
+
+      <a href="#join" class="btn btn-primary nav-cta">加入会员</a>
+
+      <button class="menu-toggle" id="menuToggle" aria-label="打开导航菜单" aria-expanded="false" aria-controls="navLinks">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ==================== 首屏 Hero ==================== -->
+    <section class="hero" id="top">
+      <div class="container hero-inner">
+        <div class="hero-copy">
+          <p class="eyebrow">Since 2015 · 城市里的手作咖啡</p>
+          <h1>把时间，<br>交给一杯<span class="accent">好咖啡</span></h1>
+          <p class="lead">
+            我们精选全球 30+ 单一产区咖啡豆，每批小量新鲜烘焙。
+            不追求快，只想为城市里每一段值得慢下来的时光，认真冲出一杯。
+          </p>
+          <div class="hero-actions">
+            <a href="#features" class="btn btn-primary">探索我们的咖啡</a>
+            <a href="#about" class="btn btn-ghost">了解品牌故事</a>
+          </div>
+          <ul class="hero-stats">
+            <li><strong>10<span>年</span></strong><small>烘焙经验</small></li>
+            <li><strong>30<span>+</span></strong><small>单一产区豆</small></li>
+            <li><strong>4<span>家</span></strong><small>城市门店</small></li>
+          </ul>
+        </div>
+
+        <div class="hero-media">
+          <img src="https://picsum.photos/seed/{{imgSeed}}-moment-hero/900/1100" alt="咖啡师正在进行手冲咖啡">
+          <div class="hero-badge">
+            本周豆单推荐
+            <strong>埃塞俄比亚 · 日晒</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 品牌故事 ==================== -->
+    <section class="section about" id="about">
+      <div class="container about-inner">
+        <div class="about-media reveal">
+          <img class="img-main" src="https://picsum.photos/seed/{{imgSeed}}-moment-about1/800/1000" alt="咖啡馆内安静的座位区域">
+          <img class="img-sub" src="https://picsum.photos/seed/{{imgSeed}}-moment-about2/600/600" alt="新鲜烘焙的咖啡豆特写">
+        </div>
+
+        <div class="about-copy reveal">
+          <p class="section-label">品牌故事</p>
+          <h2 class="section-title">从一间 12 平米的小店开始</h2>
+          <p>
+            2015 年的秋天，我们在老城区的巷口开出第一家不足 12 平米的小店：
+            一台烘豆机、两张木桌，和一位愿意等你慢慢喝完的咖啡师。
+          </p>
+          <p>
+            <strong>十年过去</strong>，门店多了，设备换了，但我们对豆子的挑剔、
+            对手冲的耐心、对每一位客人的诚意，从来没有改变过。
+          </p>
+
+          <ul class="check-list">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+              只选当季鲜豆，烘焙后 15 天内用完
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+              每支豆子附风味卡与冲煮建议
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+              手冲出杯前，咖啡师会与你确认风味偏好
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+              环保包装，咖啡渣免费提供给客人做园艺用
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 核心特色（四个板块） ==================== -->
+    <section class="section features" id="features">
+      <div class="container">
+        <div class="section-head center reveal">
+          <p class="section-label">核心特色</p>
+          <h2 class="section-title">我们坚持的四件事</h2>
+          <p class="section-desc">从选豆到出杯，每一个环节都值得被认真对待。</p>
+        </div>
+
+        <div class="feature-grid">
+          <!-- 特色一 -->
+          <article class="feature-card reveal">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 9h12v5.5A5.5 5.5 0 0 1 10.5 20h-1A5.5 5.5 0 0 1 4 14.5V9Z"/>
+                <path d="M16 10h1.8a3.2 3.2 0 0 1 0 6.4H16"/>
+                <path d="M8 5.5c0-1 .8-1.4.8-2.5M12 5.5c0-1 .8-1.4.8-2.5"/>
+              </svg>
+            </div>
+            <h3>手冲甄选</h3>
+            <p>由主理人亲自杯测，每支豆子都要经过至少三轮盲测筛选，才允许出现在吧台上。</p>
+          </article>
+
+          <!-- 特色二 -->
+          <article class="feature-card reveal">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3c3.6 2.8 5.8 5.8 5.8 9A5.8 5.8 0 0 1 12 21a5.8 5.8 0 0 1-5.8-9C6.2 8.8 8.4 5.8 12 3Z"/>
+                <path d="M12 9c-1.8 1.8-2.6 3.6-2.6 5.6"/>
+              </svg>
+            </div>
+            <h3>新鲜烘焙</h3>
+            <p>门店自有烘豆机，每周二、周五小批量烘焙，到手时香气仍在最饱满的状态。</p>
+          </article>
+
+          <!-- 特色三 -->
+          <article class="feature-card reveal">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 19c0-8 5.5-13 14-13 0 9-5.5 14-14 13Z"/>
+                <path d="M9.5 14.5c2-2.2 4.3-3.8 7-4.6"/>
+              </svg>
+            </div>
+            <h3>季节限定</h3>
+            <p>跟随产地收获季更换豆单：春夏花果调的日晒，秋冬坚果巧克力调的水洗。</p>
+          </article>
+
+          <!-- 特色四 -->
+          <article class="feature-card reveal">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4.5 10h9l-1 9.5h-7L4.5 10Z"/>
+                <path d="M13.5 12h2.6a3 3 0 0 1 0 6h-2.6"/>
+                <path d="M6.5 6.5c0-1.2 1.3-1.8 2.5-1.8s2.5.6 2.5 1.8"/>
+                <path d="M17 6.5c0-1.4 1.6-2 3-2"/>
+              </svg>
+            </div>
+            <h3>咖啡课堂</h3>
+            <p>每月两场手冲入门课，从磨豆、控温到萃取节奏，带你把一杯咖啡彻底弄明白。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 行动召唤 ==================== -->
+    <section class="section" id="join">
+      <div class="container">
+        <div class="cta-box reveal">
+          <div class="cta-copy">
+            <p class="section-label light">加入我们</p>
+            <h2>成为会员，每周尝到一支新豆</h2>
+            <p>订阅「{{appName}}周报」，我们会把当周烘焙的单品豆、冲煮建议与门店活动，准时送到你的邮箱。</p>
+          </div>
+
+          <form class="cta-form" id="ctaForm" novalidate>
+            <div class="cta-row">
+              <label class="sr-only" for="email">邮箱地址</label>
+              <input type="email" id="email" name="email" placeholder="请输入你的邮箱地址" autocomplete="email">
+              <button type="submit" class="btn btn-primary">立即加入</button>
+            </div>
+            <p class="form-msg" id="formMsg" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== 页脚 ==================== -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <a href="#top" class="logo">
+          <span class="logo-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 9h12v5.5A5.5 5.5 0 0 1 10.5 20h-1A5.5 5.5 0 0 1 4 14.5V9Z"/>
+              <path d="M16 10h1.8a3.2 3.2 0 0 1 0 6.4H16"/>
+            </svg>
+          </span>
+          <span class="logo-text">{{appName}}<em>{{appNameEn}}</em></span>
+        </a>
+        <p>精选单一产区豆，小批量新鲜烘焙。为城市里每一段慢下来的时光，认真冲一杯。</p>
+      </div>
+
+      <div class="footer-col">
+        <h4>探索</h4>
+        <ul>
+          <li><a href="#about">品牌故事</a></li>
+          <li><a href="#features">核心特色</a></li>
+          <li><a href="#join">加入会员</a></li>
+          <li><a href="#top">本周豆单</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h4>门店</h4>
+        <ul>
+          <li><a href="#top">老城巷口店</a></li>
+          <li><a href="#top">滨江露台店</a></li>
+          <li><a href="#top">大学城店</a></li>
+          <li><a href="#top">中心广场店</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h4>联系我们</h4>
+        <ul>
+          <li><a href="mailto:hello@momentcoffee.com">hello@momentcoffee.com</a></li>
+          <li><a href="tel:4001234567">400-123-4567</a></li>
+          <li>每日 08:00 – 21:00</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="container footer-bottom">
+      <p>© 2025 {{appName}} {{appNameEn}}. 保留所有权利。</p>
+      <p><a href="#top">隐私政策</a> · <a href="#top">使用条款</a></p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

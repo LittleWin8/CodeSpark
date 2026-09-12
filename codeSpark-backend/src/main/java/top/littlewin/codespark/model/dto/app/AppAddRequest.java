@@ -17,5 +17,10 @@ public class AppAddRequest implements Serializable {
 
     private String codeGenType;
 
+    /**
+     * 预置示例应用 ID（点击案例时携带；为空或与提示词不匹配则走真实 AI 生成）
+     */
+    private String presetId;
+
     private static final long serialVersionUID = 1L;
 }

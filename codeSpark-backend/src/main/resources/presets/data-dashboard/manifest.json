@@ -1,0 +1,34 @@
+{
+  "id": "data-dashboard",
+  "version": 1,
+  "enabled": true,
+  "codeGenType": "html",
+  "label": {
+    "zh-CN": "3D 数据地球",
+    "en-US": "3D Data Globe"
+  },
+  "initPrompt": {
+    "zh-CN": "帮我做一个「3D 数据地球」可视化大屏，单文件 HTML，使用原生 JavaScript + Canvas 2D 实现伪 3D 投影（自己计算三维坐标的旋转与透视投影），不要引入任何外部库或 CDN，不要联网，适配移动端。\n\n页面要求：\n1. 深色星空背景（Canvas 或 CSS 渐变 + 少量星点），整体科技感、克制。\n2. 地球：用球面均匀分布的点阵（或经纬网格）绘制，带轻微明暗渐变体现立体感；不同区域可用不同深浅表达数据密度。\n3. 交互：鼠标按住拖拽可旋转地球；触摸屏支持单指拖拽；松手后带惯性继续缓慢自转；鼠标滚轮或双指可缩放。\n4. 数据元素：若干城市光点，带呼吸/脉冲动画；城市之间绘制会缓慢生长的飞线弧（用二次贝塞尔曲线）。\n5. 信息层：左上角标题与一句话说明；右侧或底部放 3~4 个指标卡（如在线节点、数据传输量、覆盖城市、实时请求），数值每隔 2 秒轻微跳动模拟实时。\n6. 性能：使用 requestAnimationFrame 驱动；点阵数量控制在保证流畅的范围，窗口缩放时自适应重绘。\n\n输出要求：只输出 1 个 HTML 代码块，包含完整可运行页面。",
+    "en-US": "Build a \"3D Data Globe\" visualization as a single HTML file using vanilla JavaScript and Canvas 2D with a hand-written pseudo-3D projection; drag to rotate with inertia, wheel to zoom, pulsing city markers with bezier arcs, live-looking metric cards, dark starfield background, mobile responsive."
+  },
+  "variants": [
+    {
+      "id": "v1",
+      "dir": "variants/v1",
+      "narrative": "variants/v1/narrative.md",
+      "files": [
+        "variants/v1/index.html"
+      ]
+    }
+  ],
+  "paramPools": {
+    "names": {
+      "zh-CN": [
+        "蔚蓝星球"
+      ],
+      "en-US": [
+        "Terra"
+      ]
+    }
+  }
+}

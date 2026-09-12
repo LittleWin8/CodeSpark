@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{appName}} · 专注计时</title>
+<style>
+  /* ==================== 基础重置与主题变量 ==================== */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  :root {
+    --card: rgba(255, 255, 255, .88);
+    --text: #1e2430;
+    --muted: #7c869a;
+    --line: #e7eaf3;
+    --accent: #f0605d;          /* 专注模式主色（番茄红） */
+    --accent-soft: #ffe9e8;
+    --shadow: 0 18px 48px -18px rgba(30, 36, 48, .22);
+    --radius: 24px;
+  }
+
+  /* 休息模式：主色切换为青绿色 */
+  body.mode-break {
+    --accent: #12b39c;
+    --accent-soft: #dff7f2;
+  }
+
+  html {
+    background: #f4f6fb;          /* 兜底底色 */
+  }
+
+  /* ---- 主题渐变背景（双层叠放，切换时平滑过渡） ---- */
+  body::before,
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    transition: opacity .7s ease;
+    pointer-events: none;
+  }
+
+  /* 专注：暖粉 → 淡紫 → 淡蓝 */
+  body::before {
+    background:
+      radial-gradient(900px 680px at 12% -6%, #ffffff 0%, rgba(255, 255, 255, 0) 62%),
+      radial-gradient(820px 820px at 102% 104%, #ffdad4 0%, rgba(255, 218, 212, 0) 66%),
+      radial-gradient(700px 700px at 92% 4%, #ffe9e0 0%, rgba(255, 233, 224, 0) 60%),
+      linear-gradient(158deg, #fdf0ee 0%, #f4f0fb 52%, #e9f1fb 100%);
+  }
+
+  /* 休息：薄荷青 → 淡蓝 */
+  body::after {
+    opacity: 0;
+    background:
+      radial-gradient(900px 680px at 12% -6%, #ffffff 0%, rgba(255, 255, 255, 0) 62%),
+      radial-gradient(820px 820px at 102% 104%, #cdf3ea 0%, rgba(205, 243, 234, 0) 66%),
+      radial-gradient(700px 700px at 92% 4%, #dcf6ef 0%, rgba(220, 246, 239, 0) 60%),
+      linear-gradient(158deg, #eefaf7 0%, #eff6fb 52%, #e8f1fb 100%);
+  }
+
+  body.mode-break::before { opacity: 0; }
+  body.mode-break::after  { opacity: 1; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 40px 18px;
+    display: flex;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* margin:auto 让卡片在空间中垂直居中，内容过长时自动从顶部排布 */
+  .app {
+    margin: auto;
+    width: 100%;
+    max-width: 560px;
+  }
+
+  /* ==================== 页头 ==================== */
+  .header {
+    text-align: center;
+    margin-bottom: clamp(18px, 3vw, 26px);
+  }
+
+  .header h1 {
+    margin: 0;
+    font-size: clamp(1.45rem, 4vw, 1.85rem);
+    letter-spacing: .02em;
+  }
+
+  .header p {
+    margin: 8px 0 0;
+    font-size: .93rem;
+    color: var(--muted);
+  }
+
+  /* ==================== 主卡片（计时 + 清单 合为一体） ==================== */
+  .card {
+    background: var(--card);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, .75);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: clamp(20px, 4vw, 30px);
+  }
+
+  /* ==================== 计时区 ==================== */
+  .timer-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  /* 模式切换 */
+  .mode-switch {
+    display: inline-flex;
+    gap: 4px;
+    padding: 5px;
+    background: rgba(255, 255, 255, .62);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+  }
+
+  .mode-btn {
+    font: inherit;
+    font-size: .92rem;
+    font-weight: 600;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    border-radius: 999px;
+    padding: 8px 26px;
+    cursor: pointer;
+    transition: background .25s ease, color .25s ease, box-shadow .25s ease;
+  }
+
+  .mode-btn.active {
+    background: #fff;
+    color: var(--accent);
+    box-shadow: 0 3px 10px rgba(30, 36, 48, .09);
+  }
+
+  /* 环形进度表盘 */
+  .dial {
+    position: relative;
+    width: min(272px, 68vw);
+    aspect-ratio: 1 / 1;
+  }
+
+  .dial svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);   /* 让进度从 12 点方向开始 */
+  }
+
+  .dial .track {
+    fill: none;
+    stroke: rgba(255, 255, 255, .8);
+    stroke-width: 12;
+  }
+
+  .dial .progress {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 12;
+    stroke-linecap: round;
+    transition: stroke-dashoffset .35s linear, stroke .45s ease;
+  }
+
+  .dial-inner {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .time {
+    font-size: clamp(2.5rem, 11vw, 3.3rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: .02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .status {
+    font-size: .9rem;
+    letter-spacing: .04em;
+    color: var(--muted);
+    min-height: 1.3em;
+    transition: color .3s ease;
+  }
+
+  /* 控制按钮 */
+  .controls {
+    display: flex;
+    gap: 12px;
+  }
+
+  .btn {
+    font: inherit;
+    font-weight: 600;
+    padding: 13px 34px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform .18s ease, box-shadow .18s ease,
+                background .25s ease, color .25s ease, border-color .25s ease;
+  }
+
+  .btn:active { transform: scale(.97); }
+
+  .btn-primary {
+    min-width: 132px;
+    color: #fff;
+    background: var(--accent);
+    box-shadow: 0 10px 22px -10px var(--accent);
+  }
+
+  .btn-primary:hover { transform: translateY(-1px); }
+
+  .btn-ghost {
+    color: var(--muted);
+    background: rgba(255, 255, 255, .7);
+    border-color: var(--line);
+  }
+
+  .btn-ghost:hover {
+    color: var(--text);
+    background: #fff;
+    border-color: #d6dbe7;
+  }
+
+  .hint {
+    margin: 0;
+    font-size: .82rem;
+    color: #a3abbb;
+  }
+
+  kbd {
+    font-family: inherit;
+    font-size: .78rem;
+    padding: 1px 6px;
+    color: var(--muted);
+    background: rgba(255, 255, 255, .8);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+
+  /* ==================== 分隔线 ==================== */
+  .divider {
+    height: 1px;
+    margin: clamp(22px, 4vw, 28px) 0 clamp(18px, 3vw, 22px);
+    background: linear-gradient(90deg, transparent, var(--line) 18%, var(--line) 82%, transparent);
+  }
+
+  /* ==================== 任务区 ==================== */
+  .tasks-zone {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tasks-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .tasks-head h2 {
+    margin: 0;
+    font-size: 1.04rem;
+  }
+
+  .badge {
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 11px;
+    border-radius: 999px;
+    transition: background .35s ease, color .35s ease;
+  }
+
+  /* 添加任务表单 */
+  .task-form {
+    display: flex;
+    gap: 10px;
+    margin: 15px 0 14px;
+  }
+
+  .task-form input {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 14px;
+    font: inherit;
+    font-size: .95rem;
+    color: var(--text);
+    background: rgba(255, 255, 255, .72);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+  }
+
+  .task-form input::placeholder { color: #a9b1c1; }
+
+  .task-form input:focus {
+    outline: none;
+    background: #fff;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .task-form button {
+    font: inherit;
+    font-weight: 600;
+    padding: 12px 20px;
+    color: #fff;
+    background: var(--accent);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: filter .2s ease, transform .18s ease, background .3s ease;
+  }
+
+  .task-form button:hover { filter: brightness(1.06); }
+  .task-form button:active { transform: scale(.97); }
+
+  /* 任务列表 */
+  .task-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 232px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+
+  .task-list::-webkit-scrollbar { width: 6px; }
+  .task-list::-webkit-scrollbar-thumb {
+    background: #dfe3ee;
+    border-radius: 3px;
+  }
+
+  .task-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px;
+    background: rgba(255, 255, 255, .62);
+    border: 1px solid transparent;
+    border-radius: 12px;
+    animation: fadeIn .22s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .task-item:hover { border-color: var(--line); }
+
+  .task-item label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+  }
+
+  .task-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .task-text {
+    font-size: .93rem;
+    overflow-wrap: anywhere;
+    transition: color .2s ease;
+  }
+
+  .task-item.done .task-text {
+    color: var(--muted);
+    text-decoration: line-through;
+  }
+
+  .task-del {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: #b6bdcb;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background .18s ease, color .18s ease;
+  }
+
+  .task-del:hover {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .empty-tip {
+    margin: 0;
+    padding: 20px 0;
+    text-align: center;
+    font-size: .88rem;
+    color: #a9b1c1;
+  }
+
+  /* 统计区 */
+  .stats {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .stat {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    transition: color .35s ease;
+  }
+
+  .stat-value.pop { animation: pop .45s ease; }
+
+  @keyframes pop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.28); }
+    100% { transform: scale(1); }
+  }
+
+  .stat-label {
+    font-size: .85rem;
+    color: var(--muted);
+  }
+
+  .clear-btn {
+    font: inherit;
+    font-size: .82rem;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: color .2s ease, background .2s ease;
+  }
+
+  .clear-btn:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, .8);
+  }
+
+  /* ==================== 响应式 ==================== */
+  @media (max-width: 480px) {
+    body { padding: 26px 14px; }
+    .card { padding: 20px 16px; border-radius: 20px; }
+    .task-form button { padding: 12px 16px; }
+    .controls { width: 100%; }
+    .btn { flex: 1; }
+    .mode-btn { padding: 8px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ 页头 ============ -->
+  <header class="header">
+    <h1>🍅 {{appName}}</h1>
+    <p>专注 25 分钟，休息 5 分钟</p>
+  </header>
+
+  <!-- ============ 主卡片：计时 + 清单 ============ -->
+  <main class="card">
+
+    <!-- 倒计时 -->
+    <section class="timer-zone" aria-label="倒计时">
+      <div class="mode-switch" role="tablist" aria-label="模式切换">
+        <button type="button" class="mode-btn active" data-mode="focus" role="tab">专注</button>
+        <button type="button" class="mode-btn" data-mode="break" role="tab">休息</button>
+      </div>
+
+      <div class="dial">
+        <svg viewBox="0 0 280 280" aria-hidden="true">
+          <circle class="track" cx="140" cy="140" r="120"></circle>
+          <circle class="progress" id="progressCircle" cx="140" cy="140" r="120"></circle>
+        </svg>
+        <div class="dial-inner">
+          <div class="time" id="timeDisplay">25:00</div>
+          <div class="status" id="statusText">准备专注</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button type="button" class="btn btn-primary" id="startBtn">开始</button>
+        <button type="button" class="btn btn-ghost" id="resetBtn">重置</button>
+      </div>
+
+      <p class="hint">按 <kbd>空格</kbd> 键可 开始 / 暂停</p>
+    </section>
+
+    <!-- 分隔线 -->
+    <div class="divider" role="presentation"></div>
+
+    <!-- 任务清单 -->
+    <section class="tasks-zone" aria-label="任务清单">
+      <div class="tasks-head">
+        <h2>今日任务</h2>
+        <span class="badge" id="taskBadge">0 / 0</span>
+      </div>
+
+      <form class="task-form" id="taskForm">
+        <input type="text" id="taskInput" placeholder="添加一个新任务…"
+               maxlength="60" autocomplete="off" aria-label="任务内容">
+        <button type="submit">添加</button>
+      </form>
+
+      <ul class="task-list" id="taskList"></ul>
+      <p class="empty-tip" id="emptyTip">还没有任务，先添加一个吧 ✨</p>
+
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-value" id="pomodoroCount">0</span>
+          <span class="stat-label">今日完成番茄</span>
+        </div>
+        <button type="button" class="clear-btn" id="clearDoneBtn">清除已完成</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ==================== 配置常量 ==================== */
+  var MODES = {
+    focus: { seconds: 25 * 60, label: '专注', status: '准备专注', runningText: '专注中…' },
+    break: { seconds: 5 * 60,  label: '休息', status: '准备休息', runningText: '休息中…' }
+  };
+
+  var RADIUS = 120;
+  var CIRCUMFERENCE = 2 * Math.PI * RADIUS;   // 圆环周长 ≈ 753.98
+
+  var STORAGE_KEYS = {
+    tasks: 'pomodoro.tasks.v1',
+    stats: 'pomodoro.stats.v1'
+  };
+
+  /* ==================== localStorage 安全封装 ==================== */
+  var storage = {
+    read: function (key, fallback) {
+      try {
+        var raw = window.localStorage.getItem(key);
+        return raw === null ? fallback : JSON.parse(raw);
+      } catch (err) {
+        return fallback;   // 隐私模式 / 存储不可用时降级为内存态
+      }
+    },
+    write: function (key, value) {
+      try {
+        window.localStorage.setItem(key, JSON.stringify(value));
+      } catch (err) { /* 静默失败 */ }
+    }
+  };
+
+  /* ==================== DOM 引用 ==================== */
+  var timeDisplay    = document.getElementById('timeDisplay');
+  var statusText     = document.getElementById('statusText');
+  var progressCircle = document.getElementById('progressCircle');
+  var startBtn       = document.getElementById('startBtn');
+  var resetBtn       = document.getElementById('resetBtn');
+  var modeBtns       = Array.prototype.slice.call(document.querySelectorAll('.mode-btn'));
+  var taskForm       = document.getElementById('taskForm');
+  var taskInput      = document.getElementById('taskInput');
+  var taskList       = document.getElementById('taskList');
+  var taskBadge      = document.getElementById('taskBadge');
+  var emptyTip       = document.getElementById('emptyTip');
+  var pomodoroCount  = document.getElementById('pomodoroCount');
+  var clearDoneBtn   = document.getElementById('clearDoneBtn');
+
+  /* ==================== 计时器状态 ==================== */
+  var timer = {
+    mode: 'focus',
+    total: MODES.focus.seconds,
+    remaining: MODES.focus.seconds,
+    running: false,
+    endTime: 0,        // 本轮结束的时间戳
+    intervalId: null
+  };
+
+  /** 秒 -> mm:ss */
+  function formatTime(seconds) {
+    var m = Math.floor(seconds / 60);
+    var s = seconds % 60;
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+
+  /** 渲染倒计时数字、进度环与状态文字 */
+  function renderTimer() {
+    timeDisplay.textContent = formatTime(timer.remaining);
+
+    var ratio = timer.total > 0 ? timer.remaining / timer.total : 0;
+    progressCircle.style.strokeDashoffset = String(CIRCUMFERENCE * (1 - ratio));
+
+    var conf = MODES[timer.mode];
+    if (timer.running) {
+      statusText.textContent = conf.runningText;
+    } else if (timer.remaining < timer.total) {
+      statusText.textContent = '已暂停';
+    } else {
+      statusText.textContent = conf.status;
+    }
+
+    document.title = formatTime(timer.remaining) + ' · ' + conf.label + ' · {{appName}}';
+  }
+
+  /** 清理计时器句柄 */
+  function stopTicking() {
+    if (timer.intervalId !== null) {
+      window.clearInterval(timer.intervalId);
+      timer.intervalId = null;
+    }
+  }
+
+  /** 开始 / 继续 */
+  function startTimer() {
+    if (timer.running) return;
+    if (timer.remaining <= 0) timer.remaining = timer.total;
+
+    timer.running = true;
+    timer.endTime = Date.now() + timer.remaining * 1000;
+    timer.intervalId = window.setInterval(tick, 200);
+
+    startBtn.textContent = '暂停';
+    renderTimer();
+  }
+
+  /** 暂停 */
+  function pauseTimer() {
+    if (!timer.running) return;
+
+    timer.running = false;
+    stopTicking();
+    timer.remaining = Math.max(0, Math.round((timer.endTime - Date.now()) / 1000));
+
+    startBtn.textContent = '继续';
+    renderTimer();
+  }
+
+  /** 每 200ms 校准一次剩余时间（基于时间戳，避免漂移） */
+  function tick() {
+    var left = Math.max(0, Math.round((timer.endTime - Date.now()) / 1000));
+
+    if (left !== timer.remaining) {
+      timer.remaining = left;
+      renderTimer();
+    }
+
+    if (left <= 0) finishRound();
+  }
+
+  /** 一轮计时结束 */
+  function finishRound() {
+    stopTicking();
+    timer.running = false;
+    playChime();
+
+    if (timer.mode === 'focus') {
+      addPomodoroCount();
+      switchMode('break');
+      statusText.textContent = '专注完成，休息一下吧 ☕';
+    } else {
+      switchMode('focus');
+      statusText.textContent = '休息结束，继续加油 💪';
+    }
+  }
+
+  /** 切换模式并重置计时 */
+  function switchMode(mode) {
+    stopTicking();
+    timer.mode = mode;
+    timer.total = MODES[mode].seconds;
+    timer.remaining = timer.total;
+    timer.running = false;
+    timer.endTime = 0;
+    startBtn.textContent = '开始';
+
+    // 切换主题（背景渐变 + 主色）
+    document.body.classList.toggle('mode-break', mode === 'break');
+
+    modeBtns.forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+
+    renderTimer();
+  }
+
+  /** 重置当前模式 */
+  function resetTimer() {
+    stopTicking();
+    timer.running = false;
+    timer.total = MODES[timer.mode].seconds;
+    timer.remaining = timer.total;
+    timer.endTime = 0;
+    startBtn.textContent = '开始';
+    renderTimer();
+  }
+
+  /* ==================== 提示音（Web Audio，无外部资源） ==================== */
+  function playChime() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+
+      var ctx = new Ctx();
+      [880, 1320].forEach(function (freq, i) {
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        var startAt = ctx.currentTime + i * 0.18;
+
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(0.16, startAt + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.3);
+
+        osc.start(startAt);
+        osc.stop(startAt + 0.34);
+      });
+
+      window.setTimeout(function () {
+        if (ctx.close) ctx.close();
+      }, 1200);
+    } catch (err) { /* 静默失败 */ }
+  }
+
+  /* ==================== 今日完成统计 ==================== */
+  function todayKey() {
+    var d = new Date();
+    return d.getFullYear() + '-' +
+           String(d.getMonth() + 1).padStart(2, '0') + '-' +
+           String(d.getDate()).padStart(2, '0');
+  }
+
+  var stats = storage.read(STORAGE_KEYS.stats, null);
+  if (!stats || typeof stats.count !== 'number' || stats.date !== todayKey()) {
+    stats = { date: todayKey(), count: 0 };
+    storage.write(STORAGE_KEYS.stats, stats);
+  }
+
+  function renderStats() {
+    pomodoroCount.textContent = String(stats.count);
+  }
+
+  function addPomodoroCount() {
+    if (stats.date !== todayKey()) stats = { date: todayKey(), count: 0 };
+    stats.count += 1;
+    storage.write(STORAGE_KEYS.stats, stats);
+    renderStats();
+
+    // 重启动画
+    pomodoroCount.classList.remove('pop');
+    void pomodoroCount.offsetWidth;
+    pomodoroCount.classList.add('pop');
+  }
+
+  /* ==================== 任务清单 ==================== */
+  var tasks = storage.read(STORAGE_KEYS.tasks, []);
+  if (!Array.isArray(tasks)) tasks = [];
+
+  function saveTasks() {
+    storage.write(STORAGE_KEYS.tasks, tasks);
+  }
+
+  function updateTaskBadge() {
+    var done = tasks.filter(function (t) { return t.done; }).length;
+    taskBadge.textContent = done + ' / ' + tasks.length;
+  }
+
+  function renderTasks() {
+    taskList.innerHTML = '';
+
+    tasks.forEach(function (task) {
+      var li = document.createElement('li');
+      li.className = 'task-item' + (task.done ? ' done' : '');
+
+      var label = document.createElement('label');
+
+      var checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = !!task.done;
+      checkbox.addEventListener('change', function () {
+        task.done = checkbox.checked;
+        li.classList.toggle('done', task.done);
+        saveTasks();
+        updateTaskBadge();
+      });
+
+      var text = document.createElement('span');
+      text.className = 'task-text';
+      text.textContent = task.text;
+
+      label.appendChild(checkbox);
+      label.appendChild(text);
+
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'task-del';
+      delBtn.textContent = '×';
+      delBtn.setAttribute('aria-label', '删除任务');
+      delBtn.addEventListener('click', function () {
+        tasks = tasks.filter(function (t) { return t.id !== task.id; });
+        saveTasks();
+        renderTasks();
+      });
+
+      li.appendChild(label);
+      li.appendChild(delBtn);
+      taskList.appendChild(li);
+    });
+
+    emptyTip.style.display = tasks.length ? 'none' : 'block';
+    updateTaskBadge();
+  }
+
+  /** 生成简易唯一 id */
+  function makeId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  /* ==================== 事件绑定 ==================== */
+  startBtn.addEventListener('click', function () {
+    timer.running ? pauseTimer() : startTimer();
+  });
+
+  resetBtn.addEventListener('click', resetTimer);
+
+  modeBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (btn.dataset.mode === timer.mode) return;
+      switchMode(btn.dataset.mode);
+    });
+  });
+
+  taskForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var value = taskInput.value.trim();
+    if (!value) return;
+
+    tasks.push({ id: makeId(), text: value, done: false });
+    saveTasks();
+    renderTasks();
+
+    taskInput.value = '';
+    taskInput.focus();
+  });
+
+  clearDoneBtn.addEventListener('click', function () {
+    var hasDone = tasks.some(function (t) { return t.done; });
+    if (!hasDone) return;
+
+    tasks = tasks.filter(function (t) { return !t.done; });
+    saveTasks();
+    renderTasks();
+  });
+
+  /* 空格键快捷开始 / 暂停（输入框、按钮聚焦时不拦截） */
+  document.addEventListener('keydown', function (e) {
+    if (e.code !== 'Space' && e.key !== ' ') return;
+
+    var tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON') return;
+
+    e.preventDefault();
+    timer.running ? pauseTimer() : startTimer();
+  });
+
+  /* 页面重新可见时，若已跨天则重置今日统计 */
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && stats.date !== todayKey()) {
+      stats = { date: todayKey(), count: 0 };
+      storage.write(STORAGE_KEYS.stats, stats);
+      renderStats();
+    }
+  });
+
+  /* ==================== 初始化 ==================== */
+  progressCircle.style.strokeDasharray = String(CIRCUMFERENCE);
+  progressCircle.style.strokeDashoffset = '0';
+
+  renderTasks();
+  renderStats();
+  switchMode('focus');   // 内部会完成首次渲染
+})();
+</script>
+</body>
+</html>

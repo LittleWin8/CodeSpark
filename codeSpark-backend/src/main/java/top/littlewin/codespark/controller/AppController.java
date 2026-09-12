@@ -3,6 +3,7 @@ package top.littlewin.codespark.controller;
 import jakarta.annotation.Resource;
 
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,6 +13,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import top.littlewin.codespark.ai.model.message.StreamMessage;
@@ -38,6 +40,10 @@ import top.littlewin.codespark.service.AppService;
 import top.littlewin.codespark.service.ProjectDownloadService;
 import top.littlewin.codespark.service.UserService;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import java.io.File;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -47,6 +53,7 @@ import java.util.List;
  *
  * @author <a href="https://github.com/LittleWin8">小稳</a>
  */
+@Slf4j
 @RestController
 @RequestMapping("/app")
 public class AppController {
@@ -90,16 +97,38 @@ public class AppController {
 
         // 3. 强类型消息流 → SSE 命名事件（thinking / tool_request / tool_executed / message / done）
         Flux<StreamMessage> contentFlux =  appService.chatToGenCode(appId, message, loginUser);
+
         // mapNotNull：允许 mapper 返回 null（无法识别路径的工具事件会被静默丢弃），避免 Flux.map 抛 NPE
-        return contentFlux
+        AtomicBoolean streamErrored = new AtomicBoolean(false);
+        Flux<ServerSentEvent<String>> safeStream = contentFlux
                 .mapNotNull(streamSseMapper::toServerSentEvent)
-                .concatWith(Mono.just(
-                        // 发送结束标志
-                        ServerSentEvent.<String>builder()
-                                .event("done")
-                                .data("")
-                                .build()
-                ));
+                // 流内异常：打印根因并转成 business-error 事件，避免异常冒泡触发 Tomcat 错误页转发
+                // （SSE 响应已提交时错误页返回 Map 会因 Content-Type 不匹配二次报错）
+                .onErrorResume(error -> {
+                    streamErrored.set(true);
+                    int errorCode = ErrorCode.SYSTEM_ERROR.getCode();
+                    String errorKey = "";
+                    if (error instanceof BusinessException businessException) {
+                        // 业务异常（如输出截断 / 工具轮次超限）透传 code 与稳定文案 key
+                        errorCode = businessException.getCode();
+                        errorKey = businessException.getMessage();
+                        log.warn("SSE 业务异常: appId={}, code={}, key={}", appId, errorCode, errorKey);
+                    } else {
+                        log.error("SSE 对话流异常: appId={}", appId, error);
+                    }
+                    Map<String, Object> errorData = new HashMap<>();
+                    errorData.put("error", true);
+                    errorData.put("code", errorCode);
+                    errorData.put("message", errorKey);
+                    return Flux.just(ServerSentEvent.<String>builder()
+                            .event("business-error")
+                            .data(JSONUtil.toJsonStr(errorData))
+                            .build());
+                });
+        // 出错时不补发 done（前端收到 business-error 即视为终态）
+        return Flux.concat(safeStream, Flux.defer(() -> streamErrored.get()
+                ? Flux.empty()
+                : Mono.just(ServerSentEvent.<String>builder().event("done").data("").build())));
     }
 
     /**

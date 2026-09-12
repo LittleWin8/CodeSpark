@@ -11,6 +11,7 @@ declare namespace API {
   type AppAddRequest = {
     initPrompt?: string
     codeGenType?: string
+    presetId?: string
   }
 
   type AppAdminUpdateRequest = {

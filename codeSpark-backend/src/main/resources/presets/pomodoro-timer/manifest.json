@@ -1,0 +1,34 @@
+{
+  "id": "pomodoro-timer",
+  "version": 1,
+  "enabled": true,
+  "codeGenType": "html",
+  "label": {
+    "zh-CN": "拾光专注钟",
+    "en-US": "Focus Timer"
+  },
+  "initPrompt": {
+    "zh-CN": "帮我做一个番茄钟专注应用：25 分钟专注与 5 分钟休息倒计时、开始/暂停/重置控制、可勾选并本地保存的任务清单，以及今日完成次数统计；界面干净清爽。",
+    "en-US": "Build a Pomodoro focus app: 25-minute focus and 5-minute break countdown, start/pause/reset controls, a checkable task list saved locally, and a daily completed count; clean and fresh UI."
+  },
+  "variants": [
+    {
+      "id": "v1",
+      "dir": "variants/v1",
+      "narrative": "variants/v1/narrative.md",
+      "files": [
+        "variants/v1/index.html"
+      ]
+    }
+  ],
+  "paramPools": {
+    "names": {
+      "zh-CN": [
+        "番茄刻度"
+      ],
+      "en-US": [
+        "Pomodoro"
+      ]
+    }
+  }
+}

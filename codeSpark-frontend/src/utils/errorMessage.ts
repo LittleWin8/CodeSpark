@@ -79,6 +79,8 @@ const errorMessageMap: Record<string, string> = {
   PROJECT_PATH_NOT_DIR: 'error.projectPathNotDir',
   PROJECT_DOWNLOAD_FAILED: 'error.projectDownloadFailed',
   QUOTA_EXCEEDED: 'error.quotaExceeded',
+  OUTPUT_TRUNCATED: 'error.outputTruncated',
+  GENERATION_TOO_MANY_STEPS: 'error.generationTooManySteps',
   ok: 'error.default',
 }
 

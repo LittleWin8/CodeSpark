@@ -239,3 +239,34 @@ DROP TRIGGER IF EXISTS trigger_user_quota_usage_update_time ON user_quota_usage;
 CREATE TRIGGER trigger_user_quota_usage_update_time
     BEFORE UPDATE ON user_quota_usage
     FOR EACH ROW EXECUTE PROCEDURE update_user_quota_usage_update_time();
+-- ==================== 预置示例应用绑定（旁路表：仅路由/分析用，不参与业务主流程读写） ====================
+CREATE TABLE IF NOT EXISTS app_preset
+(
+    "appId"        BIGINT      PRIMARY KEY,
+    "presetId"     VARCHAR(64) NOT NULL,
+    "variantId"    VARCHAR(32),
+    "paletteId"    VARCHAR(32),
+    "appName"      VARCHAR(64),
+    "sampleDataId" VARCHAR(32),
+    "locale"       VARCHAR(16),
+    "used"         SMALLINT    NOT NULL DEFAULT 0,
+    "createTime"   TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updateTime"   TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+COMMENT ON TABLE app_preset IS '预置示例应用绑定（旁路，仅内部路由/分析）';
+
+CREATE OR REPLACE FUNCTION update_app_preset_update_time()
+    RETURNS TRIGGER AS
+$$
+BEGIN
+    NEW."updateTime" = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_app_preset_update_time ON app_preset;
+CREATE TRIGGER trigger_app_preset_update_time
+    BEFORE UPDATE
+    ON app_preset
+    FOR EACH ROW
+EXECUTE PROCEDURE update_app_preset_update_time();

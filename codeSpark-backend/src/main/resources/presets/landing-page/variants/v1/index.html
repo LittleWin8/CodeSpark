@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{appName}} {{appNameEn}} | 精品咖啡馆</title>
+<meta name="description" content="{{appName}} —— 云南高海拔产区微批次精品咖啡，手冲、自家烘焙、季节特调。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body id="top">
+
+<!-- ============================================================
+     顶部导航
+     ============================================================ -->
+<header class="nav" id="nav">
+  <div class="container nav-inner">
+    <a href="#top" class="logo" aria-label="{{appName}}首页">
+      <span class="logo-mark">拾</span>
+      <span class="logo-text">{{appName}}<small>{{appNameEn}}</small></span>
+    </a>
+
+    <nav class="nav-links" aria-label="主导航">
+      <a href="#story">品牌故事</a>
+      <a href="#features">特色</a>
+      <a href="#menu">菜单</a>
+      <a href="#visit">到店信息</a>
+      <a href="#visit" class="btn btn-primary">预约座位</a>
+    </nav>
+
+    <button class="burger" id="burger" aria-label="打开菜单" aria-expanded="false" aria-controls="mobileMenu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<!-- 移动端菜单 -->
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#story">品牌故事</a>
+  <a href="#features">特色</a>
+  <a href="#menu">菜单</a>
+  <a href="#visit">到店信息</a>
+  <a href="#visit" class="btn btn-primary">预约座位</a>
+</div>
+
+<main>
+
+  <!-- ============================================================
+       Hero
+       ============================================================ -->
+  <section class="hero">
+    <div class="container hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">云南高海拔 · 精品微批次</p>
+        <h1>把一杯咖啡的<br><em>时间</em>，交还给生活</h1>
+        <p class="lead">
+          从产地到杯中的每一道工序，我们只用最朴素的方式：慢烘、手冲、耐心等待。
+          让每一口都尝得到山野与阳光。
+        </p>
+        <div class="hero-actions">
+          <a href="#visit" class="btn btn-primary">预约一杯手冲</a>
+          <a href="#menu" class="btn btn-ghost">浏览菜单 →</a>
+        </div>
+        <p class="hero-meta">上海市静安区永和路 118 号 · 每日 10:00 – 22:00</p>
+      </div>
+
+      <div class="hero-media reveal">
+        <img src="https://picsum.photos/seed/{{imgSeed}}-sg-hero/900/1125" alt="咖啡馆内的手冲咖啡场景">
+        <div class="hero-badge">
+          <strong>4.9</strong>
+          <span>来自 1200+ 位客人</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       品牌故事
+       ============================================================ -->
+  <section class="section about" id="story">
+    <div class="container about-grid">
+      <div class="about-media reveal">
+        <img class="about-img-main" src="https://picsum.photos/seed/{{imgSeed}}-sg-story/820/1025" alt="咖啡师正在冲煮咖啡">
+        <img class="about-img-sub" src="https://picsum.photos/seed/{{imgSeed}}-sg-beans/600/600" alt="烘焙中的咖啡豆特写">
+      </div>
+
+      <div class="about-copy reveal">
+        <p class="eyebrow">品牌故事</p>
+        <h2>从一个山间小院，<br>到街角的一间咖啡馆</h2>
+        <p>
+          2013 年，我们在云南保山的一个山间小院里第一次喝到刚烘好的豆子。
+          那杯咖啡里没有复杂的技巧，只有果实的甜、山风的干净，和一段足够慢的时间。
+        </p>
+        <p>
+          {{appName}}因此而生。我们把咖啡当作一件需要等待的事：等待果实成熟，
+          等待豆子养好，等待水与粉在滤杯里慢慢交融。我们相信，
+          好喝的咖啡从来不是被"做"出来的，而是被"陪"出来的。
+        </p>
+
+        <div class="stats">
+          <div><strong>12</strong><span>年专注烘焙</span></div>
+          <div><strong>6</strong><span>支常驻微批次</span></div>
+          <div><strong>38</strong><span>个合作小农庄园</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       特色板块
+       ============================================================ -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-head reveal">
+        <p class="eyebrow">我们的特色</p>
+        <h2>我们坚持的四件事</h2>
+        <p class="section-sub">没有花哨的技巧，只有对原料与时间的尊重。</p>
+      </div>
+
+      <div class="feature-grid">
+        <!-- 特色 1 -->
+        <article class="feature-card reveal">
+          <img src="https://picsum.photos/seed/{{imgSeed}}-sg-pour/640/480" alt="手冲咖啡注水瞬间">
+          <div class="feature-body">
+            <span class="feature-index">01</span>
+            <h3>单品手冲</h3>
+            <p>每日轮换 6 支微批次豆子，由咖啡师现场冲煮，并附上产地与风味卡。</p>
+          </div>
+        </article>
+
+        <!-- 特色 2 -->
+        <article class="feature-card reveal">
+          <img src="https://picsum.photos/seed/{{imgSeed}}-sg-roast/640/480" alt="烘焙机中的咖啡豆">
+          <div class="feature-body">
+            <span class="feature-index">02</span>
+            <h3>自家烘焙</h3>
+            <p>每周三、周六小批量烘焙，只做当天与当周的豆子，绝不囤货。</p>
+          </div>
+        </article>
+
+        <!-- 特色 3 -->
+        <article class="feature-card reveal">
+          <img src="https://picsum.photos/seed/{{imgSeed}}-sg-season/640/480" alt="季节限定特调咖啡">
+          <div class="feature-body">
+            <span class="feature-index">03</span>
+            <h3>季节特调</h3>
+            <p>跟着节气走：春日的柚子冷萃、夏末的无花果气泡、秋冬的桂花拿铁。</p>
+          </div>
+        </article>
+
+        <!-- 特色 4 -->
+        <article class="feature-card reveal">
+          <img src="https://picsum.photos/seed/{{imgSeed}}-sg-space/640/480" alt="自然光线下的咖啡馆空间">
+          <div class="feature-body">
+            <span class="feature-index">04</span>
+            <h3>空间与器物</h3>
+            <p>木质长桌、自然采光与手工陶杯。可以独自久坐，也适合与朋友闲聊。</p>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       菜单（Tab 切换）
+       ============================================================ -->
+  <section class="section menu-section" id="menu">
+    <div class="container">
+      <div class="section-head reveal">
+        <p class="eyebrow">本季菜单</p>
+        <h2>按烘焙度找到你的那一杯</h2>
+        <p class="section-sub">堂食与外卖同价，自带杯立减 5 元。</p>
+      </div>
+
+      <!-- 切换按钮 -->
+      <div class="tabs" role="tablist" aria-label="菜单分类">
+        <button class="tab-btn active" role="tab" aria-selected="true" data-panel="panel-light">浅烘 · 明亮</button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-panel="panel-medium">中烘 · 平衡</button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-panel="panel-dark">深烘 · 醇厚</button>
+      </div>
+
+      <!-- 面板 1：浅烘 -->
+      <div class="panel active" id="panel-light" role="tabpanel">
+        <div class="panel-media">
+          <img src="https://picsum.photos/seed/{{imgSeed}}-sg-light/760/608" alt="浅烘焙咖啡豆与手冲器具">
+        </div>
+        <div class="panel-body">
+          <h3>浅烘 · 明亮果酸</h3>
+          <p>保留最多产地风味的一类。适合手冲与冷萃，酸质清亮，尾韵带着花果香。</p>
+          <ul class="menu-list">
+            <li>
+              <div class="menu-main">
+                <span class="menu-name">耶加雪菲 日晒</span>
+                <span class="menu-note">柑橘 · 茉莉 · 蜂蜜</span>
+              </div>
+              <span class="menu-price">¥38</span>
+            </li>
+            <li>
+              <div class="menu-main">
+                <span class="menu-name">哥伦比亚 慧兰</span>
+                <span class="menu-note">青苹果 · 焦糖</span>
+              </div>
+              <span class="menu-price">¥36</span>
+            </li>
+            <li>
+              <div class="menu-main">
+                <span class="menu-name">肯尼亚 AA</span>
+                <span class="menu-note">黑加仑 · 番茄 · 蔗糖</span>
+              </div>
+              <span class="menu-price">¥42</span>
+            </li>
+          </ul>
+          <a href="#visit" class="btn btn-ghost">到店品尝 →</a>
+        </div>
+      </div>
+
+      <!-- 面板 2：中烘 -->
+      <div class="panel" id="panel-medium" role="tabpanel">
+        <div class="panel-media">
+          <img src="https://picsum.photos/seed/{{imgSeed}}-sg-medium/760/608" alt="中烘焙咖啡豆特写">
+        </div>
+        <div class="panel-body">
+          <h3>中烘 · 平衡圆润</h3>
+          <p>日常最耐喝的一类。甜感与酸质平衡，无论是手冲还是奶咖都很合适。</p>
+          <ul class="menu-list">
+            <li>
+              <div class="menu-main">
+                <span class="menu-name">云南保山 卡蒂姆</span>
+                <span class="menu-note">焦糖 · 坚果 · 黑巧</span>
+              </div>
+              <span class="menu-price">¥32</span>
+            </li>
+            <li>
+              <div class="menu-main">
+                <span class="menu-name">巴西 喜拉多</span>
+                <span class="menu-note">可可 · 榛果 · 奶油</span>
+              </div>
+              <span class="menu-price">¥30</span>
+            </li>
+            <li>
+              <div class="menu-main">
+                <span class="menu-name">危地马拉 安提瓜</span>
+                <span class="menu-note">太妃糖 · 柑橘</span>
+              </div>
+              <span class="menu-price">¥38</span>
+            </li>
+          </ul>
+          <a href="#visit" class="btn btn-ghost">到店品尝 →</a>
+        </div>
+      </div>
+
+      <!-- 面板 3：深烘 -->
+      <div class="panel" id="panel-dark" role="tabpanel">
+        <div class="panel-media">
+          <img src="https://picsum.photos/seed/{{imgSeed}}-sg-dark/760/608" alt="深烘焙咖啡豆与浓缩咖啡">
+        </div>
+        <div class="panel-body">
+          <h3>深烘 · 醇厚浓郁</h3>
+          <p>适合浓缩与奶咖的一类。口感厚重，苦甜分明，配牛奶尤其顺口。</p>
+          <ul class="menu-list">
+            <li>
+              <div class="menu-main">
+                <span class="menu-name">曼特宁 湿刨</span>
+                <span class="menu-note">草本 · 黑巧 · 木质</span>
+              </div>
+              <span class="menu-price">¥38</span>
+            </li>
+            <li>
+              <div class="menu-main">
+                <span class="menu-name">意式拼配「黑森林」</span>
+                <span class="menu-note">黑巧 · 烤杏仁</span>
+              </div>
+              <span class="menu-price">¥28</span>
+            </li>
+            <li>
+              <div class="menu-main">
+                <span class="menu-name">苏门答腊 黄金曼特宁</span>
+                <span class="menu-note">雪松 · 糖蜜</span>
+              </div>
+              <span class="menu-price">¥45</span>
+            </li>
+          </ul>
+          <a href="#visit" class="btn btn-ghost">到店品尝 →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       CTA 行动区
+       ============================================================ -->
+  <section class="section" id="visit">
+    <div class="container">
+      <div class="cta reveal">
+        <p class="eyebrow light">到店信息 · 预约</p>
+        <h2>留一个位置，<br>给今天的自己</h2>
+        <p>填写邮箱，我们会把每周的豆单与空位提醒发给你。当然，也欢迎直接推门进来坐坐。</p>
+
+        <form class="cta-form" id="reserveForm" novalidate>
+          <input type="email" name="email" placeholder="你的邮箱地址" aria-label="你的邮箱地址" autocomplete="email">
+          <button type="submit" class="btn">预约座位</button>
+        </form>
+
+        <p class="cta-meta">上海市静安区永和路 118 号 · 021-8888 6666 · 每日 10:00 – 22:00</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============================================================
+     页脚
+     ============================================================ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="#top" class="logo" aria-label="回到顶部">
+          <span class="logo-mark">拾</span>
+          <span class="logo-text">{{appName}}<small>{{appNameEn}}</small></span>
+        </a>
+        <p>一间把时间放慢的咖啡馆。愿每一杯，都值得被认真对待。</p>
+      </div>
+
+      <div class="footer-col">
+        <h4>探索</h4>
+        <a href="#story">品牌故事</a>
+        <a href="#features">特色</a>
+        <a href="#menu">菜单</a>
+        <a href="#visit">到店信息</a>
+      </div>
+
+      <div class="footer-col">
+        <h4>联系</h4>
+        <a href="tel:02188886666">021-8888 6666</a>
+        <a href="mailto:hello@shiguang.coffee">hello@shiguang.coffee</a>
+        <a href="#top">微信公众号：{{appName}}</a>
+      </div>
+
+      <div class="footer-col">
+        <h4>营业时间</h4>
+        <p>周一至周五 10:00 – 22:00</p>
+        <p>周六至周日 09:00 – 23:00</p>
+        <p>节假日照常营业</p>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>© 2025 {{appName}} {{appNameEn}}. 保留所有权利。</span>
+      <span>Powered by 热爱与咖啡因</span>
+    </div>
+  </div>
+</footer>
+
+<!-- 回到顶部 -->
+<button class="to-top" id="toTop" aria-label="回到顶部">↑</button>
+
+<!-- 轻提示 -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="script.js"></script>
+</body>
+</html>

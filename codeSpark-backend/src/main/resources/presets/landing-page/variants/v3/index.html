@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{appName}} {{appNameEn}} · 精品咖啡烘焙工坊</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ==================== 顶部导航 ==================== -->
+  <header class="site-header" id="siteHeader">
+    <div class="container nav-inner">
+      <a class="brand" href="#top" aria-label="{{appName}}首页">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="12" rx="6" ry="9.2" transform="rotate(35 12 12)"/>
+            <path d="M8.6 5.4c2.1 3.2 2.1 10.2 0 13.2"/>
+          </svg>
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">{{appName}}</span>
+          <span class="brand-sub">{{appNameEn}}</span>
+        </span>
+      </a>
+
+      <nav class="nav-links" id="navLinks" aria-label="主导航">
+        <a href="#about">品牌故事</a>
+        <a href="#features">我们的特色</a>
+        <a href="#gallery">空间与时刻</a>
+        <a href="#contact">联系我们</a>
+      </nav>
+
+      <a href="#cta" class="btn btn-primary nav-cta">预约到店</a>
+
+      <button class="nav-toggle" id="navToggle" aria-label="打开菜单" aria-expanded="false" aria-controls="navLinks">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <!-- ==================== 首屏 ==================== -->
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-text">
+          <span class="eyebrow">精品咖啡 · SINCE 2014</span>
+          <h1>一杯手冲，<br>留住山野的风。</h1>
+          <p class="hero-desc">
+            我们走访全球十余个咖啡产区，只挑选当季最优质的微批量生豆，
+            用最克制的方式烘焙与冲煮，让每一杯咖啡都保留它本来的风土。
+          </p>
+
+          <div class="hero-actions">
+            <a href="#features" class="btn btn-primary">探索风味</a>
+            <a href="#about" class="btn btn-ghost">品牌故事</a>
+          </div>
+
+          <ul class="hero-stats">
+            <li><strong>12+</strong><span>合作精品产区</span></li>
+            <li><strong>10 年</strong><span>烘焙与冲煮经验</span></li>
+            <li><strong>100%</strong><span>当日新鲜出品</span></li>
+          </ul>
+        </div>
+
+        <div class="hero-media">
+          <img src="https://picsum.photos/seed/{{imgSeed}}-hillside-coffee-hero/900/1125" alt="阳光下的手冲咖啡与木质吧台">
+          <div class="hero-badge">
+            <span class="dot" aria-hidden="true"></span>
+            <p><strong>今日烘焙</strong>埃塞俄比亚 · 耶加雪菲 水洗</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 品牌故事 ==================== -->
+    <section class="section" id="about">
+      <div class="container about-grid">
+        <div class="about-media reveal">
+          <img class="main-img" src="https://picsum.photos/seed/{{imgSeed}}-hillside-barista/800/960" alt="咖啡师正在冲煮手冲咖啡">
+          <img class="small-img" src="https://picsum.photos/seed/{{imgSeed}}-hillside-beans/600/600" alt="新鲜烘焙的咖啡豆特写">
+        </div>
+
+        <div class="about-text reveal">
+          <span class="eyebrow">品牌故事</span>
+          <h2 class="section-title">从一座小山坡开始的咖啡实验</h2>
+          <p>
+            2014 年，我们在城市边缘的一间旧仓库里支起了第一台烘焙机。没有菜单，
+            只有一张手写的豆单和一把手冲壶。我们想做的事很简单——把那些容易被忽略
+            的风味，认真地呈现给愿意停下来的人。
+          </p>
+          <p>
+            今天，{{appName}}有了三间门店和一间烘焙工坊。规模变大了，但我们对味道的
+            偏执没有变：小批量烘焙、按需研磨、当日出品。
+          </p>
+
+          <ul class="check-list">
+            <li>
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              只选用 84 分以上的精品级生豆
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              每批次烘焙后 48 小时内完成风味杯测
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              所有咖啡豆均可追溯至具体庄园与处理批次
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 特色板块 ==================== -->
+    <section class="section features" id="features">
+      <div class="container">
+        <div class="section-head reveal">
+          <span class="eyebrow">我们的特色</span>
+          <h2 class="section-title">四件我们从不妥协的事</h2>
+          <p class="lead">从一颗生豆到一杯咖啡，每一环节都由我们自己把控。</p>
+        </div>
+
+        <div class="features-grid">
+          <article class="feature-card reveal">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 20c0-8 6-14 16-15 1 10-5 16-13 16H4z"/>
+                <path d="M4 20c3-5 7-8 11-9"/>
+              </svg>
+            </div>
+            <h3>单一产地</h3>
+            <p>每一支豆子都来自可追溯的单一庄园与处理批次，我们拒绝用拼配去模糊风味的边界。</p>
+          </article>
+
+          <article class="feature-card reveal">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3s5 5.6 5 9.4A5 5 0 0 1 7 12.4C7 8.6 12 3 12 3z"/>
+                <path d="M4 21h16"/>
+              </svg>
+            </div>
+            <h3>手工冲煮</h3>
+            <p>咖啡师按豆性调整水温与粉水比，一杯一冲，不过度萃取，保留层次与回甘。</p>
+          </article>
+
+          <article class="feature-card reveal">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3c2.8 3.8 5.8 6 5.8 9.8A5.8 5.8 0 0 1 6.2 12.8c0-1.9 1-3.4 2-4.8.5 1.5 1.4 2 1.9 2C10.6 7.5 11.4 5.4 12 3z"/>
+              </svg>
+            </div>
+            <h3>自家烘焙</h3>
+            <p>烘焙工坊每日小批量作业，48 小时内直送门店，让香气停留在最好的时刻。</p>
+          </article>
+
+          <article class="feature-card reveal">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 20V10l8-6 8 6v10"/>
+                <path d="M9.5 20v-6h5v6"/>
+              </svg>
+            </div>
+            <h3>自然空间</h3>
+            <p>木质、绿植与自然光，我们把城市里难得的片刻安静，留给一杯咖啡和你。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 空间展示 ==================== -->
+    <section class="section" id="gallery">
+      <div class="container">
+        <div class="section-head reveal" style="max-width:640px;">
+          <span class="eyebrow">空间与时刻</span>
+          <h2 class="section-title">把时间调慢一点</h2>
+          <p class="lead">无论是一个人带着笔记本，还是与朋友闲聊，这里都留了位置给你。</p>
+        </div>
+
+        <div class="gallery-grid">
+          <figure class="reveal">
+            <img src="https://picsum.photos/seed/{{imgSeed}}-hillside-pour/700/875" alt="手冲吧台的一角">
+            <figcaption>手冲吧台</figcaption>
+          </figure>
+          <figure class="reveal">
+            <img src="https://picsum.photos/seed/{{imgSeed}}-hillside-roastery/700/875" alt="咖啡烘焙工坊内部">
+            <figcaption>烘焙工坊</figcaption>
+          </figure>
+          <figure class="reveal">
+            <img src="https://picsum.photos/seed/{{imgSeed}}-hillside-window/700/875" alt="窗边的阅读座位">
+            <figcaption>午后窗边</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 行动召唤 ==================== -->
+    <section class="section" id="cta" style="padding-top:0;">
+      <div class="container">
+        <div class="cta-wrap reveal">
+          <h2>为自己留一杯咖啡的时间</h2>
+          <p>新客到店出示本页面，可享手冲咖啡体验价 ¥28。每日限量供应，建议提前预约座位。</p>
+          <div class="cta-actions">
+            <a href="#contact" class="btn btn-light">预约到店</a>
+            <a href="#gallery" class="btn btn-outline-light">看看空间</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== 页脚 ==================== -->
+  <footer class="site-footer" id="contact">
+    <div class="container">
+      <div class="footer-grid">
+
+        <!-- 品牌 -->
+        <div class="footer-brand">
+          <a class="brand" href="#top">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <ellipse cx="12" cy="12" rx="6" ry="9.2" transform="rotate(35 12 12)"/>
+                <path d="M8.6 5.4c2.1 3.2 2.1 10.2 0 13.2"/>
+              </svg>
+            </span>
+            <span class="brand-text">
+              <span class="brand-name">{{appName}}</span>
+              <span class="brand-sub">{{appNameEn}}</span>
+            </span>
+          </a>
+          <p class="footer-desc">以自然的方式，呈现咖啡本来的味道。三间门店，一间烘焙工坊，等你来坐坐。</p>
+        </div>
+
+        <!-- 门店信息 -->
+        <div>
+          <h4>门店信息</h4>
+          <ul class="footer-list">
+            <li>和平区山坡路 27 号 1F</li>
+            <li>周一至周日 8:00 – 20:00</li>
+            <li>021 - 8888 6666</li>
+            <li><a href="mailto:hello@hillsidecoffee.cn">hello@hillsidecoffee.cn</a></li>
+          </ul>
+        </div>
+
+        <!-- 快速导航 -->
+        <div>
+          <h4>快速导航</h4>
+          <ul class="footer-list">
+            <li><a href="#about">品牌故事</a></li>
+            <li><a href="#features">我们的特色</a></li>
+            <li><a href="#gallery">空间与时刻</a></li>
+            <li><a href="#cta">预约到店</a></li>
+          </ul>
+        </div>
+
+        <!-- 订阅 -->
+        <div>
+          <h4>订阅每周豆单</h4>
+          <p style="font-size:.9rem;color:rgba(255,255,255,.58);">
+            每周一封邮件，告诉你这一周新到的豆子与风味笔记。
+          </p>
+          <form class="subscribe-form" id="subscribeForm" novalidate>
+            <input type="email" name="email" placeholder="你的邮箱地址" aria-label="邮箱地址" required>
+            <button type="submit">订阅</button>
+          </form>
+          <p class="form-msg" id="formMsg" role="status" aria-live="polite"></p>
+        </div>
+
+      </div>
+
+      <div class="footer-bottom">
+        <span>© 2025 {{appName}} {{appNameEn}} · 保留所有权利</span>
+        <span>隐私政策 · 使用条款 · 咖啡豆溯源</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

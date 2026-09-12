@@ -41,6 +41,10 @@ import top.littlewin.codespark.monitor.MonitorContext;
 import top.littlewin.codespark.monitor.MonitorContextHolder;
 import top.littlewin.codespark.service.*;
 import top.littlewin.codespark.screenshot.ScreenshotTaskPublisher;
+import top.littlewin.codespark.preset.PresetBinding;
+import top.littlewin.codespark.preset.PresetDefinition;
+import top.littlewin.codespark.preset.PresetHit;
+import top.littlewin.codespark.preset.PresetService;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -86,6 +90,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     @Resource
     private UserQuotaUsageService userQuotaUsageService;
 
+    @Resource
+    private PresetService presetService;
+
     /** 自注入代理：createApp 内部调用 @Async 方法时，需通过代理走异步线程池 */
     @Lazy
     @Resource
@@ -115,6 +122,24 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         ThrowUtils.throwIf(appAddRequest == null, ErrorCode.PARAMS_ERROR);
         String initPrompt = appAddRequest.getInitPrompt();
         ThrowUtils.throwIf(StrUtil.isBlank(initPrompt), ErrorCode.PARAMS_ERROR, ErrorMessage.EMPTY_INIT_PROMPT);
+
+        // 1.5 预置示例应用：命中则不调用 AI 路由/命名，按清单类型与名称池落库（旁路表记录绑定）
+        if (presetService.isEnabled() && StrUtil.isNotBlank(appAddRequest.getPresetId())) {
+            PresetDefinition preset = presetService.resolveForCreate(initPrompt, appAddRequest.getPresetId());
+            if (preset != null) {
+                String locale = presetService.resolveLocale(preset, initPrompt);
+                PresetBinding binding = presetService.choose(preset, locale, loginUser.getId());
+                App presetApp = new App();
+                BeanUtil.copyProperties(appAddRequest, presetApp);
+                presetApp.setUserId(loginUser.getId());
+                presetApp.setCodeGenType(preset.codeGenTypeOrDefault());
+                presetApp.setAppName(binding.name());
+                boolean saved = this.save(presetApp);
+                ThrowUtils.throwIf(!saved, ErrorCode.OPERATION_ERROR);
+                presetService.saveBinding(presetApp.getId(), binding);
+                return presetApp.getId();
+            }
+        }
 
         // 2. 构造入库对象
         App app = new App();
@@ -205,6 +230,15 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
 
         // 3.权限校验，仅本人可以和 AI 对话
         ThrowUtils.throwIf(!app.getUserId().equals(loginUser.getId()), ErrorCode.NO_AUTH_ERROR);
+
+        // 3.5 预置示例：绑定未用 + 无 AI 历史 + 提示词未改动 → 不扣额度、不调 AI，落库/回放与真实一致
+        PresetHit presetHit = presetService.findHit(appId, message);
+        if (presetHit != null) {
+            presetService.markUsed(appId);
+            chatHistoryService.addChatMessage(appId, message,
+                    ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
+            return streamMessageHandler.handle(presetService.stream(presetHit, loginUser), appId, loginUser);
+        }
 
         // 4 校验月额度
         userQuotaUsageService.checkQuota(loginUser.getId());

@@ -49,13 +49,18 @@ codespark:
       max-tokens: 512
   quota:
     enabled: true
-    monthly-tokens: 200000             # 默认上限，-1 = 不限
+    monthly-tokens: 100000             # 默认上限，-1 = 不限
     counted-models: [ deepseek-v4-flash ]  # 计入额度的模型
   screenshot:
     workers: 2                        # 截图 worker 数（并发 Chrome 上限）
     queue-capacity: 100               # 任务队列容量，满则丢弃并记日志
     retry-times: 1                    # 单个任务失败重试次数
     page-load-timeout-seconds: 30
+  preset:
+    enabled: true                     # 预置示例应用总开关（关则全部回落真实 AI 生成）
+    replay-chunk-size: 40             # 回放分片字符数
+    replay-interval-millis: 20        # 回放分片间隔（毫秒）
+    select-retry: 5                   # 变体去重重试次数
 
 
 # 阿里云 OSS 对象存储（V2 SDK）
@@ -92,7 +97,7 @@ langchain4j:
       base-url: ${AI_BASE_URL:https://api.deepseek.com}
       api-key: ${AI_API_KEY:your-api-key-here}
       model-name: deepseek-v4-flash
-      max-tokens: 16384
+      max-tokens: 65536
 #      strict-json-schema: true
 #      response-format: json_object
       log-requests: true
@@ -101,7 +106,7 @@ langchain4j:
       base-url: ${AI_BASE_URL:https://api.deepseek.com}
       api-key: ${AI_API_KEY:your-api-key-here}
       model-name: deepseek-v4-flash
-      max-tokens: 16384
+      max-tokens: 65536
       # 解析 delta.reasoning_content → TokenStream.onPartialThinking 事件，用于前端流式展示模型推理过程
       return-thinking: true
       log-requests: true
