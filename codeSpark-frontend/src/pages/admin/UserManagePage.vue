@@ -50,14 +50,24 @@
           <span class="time-cell">{{ dayjs(record.createTime).format('YYYY-MM-DD HH:mm:ss') }}</span>
         </template>
         <template v-else-if="column.key === 'action'">
-          <a-popconfirm
-            :title="t('userManage.deleteConfirm')"
-            @confirm="() => doDelete(record.id)"
-          >
-            <a-button size="small" danger :disabled="isSelf(record.id)">
-              {{ t('common.delete') }}
-            </a-button>
-          </a-popconfirm>
+          <a-space :size="8">
+            <a-popconfirm
+              :title="t('userManage.resetConfirm')"
+              @confirm="() => doResetPassword(record.id)"
+            >
+              <a-button size="small" :disabled="isSelf(record.id)">
+                {{ t('userManage.resetPassword') }}
+              </a-button>
+            </a-popconfirm>
+            <a-popconfirm
+              :title="t('userManage.deleteConfirm')"
+              @confirm="() => doDelete(record.id)"
+            >
+              <a-button size="small" danger :disabled="isSelf(record.id)">
+                {{ t('common.delete') }}
+              </a-button>
+            </a-popconfirm>
+          </a-space>
         </template>
       </template>
     </a-table>
@@ -66,7 +76,7 @@
 
 <script lang="ts" setup>
 import { useI18n } from 'vue-i18n'
-import { deleteUser, listUserVoByPage } from '@/api/userController'
+import { deleteUser, listUserVoByPage, resetPassword } from '@/api/userController'
 import { message } from 'ant-design-vue'
 import type { TablePaginationConfig } from 'ant-design-vue'
 import dayjs from 'dayjs'
@@ -125,7 +135,7 @@ const columns = computed(() => [
   {
     title: t('userManage.action'),
     key: 'action',
-    width: 96,
+    width: 160,
   },
 ])
 
@@ -185,6 +195,19 @@ const doDelete = async (id: number | undefined) => {
     fetchData()
   } else {
     message.error(t('userManage.deleteFailed'))
+  }
+}
+
+// 重置密码为系统默认密码（管理员重置后该用户被强制下线）
+const doResetPassword = async (id: number | undefined) => {
+  if (!id) {
+    return
+  }
+  const res = await resetPassword({ id })
+  if (res.data.code === 0) {
+    message.success(t('userManage.resetSuccess'))
+  } else {
+    message.error(t('userManage.resetFailed') + getErrorMessage(res.data.code, res.data.message))
   }
 }
 

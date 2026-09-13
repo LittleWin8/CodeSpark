@@ -93,7 +93,10 @@
     "projectDownloadFailed": "Failed to package and download project",
     "quotaExceeded": "Monthly quota exhausted, please try again next month",
     "outputTruncated": "Output was truncated, please split your request and retry",
-    "generationTooManySteps": "Too many generation steps, please break the request into smaller parts"
+    "generationTooManySteps": "Too many generation steps, please break the request into smaller parts",
+    "cannotResetSelf": "Cannot reset your own password",
+    "oldPasswordError": "Current password is incorrect",
+    "passwordSame": "New password must differ from the current one"
   },
   "nav": {
     "home": "Home",
@@ -209,7 +212,12 @@
     "totalItems": "{total} items in total",
     "deleteSuccess": "Deleted successfully",
     "deleteFailed": "Delete failed",
-    "deleteConfirm": "Delete this user?"
+    "deleteConfirm": "Delete this user?",
+    "resetPassword": "Reset Password",
+    "resetConfirm": "Reset this user's password to the system default?",
+    "resetSuccess": "Reset to system default password. Please notify the user to change it soon.",
+    "resetFailed": "Reset failed: ",
+    "pwdMismatch": "The two new passwords do not match"
   },
   "appChat": {
     "appName": "App Name",
@@ -381,7 +389,15 @@
     "copy": "Copy",
     "copySuccess": "Copied",
     "copyFailed": "Copy failed",
-    "totalTokens": "Total Tokens Used"
+    "totalTokens": "Total Tokens Used",
+    "tabProfile": "Edit Profile",
+    "tabPassword": "Change Password",
+    "oldPassword": "Current password",
+    "newPassword": "New password",
+    "confirmNewPassword": "Confirm new password",
+    "pwdSubmit": "Change password",
+    "pwdChangeSuccess": "Password changed. Please log in again with your new password",
+    "pwdAllRequired": "Please fill in current password, new password and confirmation"
   },
   "quota": {
     "cardTitle": "Monthly Quota",

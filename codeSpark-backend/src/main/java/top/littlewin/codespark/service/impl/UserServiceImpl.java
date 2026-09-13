@@ -20,8 +20,12 @@ import top.littlewin.codespark.model.vo.LoginUserVO;
 import top.littlewin.codespark.model.vo.UserVO;
 import top.littlewin.codespark.service.UserService;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
+import top.littlewin.codespark.constant.UserConstant;
 import top.littlewin.codespark.service.FileService;
 import top.littlewin.codespark.utils.PasswordUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import jakarta.servlet.http.HttpSession;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +39,7 @@ import static top.littlewin.codespark.constant.UserConstant.USER_LOGIN_STATE;
  *
  * @author <a href="https://github.com/LittleWin8">小稳</a>
  */
+@Slf4j
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements UserService{
 
@@ -46,6 +51,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
 
     @Resource
     private PasswordUtils passwordUtils;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     @Resource
     private FileService fileService;
@@ -174,6 +182,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
         }
 
         // 4. 记录用户的登录态
+        // 密码被重置/修改后重新登录成功 = 身份已确认：清除踢人标记并轮换会话，
+        // 否则旧会话（创建时间早于重置时间）会在 getLoginUser 时被立刻踢掉，出现"登录后仍未登录"
+        stringRedisTemplate.delete(UserConstant.USER_PWD_KICK_KEY + user.getId());
+        try {
+            request.getSession().invalidate();
+        } catch (Exception ignored) {
+        }
         request.getSession().setAttribute(USER_LOGIN_STATE, user);
 
         // 5. 获得脱敏后的用户信息
@@ -182,14 +197,40 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
 
     @Override
     public User getLoginUser(HttpServletRequest request) {
-        // 1. 判断用户是否登录
-        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
+
+        // 1. 管理员重置密码后的强制下线：会话创建时间早于重置时间戳即视为失效
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+
+        // 2. 获取当前登陆用户
+        Object userObj = session.getAttribute(USER_LOGIN_STATE);
         User currentUser = (User) userObj;
         if (currentUser == null || currentUser.getId() == null){
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
 
-        // 2. 从数据库获取最新的用户信息
+        // 3. 强制下线校验：密码被重置后，旧会话全部失效
+        String kickValue = stringRedisTemplate.opsForValue()
+                .get(UserConstant.USER_PWD_KICK_KEY + currentUser.getId());
+        if (StrUtil.isNotBlank(kickValue)) {
+            try {
+                long kickTime = Long.parseLong(kickValue);
+                if (session.getCreationTime() < kickTime) {
+                    log.info("会话因密码重置被强制下线: userId={}", currentUser.getId());
+                    session.invalidate();
+                    throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+                }
+            } catch (BusinessException e) {
+                throw e;
+            } catch (Exception e) {
+                log.warn("强制下线校验异常，按未登录处理: userId={}", currentUser.getId(), e);
+                throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+            }
+        }
+
+        // 4. 从数据库获取最新的用户信息
         long userId = currentUser.getId();
         currentUser = this.getById(userId);
         if (currentUser == null){

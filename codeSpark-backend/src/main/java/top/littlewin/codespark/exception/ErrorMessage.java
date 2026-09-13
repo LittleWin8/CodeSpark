@@ -44,6 +44,8 @@ public enum ErrorMessage {
     ACCOUNT_TOO_SHORT, // 账号长度不能少于 4 位
     PASSWORD_TOO_SHORT, // 密码长度不能少于 8 位
     PASSWORD_MISMATCH, // 两次输入的密码不一致
+    OLD_PASSWORD_ERROR, // 当前密码不正确
+    PASSWORD_SAME, // 新密码不能与当前密码相同
     INVALID_EMAIL, // 邮箱格式不正确
     EMAIL_EXISTS, // 邮箱已注册
     ACCOUNT_EXISTS, // 账号已存在
@@ -54,6 +56,7 @@ public enum ErrorMessage {
     LOGIN_FAILED, // 用户不存在或密码错误
     NOT_LOGIN, // 请先登录
     CANNOT_DELETE_SELF, // 不能删除自己
+    CANNOT_RESET_SELF, // 不能重置自己的密码
 
     // ---------- 聊天 ----------
     INVALID_MESSAGE_TYPE, // 消息类型不合法

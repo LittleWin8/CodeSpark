@@ -56,9 +56,34 @@ const columns = computed(() => [
   },
 ])
 
+// ===== 剩余额度条 =====
+/** 满额度颜色（绿） */
+const QUOTA_FULL_RGB = [82, 196, 26] as const
+/** 用尽颜色（灰） */
+const QUOTA_EMPTY_RGB = [217, 217, 217] as const
+
+/**
+ * 剩余额度百分比（0~100，四舍五入）：
+ * 进度条表示「剩余额度」——满额度 100%，用尽 0%
+ */
+const remainingPercent = (record: API.AdminQuotaUsageVO) => {
+  const limit = record.monthlyLimit ?? 0
+  if (limit <= 0) {
+    return 0
+  }
+  const remaining = record.remainingTokens ?? 0
+  return Math.min(100, Math.max(0, Math.round((remaining / limit) * 100)))
+}
+
+/** 剩余额度条颜色：满额度绿色 → 用尽灰色（随剩余比例线性过渡） */
+const quotaBarColor = (record: API.AdminQuotaUsageVO) => {
+  const ratio = remainingPercent(record) / 100
+  const channel = (from: number, to: number) => Math.round(from + (to - from) * ratio)
+  return `rgb(${channel(QUOTA_EMPTY_RGB[0], QUOTA_FULL_RGB[0])}, ${channel(QUOTA_EMPTY_RGB[1], QUOTA_FULL_RGB[1])}, ${channel(QUOTA_EMPTY_RGB[2], QUOTA_FULL_RGB[2])})`
+}
+
 // 获取数据
-const fetchData = async () => {
-  const res = await adminPageUsage({ ...searchParams })
+const fetchData = async () => {  const res = await adminPageUsage({ ...searchParams })
   if (res.data.code === 0 && res.data.data) {
     data.value = res.data.data.records ?? []
     total.value = res.data.data.totalRow ?? 0
@@ -157,13 +182,14 @@ onMounted(() => {
           <span class="mono-cell">{{ formatTokens(record.usedTokens) }}</span>
         </template>
         <template v-else-if="column.dataIndex === 'remainingTokens'">
-          <!-- -1 = 不限；正常展示 已用/上限 小进度条 -->
+          <!-- -1 = 不限；正常展示 剩余/上限 小进度条（满额度绿 → 用尽灰） -->
           <span v-if="record.remainingTokens === -1" class="muted-cell">
             {{ t('adminQuota.unlimited') }}
           </span>
           <div v-else class="quota-cell">
             <a-progress
-              :percent="Math.round(((record.usedTokens ?? 0) / (record.monthlyLimit ?? 1)) * 100)"
+              :percent="remainingPercent(record)"
+              :stroke-color="quotaBarColor(record)"
               :show-info="false"
               size="small"
               class="quota-bar"

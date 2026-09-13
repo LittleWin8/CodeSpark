@@ -93,7 +93,10 @@
     "projectDownloadFailed": "项目打包下载失败",
     "quotaExceeded": "本月额度已用完，请下月再试",
     "outputTruncated": "输出过长被截断，请拆分需求后重试",
-    "generationTooManySteps": "生成步骤过多，请把需求拆小后重试"
+    "generationTooManySteps": "生成步骤过多，请把需求拆小后重试",
+    "cannotResetSelf": "不能重置自己的密码",
+    "oldPasswordError": "当前密码不正确",
+    "passwordSame": "新密码不能与当前密码相同"
   },
   "nav": {
     "home": "首页",
@@ -209,7 +212,12 @@
     "totalItems": "共 {total} 条",
     "deleteSuccess": "删除成功",
     "deleteFailed": "删除失败",
-    "deleteConfirm": "确认删除该用户？"
+    "deleteConfirm": "确认删除该用户？",
+    "resetPassword": "重置密码",
+    "resetConfirm": "确认将该用户密码重置为系统默认密码？",
+    "resetSuccess": "已重置为系统默认密码，请通知该用户尽快修改",
+    "resetFailed": "重置失败：",
+    "pwdMismatch": "两次输入的新密码不一致"
   },
   "appChat": {
     "appName": "应用名称",
@@ -381,7 +389,15 @@
     "copy": "复制",
     "copySuccess": "复制成功",
     "copyFailed": "复制失败",
-    "totalTokens": "累计消耗 Token"
+    "totalTokens": "累计消耗 Token",
+    "tabProfile": "编辑资料",
+    "tabPassword": "修改密码",
+    "oldPassword": "当前密码",
+    "newPassword": "新密码",
+    "confirmNewPassword": "确认新密码",
+    "pwdSubmit": "修改密码",
+    "pwdChangeSuccess": "密码修改成功，请使用新密码重新登录",
+    "pwdAllRequired": "请填写当前密码、新密码和确认密码"
   },
   "quota": {
     "cardTitle": "本月额度",

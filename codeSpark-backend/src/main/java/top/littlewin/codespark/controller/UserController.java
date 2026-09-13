@@ -3,8 +3,11 @@ package top.littlewin.codespark.controller;
 import jakarta.annotation.Resource;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.paginate.Page;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -33,6 +36,7 @@ import java.util.List;
  *
  * @author <a href="https://github.com/LittleWin8">小稳</a>
  */
+@Slf4j
 @RestController
 @RequestMapping("/user")
 public class UserController {
@@ -42,6 +46,9 @@ public class UserController {
 
     @Resource
     private PasswordUtils passwordUtils;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * 用户注册
@@ -162,6 +169,97 @@ public class UserController {
         ThrowUtils.throwIf(targetUser == null, ErrorCode.NOT_FOUND_ERROR);
         boolean b = userService.removeById(deleteRequest.getId());
         return ResultUtils.success(b);
+    }
+
+
+    /**
+     * 用户修改自己的密码（成功后所有会话失效，需用新密码重新登录）
+     */
+    @PostMapping("/updatePassword")
+    public BaseResponse<Boolean> updateUserPassword(
+            @RequestBody UserUpdatePasswordRequest updatePasswordRequest,
+            HttpServletRequest request) {
+
+        if (updatePasswordRequest == null
+                || StrUtil.hasBlank(updatePasswordRequest.getOldPassword(),
+                                    updatePasswordRequest.getNewPassword(),
+                                    updatePasswordRequest.getCheckPassword())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, ErrorMessage.EMPTY_PARAMS);
+        }
+
+        // 1. 登录校验 + 基础规则
+        User loginUser = userService.getLoginUser(request);
+        if (updatePasswordRequest.getNewPassword().length() < 8
+                || updatePasswordRequest.getCheckPassword().length() < 8) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, ErrorMessage.PASSWORD_TOO_SHORT);
+        }
+        if (!updatePasswordRequest.getNewPassword().equals(updatePasswordRequest.getCheckPassword())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, ErrorMessage.PASSWORD_MISMATCH);
+        }
+
+        // 2. 当前密码必须正确
+        User dbUser = userService.getById(loginUser.getId());
+        ThrowUtils.throwIf(dbUser == null, ErrorCode.NOT_FOUND_ERROR);
+        if (!passwordUtils.matches(updatePasswordRequest.getOldPassword(), dbUser.getUserPassword())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, ErrorMessage.OLD_PASSWORD_ERROR);
+        }
+        if (updatePasswordRequest.getNewPassword().equals(updatePasswordRequest.getOldPassword())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, ErrorMessage.PASSWORD_SAME);
+        }
+
+        // 3. 更新密码
+        User updateUser = new User();
+        updateUser.setId(loginUser.getId());
+        updateUser.setUserPassword(passwordUtils.encrypt(updatePasswordRequest.getNewPassword()));
+        boolean result = userService.updateById(updateUser);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+
+        // 4. 所有会话失效（复用踢人标记），用户需用新密码重新登录
+        stringRedisTemplate.opsForValue().set(
+                UserConstant.USER_PWD_KICK_KEY + loginUser.getId(),
+                String.valueOf(System.currentTimeMillis()),
+                java.time.Duration.ofDays(30));
+        log.info("用户修改了密码并强制重新登录: user={}", loginUser.getUserAccount());
+        return ResultUtils.success(true);
+    }
+
+    /**
+     * 管理员重置用户密码为系统默认密码（不可重置自己，重置后强制该用户下线）
+     */
+    @PostMapping("/resetPassword")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> resetPassword(@RequestBody DeleteRequest deleteRequest,
+                                               HttpServletRequest request) {
+
+        // 1. 参数校验
+        if (deleteRequest == null || deleteRequest.getId() == null || deleteRequest.getId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        // 2. 获取当前登录管理员，不可重置自己
+        User loginUser = userService.getLoginUser(request);
+        if (deleteRequest.getId().equals(loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, ErrorMessage.CANNOT_RESET_SELF);
+        }
+
+        // 3. 目标用户必须存在
+        User targetUser = userService.getById(deleteRequest.getId());
+        ThrowUtils.throwIf(targetUser == null, ErrorCode.NOT_FOUND_ERROR);
+
+        // 4. 重置为配置文件的默认密码
+        User updateUser = new User();
+        updateUser.setId(targetUser.getId());
+        updateUser.setUserPassword(passwordUtils.encryptDefault());
+        boolean result = userService.updateById(updateUser);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+
+        // 5. 强制下线：写入踢人标记（时间戳），getLoginUser 会把创建时间早于该值的会话判为失效
+        stringRedisTemplate.opsForValue().set(
+                UserConstant.USER_PWD_KICK_KEY + targetUser.getId(),
+                String.valueOf(System.currentTimeMillis()),
+                java.time.Duration.ofDays(30));
+        log.info("管理员重置了用户密码并强制下线: operator={}, target={}",
+                loginUser.getUserAccount(), targetUser.getUserAccount());
+        return ResultUtils.success(true);
     }
 
     /**

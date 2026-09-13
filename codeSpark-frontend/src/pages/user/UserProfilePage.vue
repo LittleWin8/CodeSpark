@@ -11,7 +11,8 @@ import {
   SaveOutlined,
 } from '@ant-design/icons-vue'
 import type { UploadRequestOption } from 'ant-design-vue/es/vc-upload/interface'
-import { updateMyUser } from '@/api/userController'
+import { useRouter } from 'vue-router'
+import { updateMyUser, updateUserPassword } from '@/api/userController'
 import { getTotalTokens } from '@/api/userTokenUsageController'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { getErrorMessage } from '@/utils/errorMessage'
@@ -21,7 +22,12 @@ import { uploadAvatar } from '@/utils/upload'
 import { resolveFileUrl } from '@/utils/storage'
 
 const { t } = useI18n()
+const router = useRouter()
 const loginUserStore = useLoginUserStore()
+
+const routerPushLogin = async () => {
+  await router.push(`/user/login?redirect=${encodeURIComponent('/user/profile')}`)
+}
 
 const saving = ref(false)
 const avatarUploading = ref(false)
@@ -99,6 +105,43 @@ const copyShareCode = async () => {
     message.success(t('profile.copySuccess'))
   } catch {
     message.error(t('profile.copyFailed'))
+  }
+}
+
+// 修改密码表单
+const editTab = ref<'profile' | 'password'>('profile')
+const pwdForm = reactive({ oldPassword: '', newPassword: '', checkPassword: '' })
+const pwdSaving = ref(false)
+
+/**
+ * 修改密码：成功后所有会话失效，需用新密码重新登录
+ */
+const handlePasswordSubmit = async () => {
+  if (!pwdForm.oldPassword || !pwdForm.newPassword || !pwdForm.checkPassword) {
+    message.warning(t('profile.pwdAllRequired'))
+    return
+  }
+  if (pwdForm.newPassword !== pwdForm.checkPassword) {
+    message.warning(t('userManage.pwdMismatch'))
+    return
+  }
+  pwdSaving.value = true
+  try {
+    const res = await updateUserPassword({
+      oldPassword: pwdForm.oldPassword,
+      newPassword: pwdForm.newPassword,
+      checkPassword: pwdForm.checkPassword,
+    })
+    if (res.data.code === 0) {
+      message.success(t('profile.pwdChangeSuccess'))
+      // 所有会话已失效，回到登录页重新登录
+      loginUserStore.setLoginUser({ userName: t('header.anonymous') })
+      await routerPushLogin()
+    } else {
+      message.error(getErrorMessage(res.data.code, res.data.message) || t('profile.saveFailed'))
+    }
+  } finally {
+    pwdSaving.value = false
   }
 }
 
@@ -220,30 +263,52 @@ const handleSubmit = async () => {
           </div>
         </a-card>
 
-        <!-- 卡片4：编辑资料 -->
+        <!-- 卡片4：编辑资料 / 修改密码（Tab 切换） -->
         <a-card class="profile-card edit-card" :bordered="false">
           <template #title>
             <span class="card-title"><EditOutlined /> {{ t('profile.editTitle') }}</span>
           </template>
-          <a-form :model="formState" layout="vertical" @finish="handleSubmit">
-            <a-form-item :label="t('profile.userName')" name="userName">
-              <a-input v-model:value="formState.userName" :maxlength="20" show-count />
-            </a-form-item>
-            <a-form-item :label="t('profile.userProfile')" name="userProfile">
-              <a-textarea
-                v-model:value="formState.userProfile"
-                :rows="4"
-                :maxlength="100"
-                show-count
-              />
-            </a-form-item>
-            <a-form-item>
-              <a-button type="primary" html-type="submit" :loading="saving">
-                <template #icon><SaveOutlined /></template>
-                {{ t('common.save') }}
-              </a-button>
-            </a-form-item>
-          </a-form>
+          <a-tabs v-model:activeKey="editTab">
+            <a-tab-pane key="profile" :tab="t('profile.tabProfile')">
+              <a-form :model="formState" layout="vertical" @finish="handleSubmit">
+                <a-form-item :label="t('profile.userName')" name="userName">
+                  <a-input v-model:value="formState.userName" :maxlength="20" show-count />
+                </a-form-item>
+                <a-form-item :label="t('profile.userProfile')" name="userProfile">
+                  <a-textarea
+                    v-model:value="formState.userProfile"
+                    :rows="4"
+                    :maxlength="100"
+                    show-count
+                  />
+                </a-form-item>
+                <a-form-item>
+                  <a-button type="primary" html-type="submit" :loading="saving">
+                    <template #icon><SaveOutlined /></template>
+                    {{ t('common.save') }}
+                  </a-button>
+                </a-form-item>
+              </a-form>
+            </a-tab-pane>
+            <a-tab-pane key="password" :tab="t('profile.tabPassword')">
+              <a-form :model="pwdForm" layout="vertical" @finish="handlePasswordSubmit">
+                <a-form-item :label="t('profile.oldPassword')" name="oldPassword">
+                  <a-input-password v-model:value="pwdForm.oldPassword" />
+                </a-form-item>
+                <a-form-item :label="t('profile.newPassword')" name="newPassword">
+                  <a-input-password v-model:value="pwdForm.newPassword" :maxlength="64" />
+                </a-form-item>
+                <a-form-item :label="t('profile.confirmNewPassword')" name="checkPassword">
+                  <a-input-password v-model:value="pwdForm.checkPassword" :maxlength="64" />
+                </a-form-item>
+                <a-form-item>
+                  <a-button type="primary" html-type="submit" :loading="pwdSaving">
+                    {{ t('profile.pwdSubmit') }}
+                  </a-button>
+                </a-form-item>
+              </a-form>
+            </a-tab-pane>
+          </a-tabs>
         </a-card>
       </div>
     </div>
@@ -396,7 +461,10 @@ const handleSubmit = async () => {
   justify-content: flex-end;
 }
 
-/* 编辑资料卡紧凑化：缩小表单项间距，压低右侧高度 */
+.edit-card :deep(.ant-card-body) {
+  padding-top: 8px;
+}
+
 .edit-card :deep(.ant-form-item) {
   margin-bottom: 14px;
 }

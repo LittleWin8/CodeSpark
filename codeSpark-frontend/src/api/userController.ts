@@ -113,6 +113,18 @@ export async function userRegister(
   })
 }
 
+/** 此处后端没有提供注释 POST /user/resetPassword */
+export async function resetPassword(body: API.DeleteRequest, options?: { [key: string]: any }) {
+  return request<API.BaseResponseBoolean>('/user/resetPassword', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}
+
 /** 此处后端没有提供注释 POST /user/update */
 export async function updateUser(body: API.UserUpdateRequest, options?: { [key: string]: any }) {
   return request<API.BaseResponseBoolean>('/user/update', {
@@ -131,6 +143,21 @@ export async function updateMyUser(
   options?: { [key: string]: any }
 ) {
   return request<API.BaseResponseBoolean>('/user/update/my', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}
+
+/** 此处后端没有提供注释 POST /user/updatePassword */
+export async function updateUserPassword(
+  body: API.UserUpdatePasswordRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseBoolean>('/user/updatePassword', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
