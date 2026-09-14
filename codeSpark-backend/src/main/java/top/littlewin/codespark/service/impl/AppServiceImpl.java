@@ -486,9 +486,20 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                 .and(App::getDeployKey).eq(deployKey, StrUtil.isNotBlank(deployKey))
                 .and(App::getPriority).eq(priority)
                 .and(App::getUserId).eq(userId);
-        // sortField 为运行时变量，无法用 Lambda 引用，需自行保证与 PG 实际列名匹配
+
+        // 修复：禁止 orderBy(String)，sortField 只允许白名单走 Lambda，防止 ORDER BY 注入
+        // 前端会传 '"createTime"'（带双引号），这里先去掉引号再匹配
         if (StrUtil.isNotBlank(sortField)) {
-            queryWrapper.orderBy(sortField, "ascend".equals(sortOrder));
+            boolean isAsc = "ascend".equals(sortOrder);
+            String normalized = sortField.replace("\"", "").replace("'", "").replace("`", "").trim();
+            switch (normalized) {
+                case "id" -> queryWrapper.orderBy(App::getId, isAsc);
+                case "createTime" -> queryWrapper.orderBy(App::getCreateTime, isAsc);
+                case "updateTime" -> queryWrapper.orderBy(App::getUpdateTime, isAsc);
+                case "priority" -> queryWrapper.orderBy(App::getPriority, isAsc);
+                case "deployedTime" -> queryWrapper.orderBy(App::getDeployedTime, isAsc);
+                default -> { /* 非法排序字段直接忽略，不拼接进 SQL */ }
+            }
         }
         return queryWrapper;
     }

@@ -6,12 +6,10 @@ import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import top.littlewin.codespark.constant.AppConstant;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 /**
  * 文件删除工具
@@ -27,14 +25,14 @@ public class FileDeleteTool extends BaseTool {
             String relativeFilePath,
             @ToolMemoryId Long appId
     ) {
+        final Path path;
         try {
-            Path path = Paths.get(relativeFilePath);
-            if (!path.isAbsolute()) {
-                // 项目目录约定：code_output/vue_{appId}（与 FileWriteTool / 构建 / 部署一致）
-                String projectDirName = "vue_" + appId;
-                Path projectRoot = Paths.get(AppConstant.CODE_OUTPUT_ROOT_DIR, projectDirName);
-                path = projectRoot.resolve(relativeFilePath);
-            }
+            // 修复：路径收敛到 vue_{appId} 内，绝对路径 / ../ 逃逸直接拒绝
+            path = resolveInProject(appId, relativeFilePath);
+        } catch (Exception e) {
+            return "错误：非法路径 - " + relativeFilePath;
+        }
+        try {
             if (!Files.exists(path)) {
                 return "警告：文件不存在，无需删除 - " + relativeFilePath;
             }

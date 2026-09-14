@@ -271,8 +271,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
                 .and(User::getUserEmail).like(userEmail)
                 .and(User::getUserName).like(userName)
                 .and(User::getUserProfile).like(userProfile);
-        if (sortField != null && !sortField.isEmpty()) {
-            queryWrapper.orderBy(sortField, "ascend".equals(sortOrder));
+        // 禁止 orderBy(String)，只允许白名单走 Lambda，防止 ORDER BY 注入
+        if (StrUtil.isNotBlank(sortField)) {
+            boolean isAsc = "ascend".equals(sortOrder);
+            String normalized = sortField.replace("\"", "").replace("'", "").replace("`", "").trim();
+            switch (normalized) {
+                case "id" -> queryWrapper.orderBy(User::getId, isAsc);
+                case "createTime" -> queryWrapper.orderBy(User::getCreateTime, isAsc);
+                case "updateTime" -> queryWrapper.orderBy(User::getUpdateTime, isAsc);
+                default -> { /* 非法排序字段直接忽略 */ }
+            }
         }
         return queryWrapper;
     }

@@ -159,9 +159,17 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
         if (lastCreateTime != null) {
             queryWrapper.lt(ChatHistory::getCreateTime, lastCreateTime);
         }
+        // 修复：禁止 orderBy(String)，只允许白名单走 Lambda，防止 ORDER BY 注入
         // 排序
         if (StrUtil.isNotBlank(sortField)) {
-            queryWrapper.orderBy(sortField, "ascend".equals(sortOrder));
+            boolean isAsc = "ascend".equals(sortOrder);
+            String normalized = sortField.replace("\"", "").replace("'", "").replace("`", "").trim();
+            switch (normalized) {
+                case "id" -> queryWrapper.orderBy(ChatHistory::getId, isAsc);
+                case "createTime" -> queryWrapper.orderBy(ChatHistory::getCreateTime, isAsc);
+                case "updateTime" -> queryWrapper.orderBy(ChatHistory::getUpdateTime, isAsc);
+                default -> queryWrapper.orderBy(ChatHistory::getCreateTime, false);
+            }
         } else {
             // 默认按创建时间降序排列
             queryWrapper.orderBy(ChatHistory::getCreateTime, false);

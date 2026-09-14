@@ -7,13 +7,11 @@ import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import top.littlewin.codespark.constant.AppConstant;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 
 /**
@@ -30,14 +28,18 @@ public class FileWriteTool extends BaseTool {
             @P("要写入文件的内容") String content,
             @ToolMemoryId Long appId
     ) {
+        final Path path;
         try {
-            Path path = Paths.get(relativeFilePath);
-            if (!path.isAbsolute()) {
-                // 相对路径处理，创建基于 appId 的项目目录（与 codeGenType + "_" + appId 约定一致）
-                String projectDirName = "vue_" + appId;
-                Path projectRoot = Paths.get(AppConstant.CODE_OUTPUT_ROOT_DIR, projectDirName);
-                path = projectRoot.resolve(relativeFilePath);
-            }
+            // 修复：路径收敛到 vue_{appId} 内，绝对路径 / ../ 逃逸直接拒绝
+            path = resolveInProject(appId, relativeFilePath);
+        } catch (Exception e) {
+            return "错误：非法路径 - " + relativeFilePath;
+        }
+        // 修复：禁止写构建敏感文件
+        if (isBlockedWriteFile(path)) {
+            return "错误：不允许写入该文件 - " + relativeFilePath;
+        }
+        try {
             // 创建父目录（如果不存在）
             Path parentDir = path.getParent();
             if (parentDir != null) {

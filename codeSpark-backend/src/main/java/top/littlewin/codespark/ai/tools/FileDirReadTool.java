@@ -45,14 +45,23 @@ public class FileDirReadTool extends BaseTool {
             String relativeFilePath,
             @ToolMemoryId Long appId
     ) {
+        final Path path;
         try {
-            Path path = Paths.get(relativeFilePath == null ? "" : relativeFilePath);
-            if (!path.isAbsolute()) {
-                // 项目目录约定：code_output/vue_{appId}（与 FileWriteTool / 构建 / 部署一致）
-                String projectDirName = "vue_" + appId;
-                Path projectRoot = Paths.get(AppConstant.CODE_OUTPUT_ROOT_DIR, projectDirName);
-                path = projectRoot.resolve(relativeFilePath == null ? "" : relativeFilePath);
+            // 修复：路径收敛到 vue_{appId} 内；空路径读项目根，绝对路径 / ../ 逃逸拒绝
+            if (relativeFilePath == null || relativeFilePath.isBlank()) {
+                if (appId == null) {
+                    return "错误：非法路径 - " + relativeFilePath;
+                }
+                path = Paths.get(AppConstant.CODE_OUTPUT_ROOT_DIR, "vue_" + appId)
+                        .toAbsolutePath().normalize();
+            } else {
+                path = resolveInProject(appId, relativeFilePath);
             }
+        } catch (Exception e) {
+            return "错误：非法路径 - " + relativeFilePath;
+        }
+
+        try {
             File targetDir = path.toFile();
             if (!targetDir.exists() || !targetDir.isDirectory()) {
                 return "错误：目录不存在或不是目录 - " + relativeFilePath;

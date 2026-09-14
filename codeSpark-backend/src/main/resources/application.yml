@@ -56,6 +56,9 @@ codespark:
     queue-capacity: 100               # 任务队列容量，满则丢弃并记日志
     retry-times: 1                    # 单个任务失败重试次数
     page-load-timeout-seconds: 30
+  build:
+    # P0-3：私有 npm 源，为空用 npm 默认源；生产建议设内网源并做依赖白名单
+    npm-registry: ${NPM_REGISTRY:}
   preset:
     enabled: true                     # 预置示例应用总开关（关则全部回落真实 AI 生成）
     replay-chunk-size: 40             # 回放分片字符数

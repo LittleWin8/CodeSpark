@@ -3,6 +3,8 @@ package top.littlewin.codespark.core.builder;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
 import lombok.extern.slf4j.Slf4j;
+import top.littlewin.codespark.ai.tools.BaseTool;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
@@ -21,6 +23,56 @@ import java.util.function.Consumer;
 @Slf4j
 @Component
 public class VueProjectBulider {
+
+    /**
+     * 修复：package.json / vite.config.js 由服务端可信模板统一提供，
+     * AI（经 writeFile，已被 P0-2 禁止）不得决定依赖与构建脚本。
+     * 模板与 codegen-vue-system-prompt.txt 的参考配置保持一致。
+     */
+    private static final String TRUSTED_PACKAGE_JSON = """
+            {
+              "name": "codespark-vue-app",
+              "version": "1.0.0",
+              "private": true,
+              "scripts": {
+                "dev": "vite",
+                "build": "vite build",
+                "preview": "vite preview"
+              },
+              "dependencies": {
+                "vue": "^3.3.4",
+                "vue-router": "^4.2.4"
+              },
+              "devDependencies": {
+                "@vitejs/plugin-vue": "^4.2.3",
+                "vite": "^4.4.5"
+              }
+            }
+            """;
+
+    private static final String TRUSTED_VITE_CONFIG_JS = """
+            import { defineConfig } from 'vite'
+            import vue from '@vitejs/plugin-vue'
+            import { fileURLToPath, URL } from 'node:url'
+            
+            // 由平台统一提供，AI 不得修改：base './' 支持子路径部署，hash 路由无需服务端重写
+            export default defineConfig({
+              base: './',
+              plugins: [vue()],
+              resolve: {
+                alias: {
+                  '@': fileURLToPath(new URL('./src', import.meta.url))
+                }
+              }
+            })
+            """;
+
+    /**
+     * 私有 npm 源（可选）。为空则用 npm 默认源；
+     * 生产建议设为内网私有源并在源侧做依赖白名单。
+     */
+    @Value("${codespark.build.npm-registry:}")
+    private String npmRegistry;
 
     /**
      * 异步构建 Vue 项目，构建结束（成功/失败）后回调 onComplete
@@ -60,11 +112,15 @@ public class VueProjectBulider {
             log.error("项目目录不存在: {}", projectPath);
             return BuildResult.fail("项目目录不存在: " + projectPath);
         }
-        // 检查 package.json 是否存在
-        File packageJson = new File(projectDir, "package.json");
-        if (!packageJson.exists()) {
-            log.error("package.json 文件不存在: {}", packageJson.getAbsolutePath());
-            return BuildResult.fail("package.json 文件不存在");
+
+        // 修复：构建前强制用可信模板覆写 package.json / vite.config.js，
+        // AI 写入的（或缺失的）构建描述一律作废；同时删掉 AI 可能留下的
+        // lockfile / .npmrc，防止 pin 恶意 tarball 或改源。
+        try {
+            ensureTrustedBuildFiles(projectDir);
+        } catch (Exception e) {
+            log.error("写入可信构建模板失败: {}", e.getMessage(), e);
+            return BuildResult.fail("写入可信构建模板失败");
         }
         File distDir = new File(projectDir, "dist");
         // 复用已是最新的 dist，跳过构建
@@ -133,11 +189,63 @@ public class VueProjectBulider {
 
 
     /**
-     * 执行 npm install 命令
+     * 修复：用可信模板覆写构建描述文件，并清扫项目根目录下 AI 残留的
+     * 构建期文件（lockfile / .npmrc / 会被 vite/postcss/babel 加载的配置模块）。
+     * 只扫根目录一层，不递归，避免误伤 src/** 下的业务代码；只删文件，不碰目录。
+     */
+    private void ensureTrustedBuildFiles(File projectDir) {
+
+        // 1. 判断 package.json 与 vite.config.js 模板是否一致，不一致则用模板覆盖
+        writeIfChanged(new File(projectDir, "package.json"), TRUSTED_PACKAGE_JSON);
+        writeIfChanged(new File(projectDir, "vite.config.js"), TRUSTED_VITE_CONFIG_JS);
+
+        // 2. 清除项目下其他配置文件
+        File[] children = projectDir.listFiles();
+        if (children == null) {
+            return;
+        }
+        for (File child : children) {
+            if (!child.isFile() || isTrustedBuildFile(child.getName())) {
+                continue;
+            }
+            if (BaseTool.isBlockedWriteFileName(child.getName())) {
+                FileUtil.del(child);
+                log.info("已删除 AI 残留构建文件: {}", child.getAbsolutePath());
+            }
+        }
+    }
+
+    /** 刚写入的可信模板本身也在黑名单里，清扫时必须排除。 */
+    private boolean isTrustedBuildFile(String fileName) {
+        return fileName.equalsIgnoreCase("package.json")
+                || fileName.toLowerCase().startsWith("vite.config.");
+    }
+
+    /**
+     * 内容一致就不写，避免无条件覆写刷新 mtime。
+     * isDistUpToDate 靠文件 mtime 判断 dist 是否最新，每次都重写会导致
+     * “dist 已是最新，跳过构建”分支永久失效，每轮对话都全量重建。
+     */
+    private void writeIfChanged(File file, String content) {
+        if (file.isFile()
+                && content.equals(FileUtil.readString(file, StandardCharsets.UTF_8))) {
+            return;
+        }
+        FileUtil.writeString(content, file, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * 执行 npm install 命令。
+     * 修复：--ignore-scripts 禁掉所有 lifecycle 脚本（postinstall 等即 RCE 点），
+     * --no-audit --no-fund 减少出站请求；命令串由服务端常量组装，不含 AI 输入。
      */
     private String executeNpmInstall(File projectDir) {
         log.info("执行 npm install...");
-        return executeCommand(projectDir, buildCommand("npm install"), 300); // 5分钟超时
+        StringBuilder command = new StringBuilder("npm install --ignore-scripts --no-audit --no-fund");
+        if (StrUtil.isNotBlank(npmRegistry)) {
+            command.append(" --registry=").append(npmRegistry.trim());
+        }
+        return executeCommand(projectDir, buildCommand(command.toString()), 300); // 5分钟超时
     }
 
     /**
