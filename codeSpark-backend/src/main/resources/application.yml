@@ -26,7 +26,10 @@ server:
     context-path: /api
     session:
       cookie:
-        max-age: 2592000
+        max-age: 604800          # 7天
+        same-site: lax           # 跨站不带 Cookie，CSRF 读响应体的路断掉
+        secure: true             # 仅 HTTPS 传输
+        http-only: true          # JS 偷不走（显式声明防回退）
 
 # 应用自定义配置
 codespark:
@@ -77,8 +80,7 @@ aliyun:
     bucket-name: ${OSS_BUCKET:}
     # 自定义访问域名（CDN/自定义域名）：优先环境变量 OSS_DOMAIN，留空则用默认 Bucket 域名
     domain: ${OSS_DOMAIN:}
-    # 预签名 URL 有效期（秒），用于私有读场景；24 小时可显著降低过期概率，配合前端失败重取兜底
-    presign-expire-seconds: 86400
+    presign-expire-seconds: 600
 
 springdoc:
   group-configs:
@@ -116,15 +118,19 @@ langchain4j:
       log-responses: true
 
 # 监控
+# 生产不暴露任何 actuator 端点（Prometheus 已停用，实现保留，需要时改回即可）
+# include: "none" 是关键字写法，等价于下面列表形式；取消注释对应行即可恢复暴露
 management:
   endpoints:
     web:
       exposure:
         include:
-          - health
-          - info
-          - prometheus
+#          - health
+#          - info
+#          - prometheus
+          - none
   endpoint:
     health:
-      show-details: always
+      # 重新开放 health 时建议改回 when-authorized，避免泄露 DB/Redis/磁盘细节
+      show-details: never
 

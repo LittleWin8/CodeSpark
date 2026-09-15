@@ -120,9 +120,13 @@ public class FileController {
     /**
      * 将存储标识解析为可访问 URL（前端上传后预览 / 预签名 URL 过期兜底用）：
      * - oss: → 现签预签名 URL；local: → 本地静态访问地址；未知格式 → null
+     * 加登录校验。key 是私有读存储的访问凭据，匿名可签 = 越权读他人文件；
+     * 归属层面配合 VO 不再下发他人 key（AppVO.coverKey / UserVO.userAvatarKey 公开面置空）收敛
      */
     @GetMapping("/resolve")
-    public BaseResponse<String> resolve(@RequestParam("storageKey") String storageKey) {
+    public BaseResponse<String> resolve(@RequestParam("storageKey") String storageKey,
+                                        HttpServletRequest request) {
+        userService.getLoginUser(request);
         ThrowUtils.throwIf(StrUtil.isBlank(storageKey), ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_STORAGE_REQUEST);
         return ResultUtils.success(fileService.resolveUrl(storageKey));
     }

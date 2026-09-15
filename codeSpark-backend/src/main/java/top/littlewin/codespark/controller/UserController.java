@@ -139,12 +139,22 @@ public class UserController {
     }
 
     /**
-     * 根据 id 获取包装类
+     * 根据 id 获取包装类（仅本人或管理员）。
+     * 修复：原来内部自调用 getUserById(id)，AOP 代理不生效，
+     * @AuthCheck 被绕过，未登录可按 id 枚举全站账号/邮箱。现改为方法内独立鉴权，
+     * 不再复用管理员接口。
      */
     @GetMapping("/get/vo")
-    public BaseResponse<UserVO> getUserVOById(long id) {
-        BaseResponse<User> response = getUserById(id);
-        User user = response.getData();
+    public BaseResponse<UserVO> getUserVOById(long id, HttpServletRequest request) {
+        ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+        // 未登录直接抛 NOT_LOGIN_ERROR
+        User loginUser = userService.getLoginUser(request);
+        boolean isAdmin = UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole());
+        // 非管理员只能查自己
+        ThrowUtils.throwIf(!isAdmin && (loginUser.getId() == null || id != loginUser.getId()),
+                ErrorCode.NO_AUTH_ERROR);
+        User user = userService.getById(id);
+        ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR);
         return ResultUtils.success(userService.getUserVO(user));
     }
 

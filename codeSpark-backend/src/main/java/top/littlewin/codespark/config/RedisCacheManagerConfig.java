@@ -1,8 +1,8 @@
 package top.littlewin.codespark.config;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
+import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.annotation.Resource;
 import org.springframework.cache.CacheManager;
@@ -23,19 +23,36 @@ public class RedisCacheManagerConfig {
     @Resource
     private RedisConnectionFactory redisConnectionFactory;
 
+    /**
+     * 修复：反序列化子类型白名单。
+     * 原实现 LaissezFaireSubTypeValidator 放行任意 @class，Redis 值可被伪造为
+     * gadget 类导致反序列化 RCE。现仅允许本项目 VO/实体与 JDK 常用容器、时间类型。
+     */
+    private static final PolymorphicTypeValidator TYPE_VALIDATOR = BasicPolymorphicTypeValidator.builder()
+            .allowIfBaseType("java.util.Collection")
+            .allowIfBaseType("java.util.Map")
+            .allowIfSubType("java.util.")
+            .allowIfSubType("java.time.")
+            .allowIfSubType("java.lang.")
+            .allowIfSubType("top.littlewin.codespark.")
+            // 缓存值是 Page<AppVO>（@Cacheable 直接缓存 BaseResponse<Page<...>>），需放行框架分页容器
+            .allowIfSubType("com.mybatisflex.core.")
+            .build();
+
     @Bean
     public CacheManager cacheManager() {
         // 配置 ObjectMapper 支持 Java8 时间类型
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
-        // 开启默认类型注入，序列化时把嵌套对象的类型信息写入 JSON，反序列化才能还原成真实类型
+        // 开启默认类型注入，序列化时把嵌套对象的类型信息写入 JSON，反序列化才能还原成真实类型；
+        // 子类型校验收口到上面的白名单，白名单外的 @class 反序列化时直接抛异常
         objectMapper.activateDefaultTyping(
-                LaissezFaireSubTypeValidator.instance,   // 不限制可反序列化的类型
-                ObjectMapper.DefaultTyping.NON_FINAL,    // 所有非 final 类都注入类型信息
-                JsonTypeInfo.As.PROPERTY                // 以 @class 属性记录类名
+                TYPE_VALIDATOR,
+                ObjectMapper.DefaultTyping.NON_FINAL,
+                com.fasterxml.jackson.annotation.JsonTypeInfo.As.PROPERTY
         );
-        
+
         // 默认配置
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(30)) // 默认 30 分钟过期
@@ -46,7 +63,7 @@ public class RedisCacheManagerConfig {
                 // value 使用 JSON 序列化器（支持复杂对象）
                 .serializeValuesWith(RedisSerializationContext.SerializationPair
                         .fromSerializer(new GenericJackson2JsonRedisSerializer(objectMapper)));
-        
+
         return RedisCacheManager.builder(redisConnectionFactory)
                 .cacheDefaults(defaultConfig)
                 // 针对 good_app_page 配置5分钟过期

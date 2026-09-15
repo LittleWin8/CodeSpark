@@ -424,8 +424,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         }
         AppVO appVO = new AppVO();
         BeanUtil.copyProperties(app, appVO);
-        // 封面动态解析：cover 下发可访问 URL，coverKey 仅在原始值为两态存储标识时下发（供前端编辑回显提交）
-        appVO.setCoverKey(storageKey(app.getCover()));
+        // cover 下发可访问 URL；coverKey 不再下发——
+        // key 是私有读存储的访问凭据，公开接口泄露后配合 /file/resolve 即可越权读原图
+        appVO.setCoverKey(null);
         appVO.setCover(fileService.resolveUrl(appVO.getCover()));
         // 关联查询用户信息
         Long userId = app.getUserId();
@@ -451,8 +452,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         return appList.stream().map(app -> {
             AppVO appVO = new AppVO();
             BeanUtil.copyProperties(app, appVO);
-            // 封面动态解析：cover 下发可访问 URL，coverKey 仅在原始值为两态存储标识时下发（供前端编辑回显提交）
-            appVO.setCoverKey(storageKey(app.getCover()));
+            // 同 getAppVO，公开列表不下发 coverKey
+            appVO.setCoverKey(null);
             appVO.setCover(fileService.resolveUrl(appVO.getCover()));
             UserVO userVO = userVOMap.get(app.getUserId());
             appVO.setUser(userVO);
@@ -580,7 +581,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     }
 
     /**
-     * 仅当原始值为两态存储标识（oss: / local:）时返回其本身，否则返回 null（存量 URL 数据不向下游透传标识）
+     * 仅当原始值为两态存储标识（oss: / local:）时返回其本身，否则返回 null（存量 URL 数据不向下游透传标识）。
+     * 公开 VO 不再调用（coverKey 不下发），保留供内部/未来属主编辑场景使用
      */
     private String storageKey(String cover) {
         if (StrUtil.isBlank(cover)) {
