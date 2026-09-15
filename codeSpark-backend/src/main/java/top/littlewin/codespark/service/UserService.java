@@ -22,11 +22,21 @@ public interface UserService extends IService<User> {
      *
      * @param userAccount   用户账户
      * @param userEmail     用户邮箱
+     * @param emailCode     邮箱验证码
      * @param userPassword  用户密码
      * @param checkPassword 校验密码
      * @return 新用户 id
      */
-    long userRegister(String userAccount, String userEmail, String userPassword, String checkPassword);
+    long userRegister(String userAccount, String userEmail, String emailCode,
+                      String userPassword, String checkPassword);
+
+    /**
+     * 按邮箱查询用户
+     *
+     * @param userEmail 邮箱
+     * @return 用户，不存在返回 null
+     */
+    User getByEmail(String userEmail);
 
     /**
      * 获取脱敏的已登录用户信息

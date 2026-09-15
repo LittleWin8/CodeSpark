@@ -337,7 +337,21 @@ declare namespace API {
   type UserRegisterRequest = {
     userAccount?: string
     userEmail?: string
+    emailCode?: string
     userPassword?: string
+    checkPassword?: string
+  }
+
+  type EmailCodeRequest = {
+    userEmail?: string
+    /** 场景：register / reset_password */
+    scene?: string
+  }
+
+  type ResetPasswordByEmailRequest = {
+    userEmail?: string
+    emailCode?: string
+    newPassword?: string
     checkPassword?: string
   }
 

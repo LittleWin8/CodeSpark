@@ -12,6 +12,7 @@ const errorCodeMap: Record<number, string> = {
   40101: 'error.noAuth',
   40300: 'error.forbidden',
   40400: 'error.notFound',
+  42900: 'error.tooManyRequest',
   50000: 'error.systemError',
   50001: 'error.operationError',
 }
@@ -84,6 +85,13 @@ const errorMessageMap: Record<string, string> = {
   QUOTA_EXCEEDED: 'error.quotaExceeded',
   OUTPUT_TRUNCATED: 'error.outputTruncated',
   GENERATION_TOO_MANY_STEPS: 'error.generationTooManySteps',
+  MAIL_CODE_INVALID: 'error.mailCodeInvalid',
+  MAIL_CODE_TOO_FREQUENT: 'error.mailCodeTooFrequent',
+  MAIL_CODE_DAILY_LIMIT: 'error.mailCodeDailyLimit',
+  MAIL_CODE_LOCKED: 'error.mailCodeLocked',
+  MAIL_CODE_REQUIRED: 'error.mailCodeRequired',
+  INVALID_MAIL_SCENE: 'error.invalidMailScene',
+  EMAIL_NOT_FOUND: 'error.emailNotFound',
   ok: 'error.default',
 }
 

@@ -58,6 +58,15 @@ public enum ErrorMessage {
     CANNOT_DELETE_SELF, // 不能删除自己
     CANNOT_RESET_SELF, // 不能重置自己的密码
 
+    // ---------- 邮箱验证码 ----------
+    MAIL_CODE_INVALID, // 验证码错误或已过期
+    MAIL_CODE_TOO_FREQUENT, // 发送太频繁，请稍后再试
+    MAIL_CODE_DAILY_LIMIT, // 该邮箱今日发送次数已达上限
+    MAIL_CODE_LOCKED, // 失败次数过多，请15分钟后再试
+    MAIL_CODE_REQUIRED, // 请输入邮箱验证码
+    INVALID_MAIL_SCENE, // 验证码场景不合法
+    EMAIL_NOT_FOUND, // 该邮箱未注册
+
     // ---------- 聊天 ----------
     INVALID_MESSAGE_TYPE, // 消息类型不合法
     INVALID_USER_ID, // 用户 ID 不合法

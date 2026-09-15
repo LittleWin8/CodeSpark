@@ -19,6 +19,17 @@ spring:
       password: ${REDIS_PASSWORD:123456}
       ttl: 3600
       database: 0
+  mail:
+    host: ${MAIL_HOST:smtp.qq.com}
+    port: 465
+    username: ${MAIL_USERNAME:your-qq@qq.com}
+    password: ${MAIL_PASSWORD:你的授权码}
+    default-encoding: UTF-8
+    properties:
+      mail.smtp.ssl.enable: true      # 465 = SSL
+      mail.smtp.auth: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 8000
 
 server:
   port: 8080
@@ -67,6 +78,10 @@ codespark:
     replay-chunk-size: 40             # 回放分片字符数
     replay-interval-millis: 20        # 回放分片间隔（毫秒）
     select-retry: 5                   # 变体去重重试次数
+  mail:
+    # 业务开关与发件人；连接参数（host/port/账号/密码/SSL）在 spring.mail.* 下
+    enabled: true
+    from: ${MAIL_FROM:your-qq@qq.com}
 
 
 # 阿里云 OSS 对象存储（V2 SDK）

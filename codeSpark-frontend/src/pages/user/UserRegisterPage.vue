@@ -16,6 +16,17 @@
         <a-input v-model:value="formState.userEmail" :placeholder="t('register.emailPlaceholder')" />
       </a-form-item>
       <a-form-item
+        name="emailCode"
+        :rules="[{ required: true, message: t('register.emailCodeRequired') }]"
+      >
+        <div style="display: flex; gap: 8px">
+          <a-input v-model:value="formState.emailCode" :placeholder="t('register.emailCodePlaceholder')" />
+          <a-button :disabled="codeCooldown > 0" :loading="codeSending" @click="handleSendCode">
+            {{ codeCooldown > 0 ? `${codeCooldown}s` : t('register.sendCode') }}
+          </a-button>
+        </div>
+      </a-form-item>
+      <a-form-item
         name="userPassword"
         :rules="[
           { required: true, message: t('register.passwordRequired') },
@@ -48,10 +59,11 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { sendEmailCode } from '@/api/emailController'
 import { userRegister } from '@/api/userController'
 import { message } from 'ant-design-vue'
 import type { Rule } from 'ant-design-vue/es/form'
-import { reactive } from 'vue'
+import { onBeforeUnmount, reactive, ref } from 'vue'
 import { getErrorMessage } from '@/utils/errorMessage'
 
 const { t } = useI18n()
@@ -60,9 +72,55 @@ const router = useRouter()
 const formState = reactive<API.UserRegisterRequest>({
   userAccount: '',
   userEmail: '',
+  emailCode: '',
   userPassword: '',
   checkPassword: '',
 })
+
+// 验证码发送冷却（秒）与发送中状态
+const codeCooldown = ref(0)
+const codeSending = ref(false)
+let cooldownTimer: ReturnType<typeof setInterval> | null = null
+
+const stopCooldown = () => {
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer)
+    cooldownTimer = null
+  }
+}
+
+/**
+ * 发送邮箱验证码（注册场景）：成功后进入 60 秒倒计时
+ */
+const handleSendCode = async () => {
+  if (!formState.userEmail) {
+    message.warning(t('register.emailRequired'))
+    return
+  }
+  codeSending.value = true
+  try {
+    const res = await sendEmailCode({ userEmail: formState.userEmail, scene: 'register' })
+    if (res.data.code === 0) {
+      message.success(t('register.codeSent'))
+      codeCooldown.value = 60
+      stopCooldown()
+      cooldownTimer = setInterval(() => {
+        codeCooldown.value--
+        if (codeCooldown.value <= 0) {
+          stopCooldown()
+        }
+      }, 1000)
+    } else {
+      message.error(getErrorMessage(res.data.code, res.data.message))
+    }
+  } catch {
+    message.error(getErrorMessage())
+  } finally {
+    codeSending.value = false
+  }
+}
+
+onBeforeUnmount(stopCooldown)
 
 /**
  * 验证邮箱格式（空值交给 required 规则处理，避免重复提示）

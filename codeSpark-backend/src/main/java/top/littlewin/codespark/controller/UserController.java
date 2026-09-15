@@ -61,9 +61,10 @@ public class UserController {
         ThrowUtils.throwIf(userRegisterRequest == null, ErrorCode.PARAMS_ERROR);
         String userAccount = userRegisterRequest.getUserAccount();
         String userEmail = userRegisterRequest.getUserEmail();
+        String emailCode = userRegisterRequest.getEmailCode();
         String userPassword = userRegisterRequest.getUserPassword();
         String checkPassword = userRegisterRequest.getCheckPassword();
-        long result = userService.userRegister(userAccount, userEmail, userPassword, checkPassword);
+        long result = userService.userRegister(userAccount, userEmail, emailCode, userPassword, checkPassword);
         return ResultUtils.success(result);
     }
 

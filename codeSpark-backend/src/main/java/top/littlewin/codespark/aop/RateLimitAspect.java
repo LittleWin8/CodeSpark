@@ -63,17 +63,19 @@ public class RateLimitAspect {
         if (!rateLimit.key().isEmpty()) {
             keyBuilder.append(rateLimit.key()).append(":");
         }
+        // 方法维度：同一用户/IP 的不同接口必须各自一个桶，否则会互相挤占额度，
+        // 且 trySetRate 只对首个接口生效（见 RateLimitAspect 顶部注释）
+        MethodSignature signature = (MethodSignature) point.getSignature();
+        Method method = signature.getMethod();
+        String methodKey = method.getDeclaringClass().getSimpleName() + "." + method.getName();
         // 根据限流类型生成不同的key
         switch (rateLimit.limitType()) {
             case API:
-                // 接口级别：方法名
-                MethodSignature signature = (MethodSignature) point.getSignature();
-                Method method = signature.getMethod();
-                keyBuilder.append("api:").append(method.getDeclaringClass().getSimpleName())
-                        .append(".").append(method.getName());
+                // 接口级别：仅方法名
+                keyBuilder.append("api:").append(methodKey);
                 break;
             case USER:
-                // 用户级别：用户ID
+                // 用户级别：用户ID（未登录回落到IP），再拼方法名
                 try {
                     ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
                     if (attributes != null) {
@@ -88,10 +90,12 @@ public class RateLimitAspect {
                     // 未登录用户使用IP限流
                     keyBuilder.append("ip:").append(getClientIP());
                 }
+                keyBuilder.append(":").append(methodKey);
                 break;
             case IP:
-                // IP级别：客户端IP
-                keyBuilder.append("ip:").append(getClientIP());
+                // IP级别：客户端IP，再拼方法名
+                keyBuilder.append("ip:").append(getClientIP())
+                        .append(":").append(methodKey);
                 break;
             default:
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的限流类型");

@@ -96,7 +96,15 @@
     "generationTooManySteps": "Too many generation steps, please break the request into smaller parts",
     "cannotResetSelf": "Cannot reset your own password",
     "oldPasswordError": "Current password is incorrect",
-    "passwordSame": "New password must differ from the current one"
+    "passwordSame": "New password must differ from the current one",
+    "tooManyRequest": "Too many requests, please try again later",
+    "mailCodeInvalid": "Verification code is invalid or expired",
+    "mailCodeTooFrequent": "Sent too frequently, please try again later",
+    "mailCodeDailyLimit": "Daily send limit reached for this email",
+    "mailCodeLocked": "Too many failed attempts, try again in 15 minutes",
+    "mailCodeRequired": "Please enter the email verification code",
+    "invalidMailScene": "Invalid verification scene",
+    "emailNotFound": "This email is not registered"
   },
   "nav": {
     "home": "Home",
@@ -172,8 +180,22 @@
     "passwordPlaceholder": "Enter password",
     "noAccount": "No account?",
     "goRegister": "Register",
+    "forgotPassword": "Forgot password?",
     "loginSuccess": "Login successful",
     "loginFailed": "Login failed, "
+  },
+  "resetPassword": {
+    "title": "Reset Password",
+    "emailPlaceholder": "Enter your registered email",
+    "codePlaceholder": "Enter email verification code",
+    "sendCode": "Send Code",
+    "resend": "Resend",
+    "newPasswordPlaceholder": "Enter new password (min 8 chars)",
+    "checkPasswordPlaceholder": "Confirm new password",
+    "submit": "Reset Password",
+    "codeSent": "Verification code sent, please check your email",
+    "sendFailed": "Failed to send, please try again later",
+    "success": "Password reset. Please sign in with your new password"
   },
   "register": {
     "title": "CodeSpark AI - User Register",
@@ -188,6 +210,10 @@
     "passwordPlaceholder": "Enter password",
     "checkPasswordRequired": "Please confirm your password",
     "checkPasswordPlaceholder": "Confirm password",
+    "emailCodeRequired": "Please enter the email verification code",
+    "emailCodePlaceholder": "Enter email verification code",
+    "sendCode": "Send Code",
+    "codeSent": "Verification code sent, please check your email",
     "hasAccount": "Already have an account?",
     "goLogin": "Login",
     "passwordMismatch": "Passwords do not match",

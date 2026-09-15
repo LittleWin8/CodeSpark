@@ -4,15 +4,13 @@ import lombok.Data;
 
 import java.io.Serializable;
 
+/**
+ * 通过邮箱验证码重置密码请求
+ */
 @Data
-public class UserRegisterRequest implements Serializable {
+public class ResetPasswordByEmailRequest implements Serializable {
 
-    private static final long serialVersionUID = 3191241716373120793L;
-
-    /**
-     * 账号
-     */
-    private String userAccount;
+    private static final long serialVersionUID = 1L;
 
     /**
      * 邮箱
@@ -25,12 +23,12 @@ public class UserRegisterRequest implements Serializable {
     private String emailCode;
 
     /**
-     * 密码
+     * 新密码
      */
-    private String userPassword;
+    private String newPassword;
 
     /**
-     * 确认密码
+     * 确认新密码
      */
     private String checkPassword;
 }

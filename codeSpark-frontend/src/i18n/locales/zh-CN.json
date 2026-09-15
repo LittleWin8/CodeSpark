@@ -96,7 +96,15 @@
     "generationTooManySteps": "生成步骤过多，请把需求拆小后重试",
     "cannotResetSelf": "不能重置自己的密码",
     "oldPasswordError": "当前密码不正确",
-    "passwordSame": "新密码不能与当前密码相同"
+    "passwordSame": "新密码不能与当前密码相同",
+    "tooManyRequest": "请求过于频繁，请稍后再试",
+    "mailCodeInvalid": "验证码错误或已过期",
+    "mailCodeTooFrequent": "发送太频繁，请稍后再试",
+    "mailCodeDailyLimit": "该邮箱今日发送次数已达上限",
+    "mailCodeLocked": "失败次数过多，请15分钟后再试",
+    "mailCodeRequired": "请输入邮箱验证码",
+    "invalidMailScene": "验证码场景不合法",
+    "emailNotFound": "该邮箱未注册"
   },
   "nav": {
     "home": "首页",
@@ -172,8 +180,22 @@
     "passwordPlaceholder": "请输入密码",
     "noAccount": "没有账号？",
     "goRegister": "去注册",
+    "forgotPassword": "忘记密码？",
     "loginSuccess": "登录成功",
     "loginFailed": "登录失败，"
+  },
+  "resetPassword": {
+    "title": "重置密码",
+    "emailPlaceholder": "请输入注册邮箱",
+    "codePlaceholder": "请输入邮箱验证码",
+    "sendCode": "发送验证码",
+    "resend": "重新发送",
+    "newPasswordPlaceholder": "请输入新密码（至少 8 位）",
+    "checkPasswordPlaceholder": "请确认新密码",
+    "submit": "重置密码",
+    "codeSent": "验证码已发送，请查收邮件",
+    "sendFailed": "发送失败，请稍后重试",
+    "success": "密码已重置，请用新密码登录"
   },
   "register": {
     "title": "CodeSpark AI - 用户注册",
@@ -188,6 +210,10 @@
     "passwordPlaceholder": "请输入密码",
     "checkPasswordRequired": "请确认密码",
     "checkPasswordPlaceholder": "请确认密码",
+    "emailCodeRequired": "请输入邮箱验证码",
+    "emailCodePlaceholder": "请输入邮箱验证码",
+    "sendCode": "发送验证码",
+    "codeSent": "验证码已发送，请查收邮件",
     "hasAccount": "已有账号？",
     "goLogin": "去登录",
     "passwordMismatch": "两次输入密码不一致",

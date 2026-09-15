@@ -12,6 +12,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
 import top.littlewin.codespark.exception.ErrorMessage;
+import top.littlewin.codespark.mail.EmailCodeService;
+import top.littlewin.codespark.mail.MailCodeScene;
 import top.littlewin.codespark.model.dto.user.UserQueryRequest;
 import top.littlewin.codespark.model.entity.User;
 import top.littlewin.codespark.mapper.UserMapper;
@@ -58,8 +60,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
     @Resource
     private FileService fileService;
 
+    @Resource
+    private EmailCodeService emailCodeService;
+
     @Override
-    public long userRegister(String userAccount, String userEmail, String userPassword, String checkPassword) {
+    public long userRegister(String userAccount, String userEmail, String emailCode,
+                             String userPassword, String checkPassword) {
         // 1. 校验
         if (StrUtil.hasBlank(userAccount, userEmail, userPassword, checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, ErrorMessage.EMPTY_PARAMS);
@@ -92,6 +98,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
         if (emailCount > 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, ErrorMessage.EMAIL_EXISTS);
         }
+        // 3.5 校验邮箱验证码（失败会抛错并累计失败次数）
+        emailCodeService.verify(userEmail, MailCodeScene.REGISTER, emailCode);
 
         // 4. 生成唯一邀请码（短：数字 + 英文字母）
         String shareCode = generateUniqueShareCode();
@@ -116,6 +124,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, ErrorMessage.REGISTER_FAILED);
         }
         return user.getId();
+    }
+
+    @Override
+    public User getByEmail(String userEmail) {
+        if (StrUtil.isBlank(userEmail)) {
+            return null;
+        }
+        return this.getOne(QueryWrapper.create().where(User::getUserEmail).eq(userEmail));
     }
 
     @Override
