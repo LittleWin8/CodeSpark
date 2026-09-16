@@ -10,9 +10,7 @@ import {
   DownloadOutlined,
   DownOutlined,
   LoadingOutlined,
-  PaperClipOutlined,
   SelectOutlined,
-  ThunderboltOutlined,
   WarningOutlined,
 } from '@ant-design/icons-vue'
 import { deployApp, downloadAppCode, getAppVoById } from '@/api/appController'
@@ -663,21 +661,6 @@ const handleBack = () => {
   }
 }
 
-const handleUpload = () => {
-  message.info(t('appChat.uploadTip'))
-}
-
-const handleOptimize = () => {
-  if (!inputMessage.value.trim()) {
-    message.warning(t('appChat.optimizeTip'))
-    return
-  }
-  const suffix = t('home.optimizeSuffix')
-  if (!inputMessage.value.includes(suffix.trim())) {
-    inputMessage.value = `${inputMessage.value.trim()}${suffix}`
-  }
-}
-
 const handleDeploy = async () => {
   if (!app.value?.id) {
     return
@@ -1169,16 +1152,6 @@ onBeforeUnmount(() => {
             />
             <div class="chat-input__toolbar">
               <a-space>
-                <a-button type="text" size="small" @click="handleUpload">
-                  <template #icon><PaperClipOutlined /></template>
-                  {{ t('common.upload') }}
-                </a-button>
-                <a-button type="text" size="small" @click="handleOptimize">
-                  <template #icon><ThunderboltOutlined /></template>
-                  {{ t('common.optimize') }}
-                </a-button>
-              </a-space>
-              <a-space>
                 <a-tooltip :title="editMode ? t('appChat.visualEditExit') : t('appChat.visualEdit')">
                   <a-button
                     shape="circle"
@@ -1393,8 +1366,8 @@ onBeforeUnmount(() => {
 .chat-input__toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
 }
 
 .preview-panel {

@@ -7,8 +7,6 @@ import {
   ArrowUpOutlined,
   CloseOutlined,
   EyeOutlined,
-  PaperClipOutlined,
-  ThunderboltOutlined,
 } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 import AppCard from '@/components/AppCard.vue'
@@ -106,21 +104,6 @@ const applyExample = (example: { id: string; prompt: string }) => {
 
 const clearPreset = () => {
   selectedPresetId.value = undefined
-}
-
-const handleUpload = () => {
-  message.info(t('home.uploadTip'))
-}
-
-const handleOptimize = () => {
-  const value = prompt.value.trim()
-  if (!value) {
-    message.warning(t('home.optimizeTip'))
-    return
-  }
-  if (!value.includes(t('home.optimizeSuffix').trim())) {
-    prompt.value = `${value}${t('home.optimizeSuffix')}`
-  }
 }
 
 const createApp = async () => {
@@ -258,16 +241,7 @@ onUnmounted(() => {
             @pressEnter.exact.prevent="createApp"
           />
           <div class="prompt-box__toolbar">
-            <a-space>
-              <a-button type="text" @click="handleUpload">
-                <template #icon><PaperClipOutlined /></template>
-                {{ t('common.upload') }}
-              </a-button>
-              <a-button type="text" @click="handleOptimize">
-                <template #icon><ThunderboltOutlined /></template>
-                {{ t('common.optimize') }}
-              </a-button>
-            </a-space>
+            <span class="prompt-box__hint">{{ t('home.sendHint') }}</span>
             <a-button
               class="prompt-box__send"
               type="primary"
@@ -492,12 +466,37 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
+  margin-top: 10px;
+  padding-left: 4px;
+}
+
+.prompt-box__hint {
+  font-size: 12px;
+  color: #a8b0ba;
+  user-select: none;
 }
 
 .prompt-box__send {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: linear-gradient(135deg, #1f8f7a 0%, #4ab8a4 100%);
+  box-shadow: 0 6px 16px rgba(31, 143, 122, 0.28);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
+}
+
+.prompt-box__send:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow: 0 8px 20px rgba(31, 143, 122, 0.34);
+}
+
+.prompt-box__send:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(31, 143, 122, 0.26);
 }
 
 .suggestions {

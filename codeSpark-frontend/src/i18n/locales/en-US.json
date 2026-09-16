@@ -13,8 +13,6 @@
     "noData": "No Data",
     "success": "Success",
     "error": "Error",
-    "upload": "Upload",
-    "optimize": "Optimize",
     "deploy": "Deploy",
     "feature": "Feature",
     "copy": "Copy",
@@ -126,9 +124,6 @@
     "createFailed": "Failed to create app",
     "loginRequired": "Please log in to create an app",
     "promptRequired": "Please enter a prompt",
-    "uploadTip": "Upload is coming soon",
-    "optimizeTip": "Enter a prompt before optimizing",
-    "optimizeSuffix": "\nPlease refine the requirements above to make them clearer and actionable.",
     "myApps": "My Apps",
     "featuredApps": "Featured",
     "createdAt": "Created {time}",
@@ -155,7 +150,8 @@
         "label": "3D Data Globe",
         "prompt": "Build a \"3D Data Globe\" visualization as a single HTML file using vanilla JavaScript and Canvas 2D with a hand-written pseudo-3D projection; drag to rotate with inertia, wheel to zoom, pulsing city markers with bezier arcs, live-looking metric cards, dark starfield background, mobile responsive."
       }
-    }
+    },
+    "sendHint": "Enter to send · Shift + Enter for new line"
   },
   "about": {
     "title": "About",
@@ -273,8 +269,6 @@
     "viewCode": "View code",
     "planningNext": "Planning next step…",
     "saved": "Saved",
-    "uploadTip": "Upload is coming soon",
-    "optimizeTip": "Please enter content first",
     "filesGenerated": "Generated files",
     "loadMore": "Load More",
     "historyLoadFailed": "Failed to load chat history",
