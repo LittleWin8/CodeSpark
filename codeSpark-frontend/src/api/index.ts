@@ -4,6 +4,7 @@
 import * as userController from './userController'
 import * as userQuotaUsageController from './userQuotaUsageController'
 import * as fileController from './fileController'
+import * as emailController from './emailController'
 import * as chatHistoryController from './chatHistoryController'
 import * as appController from './appController'
 import * as userTokenUsageController from './userTokenUsageController'
@@ -12,6 +13,7 @@ export default {
   userController,
   userQuotaUsageController,
   fileController,
+  emailController,
   chatHistoryController,
   appController,
   userTokenUsageController,

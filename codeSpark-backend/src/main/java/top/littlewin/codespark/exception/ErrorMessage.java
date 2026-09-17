@@ -111,7 +111,8 @@ public enum ErrorMessage {
 
     // ---------- AI 生成约束 ----------
     OUTPUT_TRUNCATED, // 输出过长被截断，请拆分需求后重试
-    GENERATION_TOO_MANY_STEPS; // 生成步骤过多，请把需求拆小后重试
+    GENERATION_TOO_MANY_STEPS, // 生成步骤过多，请把需求拆小后重试
+    PLATFORM_QUOTA_EXCEEDED; // 平台本月额度已用尽，请联系管理员
 
     /**
      * @return 稳定英文 key（即枚举名）

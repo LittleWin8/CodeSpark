@@ -198,13 +198,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
         }
 
         // 4. 记录用户的登录态
-        // 密码被重置/修改后重新登录成功 = 身份已确认：清除踢人标记并轮换会话，
-        // 否则旧会话（创建时间早于重置时间）会在 getLoginUser 时被立刻踢掉，出现"登录后仍未登录"
+        // 密码被重置/修改后重新登录成功 = 身份已确认：清除踢人标记即可。
+        // 注意：不要在这里 invalidate 轮换会话——Spring Session 的 cookie 写回基于请求进入时的会话，
+        // 强制轮换会导致登录响应不携带新会话 cookie，前端表现为"登录成功却仍未登录"
         stringRedisTemplate.delete(UserConstant.USER_PWD_KICK_KEY + user.getId());
-        try {
-            request.getSession().invalidate();
-        } catch (Exception ignored) {
-        }
         request.getSession().setAttribute(USER_LOGIN_STATE, user);
 
         // 5. 获得脱敏后的用户信息

@@ -1,6 +1,14 @@
 /* eslint-disable */
 import request from '@/request'
 
+/** 此处后端没有提供注释 GET /quota/admin/platform */
+export async function getPlatformQuota(options?: { [key: string]: any }) {
+  return request<API.BaseResponseQuotaInfoVO>('/quota/admin/platform', {
+    method: 'GET',
+    ...(options || {}),
+  })
+}
+
 /** 此处后端没有提供注释 POST /quota/admin/reset */
 export async function adminReset(body: API.ResetQuotaRequest, options?: { [key: string]: any }) {
   return request<API.BaseResponseBoolean>('/quota/admin/reset', {

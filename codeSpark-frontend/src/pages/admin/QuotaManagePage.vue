@@ -7,6 +7,7 @@ import {
   adminPageUsage,
   adminReset,
   adminResetAll,
+  getPlatformQuota,
 } from '@/api/userQuotaUsageController'
 import { getErrorMessage } from '@/utils/errorMessage'
 import { formatTokens } from '@/utils/formatTokens'
@@ -16,6 +17,33 @@ const { t } = useI18n()
 // 数据
 const data = ref<API.AdminQuotaUsageVO[]>([])
 const total = ref(0)
+
+// 平台月度额度（顶部展示）
+const platform = ref<API.QuotaInfoVO>()
+const platformPercent = computed(() => {
+  const q = platform.value
+  if (!q?.monthlyLimit || q.monthlyLimit <= 0) {
+    return 0
+  }
+  return Math.min(100, Math.round(((q.usedTokens ?? 0) / q.monthlyLimit) * 100))
+})
+const platformColor = computed(() => {
+  const p = platformPercent.value
+  if (p >= 95) return '#ff4d4f'
+  if (p >= 80) return '#faad14'
+  return '#1f8f7a'
+})
+
+const fetchPlatform = async () => {
+  try {
+    const res = await getPlatformQuota()
+    if (res.data.code === 0 && res.data.data) {
+      platform.value = res.data.data
+    }
+  } catch {
+    // 静默：展示失败不影响表格
+  }
+}
 
 // 分页参数（沿用 PageRequest 惯例）
 const searchParams = reactive<API.QuotaUsageQueryRequest>({
@@ -38,6 +66,7 @@ const columns = computed(() => [
     title: t('adminQuota.usedTokens'),
     dataIndex: 'usedTokens',
     width: 140,
+    sorter: true,
   },
   {
     title: t('adminQuota.remaining'),
@@ -48,6 +77,7 @@ const columns = computed(() => [
     title: t('adminQuota.totalTokens'),
     dataIndex: 'totalTokens',
     width: 140,
+    sorter: true,
   },
   {
     title: t('adminQuota.action'),
@@ -101,10 +131,16 @@ const pagination = computed(() => ({
   showTotal: (totalNum: number) => t('adminQuota.totalItems', { total: totalNum }),
 }))
 
-// 表格翻页
-const doTableChange = (page: TablePaginationConfig) => {
+// 表格变化：翻页 / 列头排序箭头（服务端排序）
+const doTableChange = (
+  page: TablePaginationConfig,
+  _filters: Record<string, unknown>,
+  sorter: { field?: string; order?: 'ascend' | 'descend' | null },
+) => {
   searchParams.pageNum = page.current ?? 1
   searchParams.pageSize = page.pageSize ?? 10
+  searchParams.sortField = sorter?.field as string | undefined
+  searchParams.sortOrder = sorter?.order as string | undefined
   fetchData()
 }
 
@@ -155,13 +191,39 @@ const doResetAll = async () => {
 // 页面加载时请求一次
 onMounted(() => {
   fetchData()
+  fetchPlatform()
 })
 </script>
 
 <template>
   <div id="quotaManagePage">
+    <!-- 平台月度额度（仅展示） -->
+    <a-card class="platform-card" :bordered="false">
+      <div class="platform-row">
+        <span class="platform-title">{{ t('adminQuota.platformTitle') }}</span>
+        <span class="platform-value">
+          {{ formatTokens(platform?.usedTokens) }} /
+          {{ platform?.monthlyLimit && platform.monthlyLimit >= 0
+              ? formatTokens(platform.monthlyLimit) : t('adminQuota.unlimited') }}
+        </span>
+      </div>
+      <a-progress
+        :percent="platformPercent"
+        :show-info="false"
+        :stroke-color="platformColor"
+        trail-color="#e8edec"
+        size="small"
+      />
+      <div class="platform-note">
+        {{ t('adminQuota.platformUsedLabel') }}：{{ formatTokens(platform?.usedTokens) }}
+        ｜{{ t('adminQuota.platformLimitLabel') }}：
+        {{ platform?.monthlyLimit !== undefined && platform.monthlyLimit >= 0
+            ? formatTokens(platform.monthlyLimit) : t('adminQuota.unlimited') }}
+      </div>
+    </a-card>
+
     <div class="page-toolbar">
-      <span class="page-title">{{ t('adminQuota.pageTitle') }}</span>
+      <span class="page-title">{{ t('adminQuota.rankTitle') }}</span>
       <a-button danger @click="openResetAll">{{ t('adminQuota.resetAll') }}</a-button>
     </div>
 
@@ -236,6 +298,40 @@ onMounted(() => {
 <style scoped>
 #quotaManagePage {
   overflow: hidden;
+}
+
+.platform-card {
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  margin-bottom: 16px;
+}
+
+.platform-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+.platform-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
+.platform-value {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f8f7a;
+}
+
+.platform-note {
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
 }
 
 .page-toolbar {

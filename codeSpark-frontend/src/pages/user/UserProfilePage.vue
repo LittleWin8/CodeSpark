@@ -5,11 +5,12 @@ import { message, Upload } from 'ant-design-vue'
 import {
   CameraOutlined,
   CopyOutlined,
-  CrownOutlined,
   EditOutlined,
   InfoCircleOutlined,
   SaveOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons-vue'
+import { useQuotaStore } from '@/stores/quota'
 import type { UploadRequestOption } from 'ant-design-vue/es/vc-upload/interface'
 import { useRouter } from 'vue-router'
 import { updateMyUser, updateUserPassword } from '@/api/userController'
@@ -24,6 +25,19 @@ import { resolveFileUrl } from '@/utils/storage'
 const { t } = useI18n()
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
+const quotaStore = useQuotaStore()
+
+// 额度卡颜色：与顶部额度环一致（绿/橙/红）
+const quotaColor = computed(() => {
+  switch (quotaStore.level) {
+    case 'danger':
+      return '#ff4d4f'
+    case 'warning':
+      return '#faad14'
+    default:
+      return '#1f8f7a'
+  }
+})
 
 const routerPushLogin = async () => {
   await router.push(`/user/login?redirect=${encodeURIComponent('/user/profile')}`)
@@ -50,6 +64,8 @@ onMounted(() => {
   formState.userAvatar = loginUserStore.loginUser.userAvatar || ''
   formState.userAvatarKey = loginUserStore.loginUser.userAvatarKey || ''
   formState.userProfile = loginUserStore.loginUser.userProfile || ''
+  // 额度数据（个人中心进入页面即刷新）
+  quotaStore.fetchQuota()
   // 累计 Token 消耗（失败静默，展示 '-'）
   getTotalTokens()
     .then((res) => {
@@ -204,32 +220,42 @@ const handleSubmit = async () => {
           </div>
         </a-card>
 
-        <!-- 卡片2：VIP 会员服务 -->
+        <!-- 卡片2：额度用量（替代 VIP 卡，避免虚假会员宣传） -->
         <a-card class="profile-card" :bordered="false">
           <template #title>
-            <span class="card-title"><CrownOutlined /> {{ t('profile.vipService') }}</span>
+            <span class="card-title"><ThunderboltOutlined /> {{ t('profile.quotaCardTitle') }}</span>
           </template>
-          <div class="vip-item">
-            <span class="item-label">{{ t('profile.memberStatus') }}</span>
-            <template v-if="loginUserStore.loginUser.vipExpireTime">
-              <a-tag color="gold">{{ t('profile.member') }}</a-tag>
-            </template>
-            <span v-else class="item-value">{{ t('profile.notMember') }}</span>
-          </div>
-          <div class="vip-item">
-            <span class="item-label">{{ t('profile.validity') }}</span>
-            <span class="item-value">
-              {{ formatDateTime(loginUserStore.loginUser.vipExpireTime) || '-' }}
-            </span>
-          </div>
-          <div class="vip-item">
-            <span class="item-label">{{ t('profile.memberNumber') }}</span>
-            <span class="item-value">{{ loginUserStore.loginUser.vipNumber || '-' }}</span>
+          <template v-if="quotaStore.info && !quotaStore.info.unlimited">
+            <a-progress
+              :percent="quotaStore.remainingPercent"
+              :show-info="false"
+              :stroke-color="quotaColor"
+              trail-color="#e5e6eb"
+              size="small"
+            />
+            <div class="vip-item">
+              <span class="item-label">{{ t('profile.quotaUsed') }}</span>
+              <span class="item-value mono-cell">
+                {{ formatTokens(quotaStore.info.usedTokens) }} /
+                {{ formatTokens(quotaStore.info.monthlyLimit) }}
+              </span>
+            </div>
+            <div class="vip-item">
+              <span class="item-label">{{ t('profile.quotaRemaining') }}</span>
+              <span class="item-value mono-cell">
+                {{ formatTokens(quotaStore.info.remainingTokens) }}
+              </span>
+            </div>
+          </template>
+          <div v-else class="vip-item">
+            <span class="item-label">{{ t('profile.quotaUsed') }}</span>
+            <span class="item-value mono-cell">{{ t('profile.unlimited') }}</span>
           </div>
           <div class="vip-item">
             <span class="item-label">{{ t('profile.totalTokens') }}</span>
             <span class="item-value mono-cell">{{ formatTokens(totalTokens) }}</span>
           </div>
+          <div class="quota-explain">{{ t('profile.quotaExplain') }}</div>
         </a-card>
       </div>
 
@@ -421,6 +447,13 @@ const handleSubmit = async () => {
   align-items: center;
   padding: 6px 0;
   border-bottom: 1px dashed #f0f0f0;
+}
+
+.quota-explain {
+  margin-top: 10px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+  line-height: 1.6;
 }
 
 .vip-item:last-child,

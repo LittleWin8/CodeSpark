@@ -54,7 +54,18 @@ public class UserQuotaUsageController {
         long pageNum = quotaUsageQueryRequest.getPageNum();
         long pageSize = quotaUsageQueryRequest.getPageSize();
         ThrowUtils.throwIf(pageNum <= 0 || pageSize <= 0, ErrorCode.PARAMS_ERROR);
-        return ResultUtils.success(userQuotaUsageService.adminPageUsage(pageNum, pageSize));
+        return ResultUtils.success(userQuotaUsageService.adminPageUsage(
+                pageNum, pageSize,
+                quotaUsageQueryRequest.getSortField(), quotaUsageQueryRequest.getSortOrder()));
+    }
+
+    /**
+     * 平台月度额度概况：月上限 + 当月真实消耗总额（仅管理员，展示用）
+     */
+    @GetMapping("/admin/platform")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<QuotaInfoVO> getPlatformQuota() {
+        return ResultUtils.success(userQuotaUsageService.getPlatformQuota());
     }
 
     /**

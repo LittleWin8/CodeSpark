@@ -396,15 +396,10 @@
     "avatarUploadSuccess": "Avatar uploaded",
     "accountInfo": "Account Info",
     "editTitle": "Edit Profile",
-    "vipService": "VIP Membership",
     "email": "Email",
     "registerTime": "Registered",
-    "memberStatus": "Membership",
-    "member": "Member",
     "notMember": "Not a member",
-    "validity": "Valid Until",
     "expireDate": "Valid until {date}",
-    "memberNumber": "Member No.",
     "shareCode": "Invite Code",
     "copy": "Copy",
     "copySuccess": "Copied",
@@ -417,7 +412,12 @@
     "confirmNewPassword": "Confirm new password",
     "pwdSubmit": "Change password",
     "pwdChangeSuccess": "Password changed. Please log in again with your new password",
-    "pwdAllRequired": "Please fill in current password, new password and confirmation"
+    "pwdAllRequired": "Please fill in current password, new password and confirmation",
+    "quotaCardTitle": "Monthly Quota",
+    "quotaUsed": "Used this month",
+    "quotaRemaining": "Remaining",
+    "unlimited": "Unlimited",
+    "quotaExplain": "Total tokens counts all AI usage (incl. model routing & auto-naming); monthly quota only counts generation and may reset."
   },
   "quota": {
     "cardTitle": "Monthly Quota",
@@ -427,7 +427,6 @@
     "loading": "Loading quota..."
   },
   "adminQuota": {
-    "pageTitle": "User Quota Usage",
     "id": "id",
     "account": "Account",
     "usedTokens": "Used This Month",
@@ -444,6 +443,10 @@
     "totalItems": "{total} users in total",
     "unlimited": "Unlimited",
     "fetchFailed": "Failed to load quota data: ",
-    "resetAllInputHint": "This will clear the used quota of ALL users for this month and cannot be undone. Type {keyword} to confirm."
+    "resetAllInputHint": "This will clear the used quota of ALL users for this month and cannot be undone. Type {keyword} to confirm.",
+    "platformTitle": "Platform Monthly Quota",
+    "platformUsedLabel": "Used this month",
+    "platformLimitLabel": "Platform limit",
+    "rankTitle": "User Usage Ranking (by total tokens)"
   }
 }

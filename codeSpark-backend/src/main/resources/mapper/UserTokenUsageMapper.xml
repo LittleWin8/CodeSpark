@@ -31,4 +31,71 @@
         GROUP BY "userId"
     </select>
 
+    <!-- 平台当月真实 Token 消耗总额 -->
+    <select id="selectPlatformUsedTokens" resultType="java.lang.Long">
+        SELECT COALESCE(SUM("totalTokens"), 0)
+        FROM user_token_usage
+        WHERE "month" = #{month}
+    </select>
+
+    <!-- 用户消耗排行：按历史总消耗排序 -->
+    <select id="selectRankedUsersByTotal" resultType="top.littlewin.codespark.model.vo.AdminQuotaUsageVO">
+        SELECT u."id"            AS userId,
+               u."userAccount"   AS userAccount,
+               COALESCE(l."total", 0) AS totalTokens
+        FROM "user" u
+        LEFT JOIN (
+            SELECT "userId", SUM("totalTokens") AS total
+            FROM user_token_usage
+            GROUP BY "userId"
+        ) l ON l."userId" = u."id"
+        <choose>
+            <when test="asc">
+                ORDER BY l."total" ASC NULLS LAST
+            </when>
+            <otherwise>
+                ORDER BY l."total" DESC NULLS LAST
+            </otherwise>
+        </choose>, u."createTime" DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- 用户消耗排行：按本月真实消耗（账本）排序 -->
+    <select id="selectRankedUsersByUsed" resultType="top.littlewin.codespark.model.vo.AdminQuotaUsageVO">
+        SELECT u."id"            AS userId,
+               u."userAccount"   AS userAccount,
+               COALESCE(m."monthUsed", 0) AS usedTokens
+        FROM "user" u
+        LEFT JOIN (
+            SELECT "userId", SUM("totalTokens") AS "monthUsed"
+            FROM user_token_usage
+            WHERE "month" = #{month}
+            GROUP BY "userId"
+        ) m ON m."userId" = u."id"
+        <choose>
+            <when test="asc">
+                ORDER BY m."monthUsed" ASC NULLS LAST
+            </when>
+            <otherwise>
+                ORDER BY m."monthUsed" DESC NULLS LAST
+            </otherwise>
+        </choose>, u."createTime" DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- 按用户批量取账本当月消耗 -->
+    <select id="selectMonthTokensByUserIds" resultType="top.littlewin.codespark.model.vo.UserTokenSumVO">
+        SELECT "userId" AS userId, SUM("totalTokens") AS totalTokens
+        FROM user_token_usage
+        WHERE "month" = #{month} AND "userId" IN
+        <foreach collection="userIds" item="uid" open="(" separator="," close=")">
+            #{uid}
+        </foreach>
+        GROUP BY "userId"
+    </select>
+
+    <select id="countRankedUsers" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM "user"
+    </select>
+
 </mapper>

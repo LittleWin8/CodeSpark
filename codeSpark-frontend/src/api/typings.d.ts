@@ -171,6 +171,11 @@ declare namespace API {
     appId: number
   }
 
+  type EmailCodeRequest = {
+    userEmail?: string
+    scene?: string
+  }
+
   type getAppBuildStreamParams = {
     appId: number
   }
@@ -272,6 +277,13 @@ declare namespace API {
     sortOrder?: string
   }
 
+  type ResetPasswordByEmailRequest = {
+    userEmail?: string
+    emailCode?: string
+    newPassword?: string
+    checkPassword?: string
+  }
+
   type ResetQuotaRequest = {
     userId?: number
   }
@@ -339,19 +351,6 @@ declare namespace API {
     userEmail?: string
     emailCode?: string
     userPassword?: string
-    checkPassword?: string
-  }
-
-  type EmailCodeRequest = {
-    userEmail?: string
-    /** 场景：register / reset_password */
-    scene?: string
-  }
-
-  type ResetPasswordByEmailRequest = {
-    userEmail?: string
-    emailCode?: string
-    newPassword?: string
     checkPassword?: string
   }
 

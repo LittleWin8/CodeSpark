@@ -1,7 +1,7 @@
 /* eslint-disable */
 import request from '@/request'
 
-/** 发送邮箱验证码 POST /email/code */
+/** 此处后端没有提供注释 POST /email/code */
 export async function sendEmailCode(body: API.EmailCodeRequest, options?: { [key: string]: any }) {
   return request<API.BaseResponseBoolean>('/email/code', {
     method: 'POST',
@@ -13,7 +13,7 @@ export async function sendEmailCode(body: API.EmailCodeRequest, options?: { [key
   })
 }
 
-/** 通过邮箱验证码重置密码 POST /email/resetPassword */
+/** 此处后端没有提供注释 POST /email/resetPassword */
 export async function resetPasswordByEmail(
   body: API.ResetPasswordByEmailRequest,
   options?: { [key: string]: any }

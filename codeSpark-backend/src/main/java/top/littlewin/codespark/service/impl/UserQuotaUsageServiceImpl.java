@@ -7,11 +7,11 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import top.littlewin.codespark.config.QuotaProperties;
+import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;
 import top.littlewin.codespark.exception.ErrorMessage;
 import top.littlewin.codespark.exception.ThrowUtils;
 import top.littlewin.codespark.mapper.UserTokenUsageMapper;
-import top.littlewin.codespark.model.entity.User;
 import top.littlewin.codespark.model.entity.UserQuotaUsage;
 import top.littlewin.codespark.mapper.UserQuotaUsageMapper;
 import top.littlewin.codespark.model.vo.AdminQuotaUsageVO;
@@ -19,7 +19,6 @@ import top.littlewin.codespark.model.vo.QuotaInfoVO;
 import top.littlewin.codespark.model.vo.UserTokenSumVO;
 import top.littlewin.codespark.service.UserQuotaUsageService;
 import org.springframework.stereotype.Service;
-import top.littlewin.codespark.service.UserService;
 
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -41,9 +40,6 @@ public class UserQuotaUsageServiceImpl extends ServiceImpl<UserQuotaUsageMapper,
 
     @Resource
     private UserTokenUsageMapper userTokenUsageMapper;
-
-    @Resource
-    private UserService userService;
 
     @Resource
     private QuotaProperties quotaProperties;
@@ -93,10 +89,43 @@ public class UserQuotaUsageServiceImpl extends ServiceImpl<UserQuotaUsageMapper,
 
     @Override
     public void checkQuota(Long userId) {
-        if (!quotaProperties.isEnabled() || isUnlimited(userId)) {
+        if (!quotaProperties.isEnabled()) {
+            return;
+        }
+        // 1. 平台月总额度：账本当月真实消耗总和（口径 B），超限阻断所有真实生成
+        long platformUsed = getPlatformUsedTokens();
+        long platformLimit = quotaProperties.getPlatformMonthlyTokens();
+        if (platformLimit >= 0 && platformUsed >= platformLimit) {
+            log.warn("平台月额度已超限，阻断生成: platformUsed={}, limit={}", platformUsed, platformLimit);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, ErrorMessage.PLATFORM_QUOTA_EXCEEDED);
+        }
+
+        // 2. 用户个人额度校验
+        if (isUnlimited(userId)) {
             return;
         }
         ThrowUtils.throwIf(getUsedTokens(userId) >= resolveMonthlyLimit(userId), ErrorCode.OPERATION_ERROR, ErrorMessage.QUOTA_EXCEEDED);
+    }
+
+    /**
+     * 平台月度额度概况（月上限 + 当月真实消耗总额，管理看板展示用）
+     */
+    @Override
+    public QuotaInfoVO getPlatformQuota() {
+        long limit = quotaProperties.getPlatformMonthlyTokens();
+        long used = getPlatformUsedTokens();
+        QuotaInfoVO info = new QuotaInfoVO();
+        info.setEnabled(quotaProperties.isEnabled());
+        info.setUnlimited(limit < 0);
+        info.setMonthlyLimit(limit);
+        info.setUsedTokens(used);
+        info.setRemainingTokens(limit < 0 ? -1L : Math.max(0, limit - used));
+        return info;
+    }
+
+    private long getPlatformUsedTokens() {
+        Long used = userTokenUsageMapper.selectPlatformUsedTokens(currentMonth());
+        return used == null ? 0 : used;
     }
 
     @Override
@@ -114,28 +143,55 @@ public class UserQuotaUsageServiceImpl extends ServiceImpl<UserQuotaUsageMapper,
         userQuotaUsageMapper.resetAllQuota(currentMonth());
     }
 
+    /**
+     * 用户消耗排行分页
+     * <p>排序白名单：本月已用（默认）/ 历史总消耗，升降序均可；SQL 两表联查完成排序，
+     * 所有用户都在结果中（无消耗的排最后，数值补 0）。
+     */
     @Override
-    public Page<AdminQuotaUsageVO> adminPageUsage(long pageNum, long pageSize) {
+    public Page<AdminQuotaUsageVO> adminPageUsage(long pageNum, long pageSize,
+                                                  String sortField, String sortOrder) {
+        // 1. 排序白名单：本月已用（默认）/ 历史总消耗
+        boolean byUsed = !"totalTokens".equals(sortField);
+        boolean asc = "ascend".equals(sortOrder);
+        long offset = (pageNum - 1) * pageSize;
+        int month = currentMonth();
 
-        // 1. 主分页：查用户（所有用户都在，含本月未使用的）
-        Page<User> userPage = userService.page(Page.of(pageNum, pageSize));
-        List<User> pageUsers = userPage.getRecords();
-        List<Long> pageUserIds = pageUsers.stream().map(User::getId).toList();
+        // 2. SQL 排行分页（两表联查，按列排序）
+        List<AdminQuotaUsageVO> voList = byUsed
+                ? userTokenUsageMapper.selectRankedUsersByUsed(month, asc, pageSize, offset)
+                : userTokenUsageMapper.selectRankedUsersByTotal(asc, pageSize, offset);
+        long total = userTokenUsageMapper.countRankedUsers();
 
-        // 2. 批量补数据：当月已用 / 历史总消耗（各一条 IN，无 N+1）
-        Map<Long, Long> usedMap = getUsedTokensByUserIds(pageUserIds);
-        Map<Long, Long> totalMap = getTotalTokensByUserIds(pageUserIds);
+        // 3. 批量补数据：账本当月消耗（ByTotal 时 SQL 未查）/ 历史总消耗（各一条 IN，无 N+1）
+        List<Long> pageUserIds = voList.stream().map(AdminQuotaUsageVO::getUserId).toList();
+        Map<Long, Long> ledgerMonthMap = byUsed
+                ? Map.of()
+                : userTokenUsageMapper.selectMonthTokensByUserIds(month, pageUserIds).stream()
+                    .collect(Collectors.toMap(UserTokenSumVO::getUserId, UserTokenSumVO::getTotalTokens));
+        Map<Long, Long> totalMap = userTokenUsageMapper.sumTokensByUserIds(pageUserIds).stream()
+                .collect(Collectors.toMap(UserTokenSumVO::getUserId, UserTokenSumVO::getTotalTokens));
 
-        // 3. 逐用户组装看板行（未使用/无记录的补 0）
-        List<AdminQuotaUsageVO> voList = pageUsers.stream()
-                .map(u -> buildAdminQuotaUsageVO(u, usedMap, totalMap))
-                .toList();
+        // 4. 组装：本月已用 = 账本当月（真实消耗，管理员重置不影响）；剩余 = 额度计数器口径（重置可恢复）
+        Map<Long, Long> quotaUsedMap = getUsedTokensByUserIds(pageUserIds);
+        for (AdminQuotaUsageVO vo : voList) {
+            long ledgerUsed = byUsed
+                    ? (vo.getUsedTokens() == null ? 0 : vo.getUsedTokens())
+                    : ledgerMonthMap.getOrDefault(vo.getUserId(), 0L);
+            long limit = resolveMonthlyLimit(vo.getUserId());
+            long quotaUsed = quotaUsedMap.getOrDefault(vo.getUserId(), 0L);
+            vo.setUsedTokens(ledgerUsed);
+            vo.setMonthlyLimit(limit);
+            vo.setRemainingTokens(isUnlimited(vo.getUserId()) ? -1L : Math.max(0, limit - quotaUsed));
+            // 历史总消耗：ByUsed 分支 SQL 未查 → 从批量聚合补；ByTotal 分支 SQL 已带
+            vo.setTotalTokens(byUsed
+                    ? totalMap.getOrDefault(vo.getUserId(), 0L)
+                    : (vo.getTotalTokens() == null ? 0L : vo.getTotalTokens()));
+        }
 
-        // 4. 组装 VO 分页（行数与用户表完全对齐）
-        Page<AdminQuotaUsageVO> voPage = new Page<>(pageNum, pageSize, userPage.getTotalRow());
+        Page<AdminQuotaUsageVO> voPage = new Page<>(pageNum, pageSize, total);
         voPage.setRecords(voList);
         return voPage;
-
     }
 
     // --------------私有工具------------------
@@ -177,40 +233,9 @@ public class UserQuotaUsageServiceImpl extends ServiceImpl<UserQuotaUsageMapper,
                 .where(UserQuotaUsage::getMonth).eq(currentMonth())
                 .and(UserQuotaUsage::getUserId).in(userIds)
                 .list();
-        return rows.stream().collect(Collectors.toMap(
+        return rows.stream().collect(java.util.stream.Collectors.toMap(
                 UserQuotaUsage::getUserId,
                 r -> r.getUsedTokens() == null ? 0L : r.getUsedTokens()));
-    }
-
-    /**
-     * 批量查历史总消耗（账本聚合，一条 IN；无记录的用户不返回，由组装层补 0）
-     */
-    private Map<Long, Long> getTotalTokensByUserIds(List<Long> userIds) {
-        if (userIds.isEmpty()) {
-            return Map.of();
-        }
-        return userTokenUsageMapper.sumTokensByUserIds(userIds).stream()
-                .collect(Collectors.toMap(UserTokenSumVO::getUserId,
-                        UserTokenSumVO::getTotalTokens));
-    }
-
-    /**
-     * 单个用户 → 看板行：账号 + 当月已用 + 上限/剩余（会员预留）+ 历史总消耗
-     */
-    private AdminQuotaUsageVO buildAdminQuotaUsageVO(User user,
-                                                     Map<Long, Long> usedMap,
-                                                     Map<Long, Long> totalMap) {
-        AdminQuotaUsageVO vo = new AdminQuotaUsageVO();
-        vo.setUserId(user.getId());
-        vo.setUserAccount(user.getUserAccount());
-
-        long used = usedMap.getOrDefault(user.getId(), 0L);
-        long limit = resolveMonthlyLimit(user.getId());
-        vo.setUsedTokens(used);
-        vo.setMonthlyLimit(limit);
-        vo.setRemainingTokens(isUnlimited(user.getId()) ? -1L : Math.max(0, limit - used));
-        vo.setTotalTokens(totalMap.getOrDefault(user.getId(), 0L));
-        return vo;
     }
 
     // --------------扩展钩子（会员/ BYOK 预留）------------------
@@ -238,4 +263,3 @@ public class UserQuotaUsageServiceImpl extends ServiceImpl<UserQuotaUsageMapper,
         return quotaProperties.getMonthlyTokens();
     }
 }
-

@@ -10,13 +10,13 @@ spring:
     driver-class-name: org.postgresql.Driver
     url: ${DB_URL:jdbc:postgresql://localhost:5432/codespark}
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:123456}
+    password: ${DB_PASSWORD}
   # redis
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:123456}
+      password: ${REDIS_PASSWORD}
       ttl: 3600
       database: 0
   mail:
@@ -48,7 +48,7 @@ codespark:
     # BCrypt 加密强度，范围 4~31，默认 10（2^10 = 1024 次迭代）
     strength: 10
     # 新建用户的默认密码
-    default: ${DEFAULT_PASSWORD:12345678}
+    default: ${DEFAULT_PASSWORD}
   ai:
     # App 名称生成使用独立轻量模型，避免与代码生成共用大模型导致响应慢
     app-name:
@@ -64,6 +64,7 @@ codespark:
   quota:
     enabled: true
     monthly-tokens: 100000             # 默认上限，-1 = 不限
+    platform-monthly-tokens: 50000000        # 平台月 Token 消耗总额上限（真实 AI 全部消耗口径），-1 = 不限
     counted-models: [ deepseek-v4-flash ]  # 计入额度的模型
   screenshot:
     workers: 2                        # 截图 worker 数（并发 Chrome 上限）

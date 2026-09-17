@@ -396,15 +396,10 @@
     "avatarUploadSuccess": "头像上传成功",
     "accountInfo": "账户信息",
     "editTitle": "编辑资料",
-    "vipService": "VIP 会员服务",
     "email": "邮箱",
     "registerTime": "注册时间",
-    "memberStatus": "会员状态",
-    "member": "会员",
     "notMember": "非会员",
-    "validity": "有效期",
     "expireDate": "有效期至 {date}",
-    "memberNumber": "会员编号",
     "shareCode": "分享码",
     "copy": "复制",
     "copySuccess": "复制成功",
@@ -417,7 +412,12 @@
     "confirmNewPassword": "确认新密码",
     "pwdSubmit": "修改密码",
     "pwdChangeSuccess": "密码修改成功，请使用新密码重新登录",
-    "pwdAllRequired": "请填写当前密码、新密码和确认密码"
+    "pwdAllRequired": "请填写当前密码、新密码和确认密码",
+    "quotaCardTitle": "本月额度",
+    "quotaUsed": "本月已用",
+    "quotaRemaining": "剩余额度",
+    "unlimited": "不限",
+    "quotaExplain": "累计消耗含全部 AI 用量（含模型路由、自动命名）；本月额度仅含生成模型，且重置后清零。"
   },
   "quota": {
     "cardTitle": "本月额度",
@@ -427,7 +427,6 @@
     "loading": "额度加载中…"
   },
   "adminQuota": {
-    "pageTitle": "用户额度消耗",
     "id": "id",
     "account": "账号",
     "usedTokens": "本月已用",
@@ -444,6 +443,10 @@
     "totalItems": "共 {total} 个用户",
     "unlimited": "不限",
     "fetchFailed": "获取额度数据失败：",
-    "resetAllInputHint": "此操作将清零所有用户本月已用额度，且不可撤销。请输入 {keyword} 以确认。"
+    "resetAllInputHint": "此操作将清零所有用户本月已用额度，且不可撤销。请输入 {keyword} 以确认。",
+    "platformTitle": "平台月度额度",
+    "platformUsedLabel": "当月真实消耗总额",
+    "platformLimitLabel": "平台月上限",
+    "rankTitle": "用户消耗排行（按历史总消耗）"
   }
 }

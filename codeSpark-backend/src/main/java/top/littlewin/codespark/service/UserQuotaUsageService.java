@@ -50,10 +50,18 @@ public interface UserQuotaUsageService extends IService<UserQuotaUsage> {
     void adminResetAll();
 
     /**
-     * 分页获取 Tokens 额度消耗列表
+     * 平台月度额度概况（月上限 + 当月真实消耗总额，管理看板展示用）
+     */
+    QuotaInfoVO getPlatformQuota();
+
+    /**
+     * 分页获取 Tokens 额度消耗列表（支持按 本月已用/历史总消耗 排序）
      * @param pageNum 页数
      * @param pageSize 每页大小
+     * @param sortField 排序字段（usedTokens / totalTokens，默认 usedTokens）
+     * @param sortOrder ascend / descend
      * @return 额度列表
      */
-    Page<AdminQuotaUsageVO> adminPageUsage(long pageNum, long pageSize);
+    Page<AdminQuotaUsageVO> adminPageUsage(long pageNum, long pageSize,
+                                           String sortField, String sortOrder);
 }

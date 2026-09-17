@@ -26,9 +26,10 @@ public interface AppConstant {
     String CODE_DEPLOY_ROOT_DIR = System.getProperty("user.dir") + "/tmp/code_deploy";
 
     /**
-     * 应用部署域名
+     * 应用部署域名（部署后对外访问的地址，nginx 服务地址）
+     * 可通过环境变量 CODE_DEPLOY_HOST 覆盖，默认线上子域
      */
-    String CODE_DEPLOY_HOST = "http://localhost";
+    String CODE_DEPLOY_HOST = System.getenv().getOrDefault("CODE_DEPLOY_HOST", "https://codespark.littlewin.top");
 
     /**
      * 应用生成预览基础地址（后端截图访问用，与前端 src/utils/url.ts 的 PREVIEW_BASE_URL 对应；
