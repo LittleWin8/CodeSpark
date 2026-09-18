@@ -1,0 +1,70 @@
+name: deploy
+
+# 触发条件：push 到 master 自动跑；也可在 Actions 页面手动触发
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: 打包后端
+        working-directory: codeSpark-backend
+        run: ./mvnw -B -DskipTests package
+
+      - name: 安装 Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 启用 pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: 打包前端
+        working-directory: codeSpark-frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: 配置 SSH 连接
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: 备份旧包并上传新 jar
+        run: |
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} "cp /opt/codespark/app.jar /opt/codespark/app.jar.bak 2>/dev/null || true"
+          scp -i ~/.ssh/deploy_key codeSpark-backend/target/codeSpark-backend-0.0.1-SNAPSHOT.jar root@${{ secrets.SERVER_HOST }}:/opt/codespark/app.jar
+
+      - name: 上传前端产物
+        run: |
+          tar -czf dist.tar.gz -C codeSpark-frontend/dist .
+          scp -i ~/.ssh/deploy_key dist.tar.gz root@${{ secrets.SERVER_HOST }}:/tmp/
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} "tar -xzf /tmp/dist.tar.gz -C /opt/codespark/frontend && rm -f /tmp/dist.tar.gz"
+
+      - name: 重启后端并验证
+        run: |
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} "systemctl restart codespark"
+          sleep 20
+          code=$(ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/doc.html")
+          echo "接口状态码: $code"
+          if [ "$code" != "200" ]; then
+            echo "部署后验证失败"
+            exit 1
+          fi
