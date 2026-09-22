@@ -289,10 +289,10 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 3. 权限校验，仅本人可以部署自己生成的应用
         ThrowUtils.throwIf(!app.getUserId().equals(loginUser.getId()), ErrorCode.NO_AUTH_ERROR);
 
-        // 4. 检查是否已有 deployKey；若没有，则生成 6 位 deployKey（字母 + 数字）
+        // 4. 检查是否已有 deployKey；若没有，则生成 12 位 deployKey（字母 + 数字）
         String deployKey = app.getDeployKey();
         if (StrUtil.isBlank(deployKey)){
-            deployKey = RandomUtil.randomString(6);
+            deployKey = RandomUtil.randomString(12);
             app.setDeployKey(deployKey);
         }
 
