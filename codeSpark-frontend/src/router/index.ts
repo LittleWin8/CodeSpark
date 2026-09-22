@@ -10,6 +10,8 @@ import QuotaManagePage from '../pages/admin/QuotaManagePage.vue'
 import AppChatPage from '../pages/app/AppChatPage.vue'
 import AppEditPage from '../pages/app/AppEditPage.vue'
 import NoAuthPage from '../pages/NoAuthPage.vue'
+import PrivacyPolicyPage from '../pages/PrivacyPolicyPage.vue'
+import UserAgreementPage from '../pages/UserAgreementPage.vue'
 import ACCESS_ENUM from '@/access/accessEnum'
 
 const router = createRouter({
@@ -94,6 +96,16 @@ const router = createRouter({
         access: ACCESS_ENUM.ADMIN,
         wideContent: true,
       },
+    },
+    {
+      path: '/privacy',
+      name: '隐私政策',
+      component: PrivacyPolicyPage,
+    },
+    {
+      path: '/terms',
+      name: '用户协议',
+      component: UserAgreementPage,
     },
     {
       path: '/noAuth',
