@@ -90,13 +90,10 @@ const isOwner = computed(() => {
 const canChat = computed(() => isOwner.value)
 
 // 用户消息的昵称与头像：对话记录均为应用创建者发送（后端仅创建者可对话，管理员可查看），
-// 统一展示创建者的信息，而不是当前登录用户（如管理员查看时不应显示管理员自己）
-const userMessageName = computed(
-  () => app.value?.user?.userName || loginUserStore.loginUser.userName,
-)
-const userMessageAvatar = computed(
-  () => app.value?.user?.userAvatar || loginUserStore.loginUser.userAvatar,
-)
+// 统一展示创建者的信息，而不是当前登录用户（如管理员查看时不应显示管理员自己）。
+// 创建者未设置头像/昵称时保持为空，由 MessageItem 用昵称首字母兜底，切勿回退到当前登录用户
+const userMessageName = computed(() => app.value?.user?.userName || '')
+const userMessageAvatar = computed(() => app.value?.user?.userAvatar || '')
 
 const previewUrl = computed(() => getPreviewUrl(app.value?.codeGenType, app.value?.id))
 
