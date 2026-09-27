@@ -15,7 +15,7 @@ public class PasswordUtils {
     @Value("${codespark.password.strength:10}")
     private int strength;
 
-    @Value("${codespark.password.default:12345678}")
+    @Value("${codespark.password.default:}")
     private String defaultPassword;
 
     private BCryptPasswordEncoder encoder;

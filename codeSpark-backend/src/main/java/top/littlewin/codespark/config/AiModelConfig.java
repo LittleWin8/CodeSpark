@@ -29,9 +29,9 @@ public class AiModelConfig {
      */
     @Bean
     public ChatModel lightChatModel(
-            @Value("${codespark.ai.light-model.base-url:https://open.bigmodel.cn/api/paas/v4}") String baseUrl,
-            @Value("${codespark.ai.light-model.api-key:}") String apiKey,
-            @Value("${codespark.ai.light-model.model-name:glm-4.7-flash}") String modelName,
+            @Value("${codespark.ai.light-model.base-url}") String baseUrl,
+            @Value("${codespark.ai.light-model.api-key}") String apiKey,
+            @Value("${codespark.ai.light-model.model-name}") String modelName,
             @Value("${codespark.ai.light-model.max-tokens:512}") Integer maxTokens) {
         return OpenAiChatModel.builder()
                 .baseUrl(baseUrl)

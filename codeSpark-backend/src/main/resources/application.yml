@@ -105,9 +105,18 @@ springdoc:
         - '/**'
       packages-to-scan:
         - top.littlewin.codespark.controller
+  # 接口文档 JSON（/v3/api-docs）与 springdoc 自带 UI：默认关闭
+  api-docs:
+    enabled: ${SWAGGER_API_DOCS:false}
+  swagger-ui:
+    enabled: ${SWAGGER_UI:false}
 # knife4j
+# 生产默认全关（不注入任何 SWAGGER_* 即为安全态）。
+# 本地开发需要看文档时设这三个：SWAGGER_PRODUCTION=false SWAGGER_API_DOCS=true SWAGGER_UI=true
 knife4j:
   enable: true
+  # true（默认）= 生产屏蔽文档；false = 放行（仅本地）
+  production: ${SWAGGER_PRODUCTION:true}
   setting:
     language: zh_cn
 
@@ -134,19 +143,16 @@ langchain4j:
       log-responses: true
 
 # 监控
-# 生产不暴露任何 actuator 端点（Prometheus 已停用，实现保留，需要时改回即可）
-# include: "none" 是关键字写法，等价于下面列表形式；取消注释对应行即可恢复暴露
+# 只放行 health：供 CI 部署后的健康检查使用（/api/actuator/health）。
+# 不要写成 * — actuator 会暴露 env/beans/heapdump 等敏感端点。
 management:
   endpoints:
     web:
       exposure:
         include:
-#          - health
-#          - info
-#          - prometheus
-          - none
+          - health
   endpoint:
     health:
-      # 重新开放 health 时建议改回 when-authorized，避免泄露 DB/Redis/磁盘细节
+      # 不展示 DB/Redis/磁盘细节，避免健康检查变成信息泄漏面
       show-details: never
 

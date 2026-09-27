@@ -64,8 +64,10 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} "systemctl restart codespark"
           sleep 20
-          code=$(ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/doc.html")
-          echo "接口状态码: $code"
+          # 健康检查走 actuator health（management 与 servlet 共端口，受 context-path 影响）
+          # 不再用 /api/doc.html：生产已屏蔽接口文档
+          code=$(ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/actuator/health")
+          echo "健康检查状态码: $code"
           if [ "$code" != "200" ]; then
             echo "部署后验证失败"
             exit 1
