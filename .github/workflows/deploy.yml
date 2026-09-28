@@ -61,22 +61,38 @@ jobs:
 
       - name: 备份旧包并上传新 jar
         run: |
-          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} "cp /opt/codespark/app.jar /opt/codespark/app.jar.bak 2>/dev/null || true"
-          scp -i ~/.ssh/deploy_key codeSpark-backend/target/codeSpark-backend-0.0.1-SNAPSHOT.jar root@${{ secrets.SERVER_HOST }}:/opt/codespark/app.jar
+          # 跨境链路（Actions 机房 → 国内服务器）不稳定：压缩 jar 减少传输量，
+          # ssh/scp 加连接超时与保活避免无限挂死，上传 /tmp 后解压原子替换，失败自动重试
+          gzip -c codeSpark-backend/target/codeSpark-backend-0.0.1-SNAPSHOT.jar > /tmp/app.jar.gz
+          SSH_OPTS=(-i ~/.ssh/deploy_key -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+          ssh "${SSH_OPTS[@]}" root@${{ secrets.SERVER_HOST }} "cp /opt/codespark/app.jar /opt/codespark/app.jar.bak 2>/dev/null || true"
+          ok=1
+          for i in 1 2 3; do
+            scp "${SSH_OPTS[@]}" /tmp/app.jar.gz root@${{ secrets.SERVER_HOST }}:/tmp/app.jar.gz && { ok=0; break; }
+            echo "jar 第 $i 次上传失败，10 秒后重试"
+            sleep 10
+          done
+          if [ "$ok" != 0 ]; then
+            echo "jar 上传 3 次均失败"
+            exit 1
+          fi
+          ssh "${SSH_OPTS[@]}" root@${{ secrets.SERVER_HOST }} "gunzip -f /tmp/app.jar.gz && mv /tmp/app.jar /opt/codespark/app.jar"
 
       - name: 上传前端产物
         run: |
           tar -czf dist.tar.gz -C codeSpark-frontend/dist .
-          scp -i ~/.ssh/deploy_key dist.tar.gz root@${{ secrets.SERVER_HOST }}:/tmp/
-          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} "tar -xzf /tmp/dist.tar.gz -C /opt/codespark/frontend && rm -f /tmp/dist.tar.gz"
+          SSH_OPTS=(-i ~/.ssh/deploy_key -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+          scp "${SSH_OPTS[@]}" dist.tar.gz root@${{ secrets.SERVER_HOST }}:/tmp/dist.tar.gz
+          ssh "${SSH_OPTS[@]}" root@${{ secrets.SERVER_HOST }} "tar -xzf /tmp/dist.tar.gz -C /opt/codespark/frontend && rm -f /tmp/dist.tar.gz"
 
       - name: 重启后端并验证
         run: |
-          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} "systemctl restart codespark"
+          SSH_OPTS=(-i ~/.ssh/deploy_key -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+          ssh "${SSH_OPTS[@]}" root@${{ secrets.SERVER_HOST }} "systemctl restart codespark"
           sleep 20
           # 健康检查走 actuator health（management 与 servlet 共端口，受 context-path 影响）
           # 不再用 /api/doc.html：生产已屏蔽接口文档
-          code=$(ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/actuator/health")
+          code=$(ssh "${SSH_OPTS[@]}" root@${{ secrets.SERVER_HOST }} "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/actuator/health")
           echo "健康检查状态码: $code"
           if [ "$code" != "200" ]; then
             echo "部署后验证失败"
