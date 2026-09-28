@@ -38,6 +38,16 @@ jobs:
 
       - name: 打包前端
         working-directory: codeSpark-frontend
+        # 站点个人信息（站长/备案/联系方式）通过仓库 Variables 构建时注入，不写入代码仓库
+        env:
+          VITE_SITE_NAME: ${{ vars.VITE_SITE_NAME }}
+          VITE_SITE_URL: ${{ vars.VITE_SITE_URL }}
+          VITE_WEBMASTER_NAME: ${{ vars.VITE_WEBMASTER_NAME }}
+          VITE_WEBMASTER_URL: ${{ vars.VITE_WEBMASTER_URL }}
+          VITE_CONTACT_EMAIL: ${{ vars.VITE_CONTACT_EMAIL }}
+          VITE_ICP_NUMBER: ${{ vars.VITE_ICP_NUMBER }}
+          VITE_GA_BEIAN_NUMBER: ${{ vars.VITE_GA_BEIAN_NUMBER }}
+          VITE_GA_BEIAN_ICON: ${{ vars.VITE_GA_BEIAN_ICON }}
         run: |
           pnpm install --frozen-lockfile
           pnpm build

@@ -43,14 +43,17 @@
     <p>本政策如有修订，将在本页面更新并标注日期。继续使用本站即视为您接受修订后的政策。</p>
 
     <h2>八、联系站长</h2>
-    <p>如有任何疑问，可通过邮箱联系：<a href="mailto:1944252183@qq.com">1944252183@qq.com</a></p>
+    <p v-if="contactEmail">
+      如有任何疑问，可通过邮箱联系：<a :href="`mailto:${contactEmail}`">{{ contactEmail }}</a>
+    </p>
+    <p v-else>如有任何疑问，请通过站内提供的联系方式与站长联系。</p>
 
     <p class="back"><router-link to="/">← 返回首页</router-link></p>
   </div>
 </template>
 
 <script setup lang="ts">
-const siteName = 'CodeSpark AI'
+import { contactEmail, siteName } from '@/config/site'
 </script>
 
 <style scoped>
