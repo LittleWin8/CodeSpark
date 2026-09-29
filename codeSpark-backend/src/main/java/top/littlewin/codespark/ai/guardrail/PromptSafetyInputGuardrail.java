@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
 public class PromptSafetyInputGuardrail implements InputGuardrail {
 
     /** 单条输入最大长度（字符），超过直接拒绝 */
-    private static final int MAX_INPUT_LENGTH = 4000;
+    private static final int MAX_INPUT_LENGTH = 8000;
 
     /** 内置高置信指令注入模式 */
     private static final List<Pattern> INJECTION_PATTERNS = List.of(

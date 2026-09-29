@@ -26,8 +26,15 @@ export type SseHandlers = {
   onError?: (error: Event) => void
 }
 
+export type ChatSseHandle = {
+  /** 主动断开连接（终止 fetch 流） */
+  close: () => void
+}
+
 /**
- * 通过 EventSource 连接后端 SSE 对话接口
+ * 对话生成走 fetch + POST：EventSource 是原生 GET、不支持请求体，
+ * 长提示词拼进 URL 会被 nginx（414）/ Tomcat（header 超限）直接拒绝。
+ * 这里手动解析 SSE 帧（event:/data: 行），事件语义与后端保持一致：
  * 数据格式：data: {"d":"..."} ，结束事件：event: done
  * 推理内容：event: thinking, data: {"d":"..."}
  * 工具事件：event: tool_request / tool_executed, data: {"d":{"path":...}}
@@ -112,17 +119,31 @@ export function connectBuildSse(
   return eventSource
 }
 
+/** 解析单个 SSE 帧（event:/data: 行）为事件名与原始 data */
+const parseSseFrame = (frame: string): { event: string; data: string } | null => {
+  let event = 'message'
+  const dataLines: string[] = []
+  for (const line of frame.split('\n')) {
+    if (line.startsWith('event:')) {
+      event = line.slice(6).trim()
+    } else if (line.startsWith('data:')) {
+      dataLines.push(line.slice(5).trimStart())
+    }
+    // id: / retry: / 注释行（: keep-alive）不影响本场景，忽略
+  }
+  if (!dataLines.length) {
+    return null
+  }
+  return { event, data: dataLines.join('\n') }
+}
+
 export function connectChatSse(
   appId: number | string,
   message: string,
   handlers: SseHandlers,
-): EventSource {
-  const params = new URLSearchParams({
-    appId: String(appId),
-    message,
-  })
-  const url = `/api/app/chat/gen/code?${params.toString()}`
-  const eventSource = new EventSource(url, { withCredentials: true })
+): ChatSseHandle {
+  const controller = new AbortController()
+  let finished = false
 
   const parseData = (raw: string): unknown => {
     try {
@@ -134,71 +155,92 @@ export function connectChatSse(
     }
   }
 
-  eventSource.onmessage = (event) => {
-    const raw = event.data
-    if (!raw) {
+  const dispatch = (eventName: string, raw: string) => {
+    if (eventName === 'done') {
+      finished = true
+      controller.abort()
+      handlers.onDone?.()
       return
     }
     const data = parseData(raw)
-    if (typeof data === 'string') {
-      handlers.onMessage(data)
+    if (eventName === 'thinking') {
+      if (typeof data === 'string') {
+        handlers.onThinking?.(data)
+      }
+    } else if (eventName === 'tool_request') {
+      if (data && typeof data === 'object') {
+        handlers.onToolRequest?.(data as ToolRequestPayload)
+      }
+    } else if (eventName === 'tool_executed') {
+      if (data && typeof data === 'object') {
+        handlers.onToolExecuted?.(data as ToolExecutedPayload)
+      }
+    } else if (eventName === 'business-error') {
+      try {
+        handlers.onBusinessError?.(JSON.parse(raw) as SseBusinessErrorPayload)
+      } catch {
+        // 非 JSON 时忽略，交由后续的连接关闭错误统一处理
+      }
+    } else {
+      // 无 event 行 / message 事件 = 正文分片
+      if (typeof data === 'string') {
+        handlers.onMessage(data)
+      }
     }
   }
 
-  eventSource.addEventListener('thinking', (event) => {
-    const raw = (event as MessageEvent).data
-    if (!raw) {
-      return
-    }
-    const data = parseData(raw)
-    if (typeof data === 'string') {
-      handlers.onThinking?.(data)
-    }
-  })
-
-  eventSource.addEventListener('tool_request', (event) => {
-    const raw = (event as MessageEvent).data
-    if (!raw) {
-      return
-    }
-    const data = parseData(raw)
-    if (data && typeof data === 'object') {
-      handlers.onToolRequest?.(data as ToolRequestPayload)
-    }
-  })
-
-  eventSource.addEventListener('tool_executed', (event) => {
-    const raw = (event as MessageEvent).data
-    if (!raw) {
-      return
-    }
-    const data = parseData(raw)
-    if (data && typeof data === 'object') {
-      handlers.onToolExecuted?.(data as ToolExecutedPayload)
-    }
-  })
-
-  eventSource.addEventListener('done', () => {
-    eventSource.close()
-    handlers.onDone?.()
-  })
-
-  eventSource.addEventListener('business-error', (event) => {
-    const raw = (event as MessageEvent).data
-    if (!raw) {
-      return
-    }
+  const run = async () => {
     try {
-      handlers.onBusinessError?.(JSON.parse(raw) as SseBusinessErrorPayload)
+      const response = await fetch('/api/app/chat/gen/code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        // appId 保持字符串：雪花 ID 超过 Number.MAX_SAFE_INTEGER，转数字会丢精度导致查不到应用
+        body: JSON.stringify({ appId, message }),
+        signal: controller.signal,
+      })
+      if (!response.ok || !response.body) {
+        throw new Error(`SSE 连接失败：${response.status}`)
+      }
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      for (;;) {
+        const { value, done } = await reader.read()
+        if (done) {
+          break
+        }
+        buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n')
+        // SSE 帧以空行分隔，按 \n\n 切帧；剩余半帧留在 buffer 等下个 chunk
+        let index: number
+        while ((index = buffer.indexOf('\n\n')) !== -1) {
+          const frame = buffer.slice(0, index)
+          buffer = buffer.slice(index + 2)
+          const parsed = parseSseFrame(frame)
+          if (parsed) {
+            dispatch(parsed.event, parsed.data)
+          }
+        }
+      }
+      // 连接自然结束：收到过 done 是正常终态；否则视为中途断开
+      if (!finished && !controller.signal.aborted) {
+        handlers.onError?.(new Event('error'))
+      }
     } catch {
-      // 非 JSON 时忽略，交由后续的连接关闭错误统一处理
+      // 主动 close（done / 用户停止）不算错误
+      if (controller.signal.aborted || finished) {
+        return
+      }
+      handlers.onError?.(new Event('error'))
     }
-  })
-
-  eventSource.onerror = (error) => {
-    eventSource.close()
-    handlers.onError?.(error)
   }
 
-  return eventSource
+  void run()
+
+  return {
+    close: () => {
+      finished = true
+      controller.abort()
+    },
+  }
 }

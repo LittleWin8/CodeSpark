@@ -21,7 +21,7 @@ import { useLoginUserStore } from '@/stores/loginUser'
 import { useQuotaStore } from '@/stores/quota'
 import { getErrorMessage, getBusinessErrorMessage } from '@/utils/errorMessage'
 import { getPreviewUrl } from '@/utils/url'
-import { connectBuildSse, connectChatSse } from '@/utils/sse'
+import { connectBuildSse, connectChatSse, type ChatSseHandle } from '@/utils/sse'
 import {
   buildElementPrompt,
   createVisualEditBridge,
@@ -54,7 +54,7 @@ const messageListRef = ref<HTMLElement>()
 const HISTORY_PAGE_SIZE = 10
 const historyLoading = ref(false)
 const hasMoreHistory = ref(false)
-let eventSource: EventSource | null = null
+let eventSource: ChatSseHandle | null = null
 
 const appId = computed(() => String(route.params.id || ''))
 

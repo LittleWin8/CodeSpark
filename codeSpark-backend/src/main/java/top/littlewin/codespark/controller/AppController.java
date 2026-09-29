@@ -77,18 +77,19 @@ public class AppController {
     /**
      * 对话生成应用
      *
-     * @param appId 应用 ID
-     * @param message 用户提示词
+     * @param chatGenCodeRequest 请求体（appId + 用户提示词，提示词走 body 避免 URL 长度限制）
      * @param request 请求参数
      * @return AI 响应信息流
      */
-    @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PostMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @RateLimit(limitType = RateLimitType.USER, rate = 5, rateInterval = 60, message = "AI 对话请求过于频繁，请稍后再试")
-    public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
-                                      @RequestParam String message,
+    public Flux<ServerSentEvent<String>> chatToGenCode(@RequestBody ChatGenCodeRequest chatGenCodeRequest,
                                       HttpServletRequest request){
 
         // 1. 参数校验
+        ThrowUtils.throwIf(chatGenCodeRequest == null, ErrorCode.PARAMS_ERROR);
+        Long appId = chatGenCodeRequest.getAppId();
+        String message = chatGenCodeRequest.getMessage();
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, ErrorMessage.INVALID_APP_ID);
         ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, ErrorMessage.EMPTY_CHAT_MESSAGE);
 
