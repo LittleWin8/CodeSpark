@@ -1,0 +1,107 @@
+name: deploy-backend
+
+# 只在后端目录（或本 workflow 文件）有改动时触发；也可在 Actions 页面手动触发
+# 后端上传失败时可按《CodeSpark部署运维手册》3.2 节本地手动上传，不影响前端部署
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'codeSpark-backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 同一 workflow 的多次触发排队执行；与前端解耦，后端失败不影响前端
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v5
+
+      - name: 等待同次 push 的前端部署先完成（前端更快，优先部署）
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 前后端同时改动时会触发两个 workflow：后端在这里轮询等待，
+          # 直到同一 commit 的 deploy-frontend 跑完（不管成功失败）再继续，避免同时操作服务器
+          for i in $(seq 1 60); do
+            count=$(gh api "repos/${{ github.repository }}/actions/workflows/deploy-frontend.yml/runs?sha=${{ github.sha }}" \
+              --jq '[.workflow_runs[] | select(.status == "in_progress" or .status == "queued")] | length')
+            if [ "$count" = "0" ]; then
+              echo "前端部署已完成或本次未触发，继续后端部署"
+              exit 0
+            fi
+            echo "前端部署进行中，30 秒后重新检查（第 $i 次）..."
+            sleep 30
+          done
+          echo "等待前端超时（30 分钟），继续执行后端部署"
+
+      - name: 安装 Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: 打包后端
+        working-directory: codeSpark-backend
+        run: ./mvnw -B -DskipTests package
+
+      - name: 配置 SSH 连接
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: 备份旧包并上传新 jar
+        run: |
+          # 跨境链路（Actions 机房 → 国内服务器）不稳定：压缩 jar 减少传输量，
+          # ssh/scp 加连接超时与保活避免无限挂死，上传 /tmp 后解压原子替换，失败自动重试
+          gzip -c codeSpark-backend/target/codeSpark-backend-0.0.1-SNAPSHOT.jar > /tmp/app.jar.gz
+          SSH_OPTS=(-i ~/.ssh/deploy_key -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+          ssh "${SSH_OPTS[@]}" root@${{ secrets.SERVER_HOST }} "cp /opt/codespark/app.jar /opt/codespark/app.jar.bak 2>/dev/null || true"
+          ok=1
+          for i in 1 2 3; do
+            # timeout 300：跨境链路卡住时 5 分钟强制失败进入重试，不会无限挂住（总共最多 ~16 分钟）
+            timeout 300 scp "${SSH_OPTS[@]}" /tmp/app.jar.gz root@${{ secrets.SERVER_HOST }}:/tmp/app.jar.gz && { ok=0; break; }
+            echo "jar 第 $i 次上传失败（超时或出错），10 秒后重试"
+            sleep 10
+          done
+          if [ "$ok" != 0 ]; then
+            echo "jar 上传 3 次均失败（跨境链路问题），请按下方指引本地手动上传"
+            exit 1
+          fi
+          timeout 120 ssh "${SSH_OPTS[@]}" root@${{ secrets.SERVER_HOST }} "gunzip -f /tmp/app.jar.gz && mv /tmp/app.jar /opt/codespark/app.jar"
+
+      - name: 重启后端并验证
+        run: |
+          SSH_OPTS=(-i ~/.ssh/deploy_key -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+          timeout 120 ssh "${SSH_OPTS[@]}" root@${{ secrets.SERVER_HOST }} "systemctl restart codespark"
+          sleep 20
+          # 健康检查走 actuator health（management 与 servlet 共端口，受 context-path 影响）
+          # 不再用 /api/doc.html：生产已屏蔽接口文档
+          code=$(timeout 60 ssh "${SSH_OPTS[@]}" root@${{ secrets.SERVER_HOST }} "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/actuator/health")
+          echo "健康检查状态码: $code"
+          if [ "$code" != "200" ]; then
+            echo "部署后验证失败"
+            exit 1
+          fi
+
+      - name: 失败提示（本地手动上传指引）
+        if: failure()
+        run: |
+          echo "==================== 后端部署失败 ===================="
+          echo "CI 上传失败不影响服务器（旧包仍在运行，重启前未替换）。"
+          echo "可按《CodeSpark部署运维手册》3.2 节本地手动上传："
+          echo "  ① 本地打包: cd ~/projects/CodeSpark/codeSpark-backend && ./mvnw -DskipTests package"
+          echo "  ② 备份+上传: 备份 /opt/codespark/app.jar → scp 新 jar 到服务器 /tmp → gunzip/mv 覆盖"
+          echo "  ③ 重启验证: systemctl restart codespark → curl /api/actuator/health 应为 200"
+          echo "======================================================"
