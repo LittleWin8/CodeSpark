@@ -112,7 +112,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
         user.setUserAccount(userAccount);
         user.setUserEmail(userEmail);
         user.setUserPassword(encryptPassword);
-        user.setUserName("无名");
+        // 默认昵称：用户_ + 4 位随机数字（userName 无唯一约束，重复不影响功能，可后续自行修改）
+        user.setUserName("用户_" + RandomUtil.randomNumbers(4));
         user.setUserRole(UserRoleEnum.USER.getValue());
         user.setShareCode(shareCode);
         // 默认非会员：会员相关字段显式置空（vipExpireTime/vipCode/vipNumber 均为空）

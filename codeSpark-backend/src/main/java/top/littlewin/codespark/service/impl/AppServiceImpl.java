@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import reactor.core.publisher.Flux;
 import top.littlewin.codespark.ai.AiCodeGenTypeRoutingService;
@@ -111,6 +112,10 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     @Resource
     private AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService;
 
+    /** 编程式事务：仅包裹短平快的多表写（整个方法含 AI 调用不适合直接加 @Transactional） */
+    @Resource
+    private TransactionTemplate transactionTemplate;
+
     /** AI 应用命名：轻量模型（deepseek-chat），独立服务 */
     @Resource
     private AiAppNamingService aiAppNamingService;
@@ -134,9 +139,12 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                 presetApp.setUserId(loginUser.getId());
                 presetApp.setCodeGenType(preset.codeGenTypeOrDefault());
                 presetApp.setAppName(binding.name());
-                boolean saved = this.save(presetApp);
-                ThrowUtils.throwIf(!saved, ErrorCode.OPERATION_ERROR);
-                presetService.saveBinding(presetApp.getId(), binding);
+                // 应用表 + 预置绑定表两步写包事务：绑定写入失败则整体回滚，避免出现无绑定的孤儿应用
+                transactionTemplate.executeWithoutResult(tx -> {
+                    boolean saved = this.save(presetApp);
+                    ThrowUtils.throwIf(!saved, ErrorCode.OPERATION_ERROR);
+                    presetService.saveBinding(presetApp.getId(), binding);
+                });
                 return presetApp.getId();
             }
         }
@@ -234,9 +242,12 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 3.5 预置示例：绑定未用 + 无 AI 历史 + 提示词未改动 → 不扣额度、不调 AI，落库/回放与真实一致
         PresetHit presetHit = presetService.findHit(appId, message);
         if (presetHit != null) {
-            presetService.markUsed(appId);
-            chatHistoryService.addChatMessage(appId, message,
-                    ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
+            // 扣预置名额 + 写首条消息两步写包事务：中间失败整体回滚，避免额度已扣但消息丢失
+            transactionTemplate.executeWithoutResult(tx -> {
+                presetService.markUsed(appId);
+                chatHistoryService.addChatMessage(appId, message,
+                        ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
+            });
             return streamMessageHandler.handle(presetService.stream(presetHit, loginUser), appId, loginUser);
         }
 
