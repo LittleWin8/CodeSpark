@@ -13,7 +13,7 @@ import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.core.builder.VueProjectBulider;
 import top.littlewin.codespark.core.parser.CodeParserExecutor;
 import top.littlewin.codespark.core.saver.CodeFileSaverExecutor;
-import top.littlewin.codespark.core.stream.BuildEventPublisher;
+import top.littlewin.codespark.core.builder.BuildEventPublisher;
 import top.littlewin.codespark.core.stream.TokenStreamMessageEmitter;
 import top.littlewin.codespark.exception.BusinessException;
 import top.littlewin.codespark.exception.ErrorCode;

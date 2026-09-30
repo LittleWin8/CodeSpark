@@ -20,7 +20,7 @@ import top.littlewin.codespark.ai.model.message.ToolExecutedMessage;
 import top.littlewin.codespark.ai.model.message.ToolRequestMessage;
 import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.core.builder.VueProjectBulider;
-import top.littlewin.codespark.core.stream.BuildEventPublisher;
+import top.littlewin.codespark.core.builder.BuildEventPublisher;
 import top.littlewin.codespark.mapper.AppPresetMapper;
 import top.littlewin.codespark.model.entity.AppPreset;
 import top.littlewin.codespark.model.entity.User;

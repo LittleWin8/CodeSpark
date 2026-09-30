@@ -12,7 +12,7 @@ import top.littlewin.codespark.ai.model.message.StreamMessage;
 import top.littlewin.codespark.constant.AppConstant;
 import top.littlewin.codespark.core.builder.BuildResult;
 import top.littlewin.codespark.core.builder.VueProjectBulider;
-import top.littlewin.codespark.core.stream.BuildEventPublisher;
+import top.littlewin.codespark.core.builder.BuildEventPublisher;
 import top.littlewin.codespark.core.stream.TokenStreamMessageEmitter;
 import top.littlewin.codespark.model.enums.BuildStatusEnum;
 import top.littlewin.codespark.model.enums.ChatStageEnum;

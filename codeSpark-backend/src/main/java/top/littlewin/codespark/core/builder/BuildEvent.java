@@ -1,4 +1,4 @@
-package top.littlewin.codespark.core.stream;
+package top.littlewin.codespark.core.builder;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
